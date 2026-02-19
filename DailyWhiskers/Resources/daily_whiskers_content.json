@@ -1,0 +1,31 @@
+{
+  "quotes": [
+    {
+      "text": "The softest naps often follow the bravest mornings.",
+      "vibe": "cozy"
+    },
+    {
+      "text": "Stretch once, breathe twice, then begin.",
+      "vibe": "grounded"
+    },
+    {
+      "text": "A window, a sunbeam, and one quiet thought is enough.",
+      "vibe": "calm"
+    },
+    {
+      "text": "Move slowly. Curiosity still gets there.",
+      "vibe": "gentle"
+    },
+    {
+      "text": "Rest is part of the plan, not a detour.",
+      "vibe": "restful"
+    }
+  ],
+  "imageNames": [
+    "cat_01",
+    "cat_02",
+    "cat_03",
+    "cat_04",
+    "cat_05"
+  ]
+}

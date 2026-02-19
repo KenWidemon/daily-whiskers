@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific data
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Build artifacts
+DerivedData/
+build/
+
+# Firebase local config (do not commit secrets)
+GoogleService-Info.plist
+DailyWhiskers/Resources/GoogleService-Info.plist
