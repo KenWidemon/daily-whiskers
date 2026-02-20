@@ -1,16 +1,13 @@
 import Foundation
 
-struct DailyQuote: Decodable {
-    let text: String
+struct DailyCard: Decodable {
+    let id: String
+    let archetype: String
+    let imageName: String
+    let quote: String
     let vibe: String?
 }
 
 struct DailyContentManifest: Decodable {
-    let quotes: [DailyQuote]
-    let imageNames: [String]
-}
-
-struct DailyWhiskerEntry {
-    let quote: DailyQuote
-    let imageName: String
+    let cards: [DailyCard]
 }
