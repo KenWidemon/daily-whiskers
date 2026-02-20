@@ -17,9 +17,10 @@ targets:
           - README.md
           - Resources
           - Assets.xcassets
-    resources:
       - path: DailyWhiskers/Resources
+        buildPhase: resources
       - path: DailyWhiskers/Assets.xcassets
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.kenwidemon.dailywhiskers
