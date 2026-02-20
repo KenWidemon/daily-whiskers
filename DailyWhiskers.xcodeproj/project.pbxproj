@@ -7,26 +7,32 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */; };
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
-		4E20CBF675D4BCA74C8AA50B /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = BE8092656E87A753316C8E78 /* GoogleService-Info.plist */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
+		8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */ = {isa = PBXBuildFile; fileRef = 6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
+		C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */ = {isa = PBXBuildFile; fileRef = D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */; };
 		C7F73EC61DDF0150C6517EF8 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B8FFFD00B2F2E374E95837DF /* FirebaseCore */; };
 		CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FBA1D67F9BBA070EDC581FD /* AuthView.swift */; };
+		CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14427E6E78184E5322A7BE40 /* Assets.xcassets */; };
 		D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */; };
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
 		2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProvider.swift; sourceTree = "<group>"; };
+		2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
-		BE8092656E87A753316C8E78 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
 		F2DF0399E6F73432BDB3FDC4 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FAEBF90CA567AEF2C4445900 /* DailyContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -62,6 +68,17 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		BEA3400425A717CE50367DA1 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */,
+				D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */,
+				2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */,
+			);
+			name = Resources;
+			path = DailyWhiskers/Resources;
+			sourceTree = "<group>";
+		};
 		EF4BC92A5E83B9EFB48A9D04 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -74,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				FB93A48E3F6CB53E768018CD /* DailyWhiskers */,
+				BEA3400425A717CE50367DA1 /* Resources */,
 				FDAFDF466C071B497103475E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -82,8 +100,8 @@
 			isa = PBXGroup;
 			children = (
 				68964F9F5CF6E338D4855489 /* AppRouter.swift */,
+				14427E6E78184E5322A7BE40 /* Assets.xcassets */,
 				7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */,
-				BE8092656E87A753316C8E78 /* GoogleService-Info.plist */,
 				EF4BC92A5E83B9EFB48A9D04 /* Models */,
 				B8E545F01C8523CF52683A93 /* Services */,
 				A47B08FA9509A9E409C0268E /* Views */,
@@ -158,7 +176,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4E20CBF675D4BCA74C8AA50B /* GoogleService-Info.plist in Resources */,
+				CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */,
+				8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */,
+				30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */,
+				C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
