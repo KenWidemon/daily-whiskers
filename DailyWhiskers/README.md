@@ -23,9 +23,9 @@
    - then rerun `xcodegen generate` (it will auto-add to target resources).
 5. In Firebase Console > Authentication > Sign-in method:
    - enable **Email/Password** provider.
-6. Add cat images to asset sets:
-   - `cat_01`, `cat_02`, `cat_03`, `cat_04`, `cat_05`.
+6. Add image assets matching each `imageName` in `Resources/daily_whiskers_content.json` (for example `arcane_spellbook_reader`, `forest_lantern_bearer`, etc.).
 
 ## Notes
 - Any file in `DailyWhiskers/Resources/` is bundled automatically.
+- `daily_whiskers_content.json` supports both the new `cards` schema and the legacy `quotes` + `imageNames` schema for backward compatibility.
 - App uses Firebase packages: `FirebaseCore`, `FirebaseAuth`.
