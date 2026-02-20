@@ -28,4 +28,5 @@
 
 ## Notes
 - Any file in `DailyWhiskers/Resources/` is bundled automatically.
+- `daily_whiskers_content.json` supports both the new `cards` schema and the legacy `quotes` + `imageNames` schema for backward compatibility.
 - App uses Firebase packages: `FirebaseCore`, `FirebaseAuth`.
