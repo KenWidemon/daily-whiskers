@@ -23,7 +23,8 @@
    - then rerun `xcodegen generate` (it will auto-add to target resources).
 5. In Firebase Console > Authentication > Sign-in method:
    - enable **Email/Password** provider.
-6. Add image assets matching each `imageName` in `Resources/daily_whiskers_content.json` (for example `arcane_spellbook_reader`, `forest_lantern_bearer`, etc.).
+6. Add image assets for each `imageName` used in `DailyWhiskers/Resources/daily_whiskers_content.json`
+   (e.g. `arcane_spellbook_reader`, `forest_lantern_bearer`, `cozy_fireplace_sage`, etc.).
 
 ## Notes
 - Any file in `DailyWhiskers/Resources/` is bundled automatically.
