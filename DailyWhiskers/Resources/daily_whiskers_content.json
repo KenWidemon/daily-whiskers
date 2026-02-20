@@ -1,31 +1,226 @@
 {
-  "quotes": [
+  "cards": [
     {
-      "text": "The softest naps often follow the bravest mornings.",
-      "vibe": "cozy"
+      "id": "arcane_spellbook_reader",
+      "archetype": "arcane",
+      "imageName": "arcane_spellbook_reader",
+      "quote": "There is wisdom waiting in the quiet places.",
+      "vibe": "wisdom"
     },
     {
-      "text": "Stretch once, breathe twice, then begin.",
+      "id": "arcane_moonlit_diviner",
+      "archetype": "arcane",
+      "imageName": "arcane_moonlit_diviner",
+      "quote": "The stars do not hurry — and neither must you.",
+      "vibe": "patience"
+    },
+    {
+      "id": "arcane_rune_engraver",
+      "archetype": "arcane",
+      "imageName": "arcane_rune_engraver",
+      "quote": "What you shape today carries quiet power.",
+      "vibe": "intention"
+    },
+    {
+      "id": "arcane_orb_seer",
+      "archetype": "arcane",
+      "imageName": "arcane_orb_seer",
+      "quote": "Clarity arrives when you soften your focus.",
+      "vibe": "clarity"
+    },
+    {
+      "id": "arcane_library_guardian",
+      "archetype": "arcane",
+      "imageName": "arcane_library_guardian",
+      "quote": "Not every answer needs to be found at once.",
+      "vibe": "trust"
+    },
+    {
+      "id": "arcane_star_chart_astrologer",
+      "archetype": "arcane",
+      "imageName": "arcane_star_chart_astrologer",
+      "quote": "Your path is unfolding exactly as it should.",
+      "vibe": "direction"
+    },
+
+    {
+      "id": "forest_lantern_bearer",
+      "archetype": "forest",
+      "imageName": "forest_lantern_bearer",
+      "quote": "Even the smallest light can guide you home.",
+      "vibe": "guidance"
+    },
+    {
+      "id": "forest_elven_scout",
+      "archetype": "forest",
+      "imageName": "forest_elven_scout",
+      "quote": "Trust the quiet instinct that knows the way.",
+      "vibe": "instinct"
+    },
+    {
+      "id": "forest_ancient_tree_guardian",
+      "archetype": "forest",
+      "imageName": "forest_ancient_tree_guardian",
+      "quote": "You are steadier than you remember.",
       "vibe": "grounded"
     },
     {
-      "text": "A window, a sunbeam, and one quiet thought is enough.",
+      "id": "forest_moss_shrine_watcher",
+      "archetype": "forest",
+      "imageName": "forest_moss_shrine_watcher",
+      "quote": "Peace grows in places you tend gently.",
+      "vibe": "peace"
+    },
+    {
+      "id": "forest_whispering_woods_pathfinder",
+      "archetype": "forest",
+      "imageName": "forest_whispering_woods_pathfinder",
+      "quote": "The way forward often begins with a single quiet step.",
+      "vibe": "gentle"
+    },
+
+    {
+      "id": "alchemy_cauldron_stirrer",
+      "archetype": "alchemy",
+      "imageName": "alchemy_cauldron_stirrer",
+      "quote": "A little care can change everything.",
+      "vibe": "care"
+    },
+    {
+      "id": "alchemy_crystal_distiller",
+      "archetype": "alchemy",
+      "imageName": "alchemy_crystal_distiller",
+      "quote": "What is meant for you will refine itself in time.",
+      "vibe": "patience"
+    },
+    {
+      "id": "alchemy_herb_mixer",
+      "archetype": "alchemy",
+      "imageName": "alchemy_herb_mixer",
+      "quote": "Small, steady efforts shape lasting change.",
+      "vibe": "growth"
+    },
+    {
+      "id": "alchemy_mist_conjurer",
+      "archetype": "alchemy",
+      "imageName": "alchemy_mist_conjurer",
+      "quote": "Not everything must be clear to move forward.",
       "vibe": "calm"
     },
     {
-      "text": "Move slowly. Curiosity still gets there.",
-      "vibe": "gentle"
+      "id": "alchemy_stardust_collector",
+      "archetype": "alchemy",
+      "imageName": "alchemy_stardust_collector",
+      "quote": "Even the smallest spark can brighten your night.",
+      "vibe": "hope"
+    },
+
+    {
+      "id": "noble_crowned_feline_protector",
+      "archetype": "noble",
+      "imageName": "noble_crowned_feline_protector",
+      "quote": "True strength is shown in how gently you lead.",
+      "vibe": "leadership"
     },
     {
-      "text": "Rest is part of the plan, not a detour.",
+      "id": "noble_cloaked_castle_watcher",
+      "archetype": "noble",
+      "imageName": "noble_cloaked_castle_watcher",
+      "quote": "Steady presence is its own kind of protection.",
+      "vibe": "protective"
+    },
+    {
+      "id": "noble_sacred_relic_keeper",
+      "archetype": "noble",
+      "imageName": "noble_sacred_relic_keeper",
+      "quote": "Some things are worth protecting with quiet devotion.",
+      "vibe": "devotion"
+    },
+    {
+      "id": "noble_temple_sentinel",
+      "archetype": "noble",
+      "imageName": "noble_temple_sentinel",
+      "quote": "Stand firm in what feels true.",
+      "vibe": "conviction"
+    },
+    {
+      "id": "noble_dawnlight_herald",
+      "archetype": "noble",
+      "imageName": "noble_dawnlight_herald",
+      "quote": "Each morning carries the promise of renewal.",
+      "vibe": "renewal"
+    },
+
+    {
+      "id": "celestial_constellation_watcher",
+      "archetype": "celestial",
+      "imageName": "celestial_constellation_watcher",
+      "quote": "You are part of something beautifully vast.",
+      "vibe": "vast"
+    },
+    {
+      "id": "celestial_crescent_moon_companion",
+      "archetype": "celestial",
+      "imageName": "celestial_crescent_moon_companion",
+      "quote": "Even in the quiet dark, you are gently held.",
+      "vibe": "comfort"
+    },
+    {
+      "id": "celestial_star_map_traveler",
+      "archetype": "celestial",
+      "imageName": "celestial_star_map_traveler",
+      "quote": "Your course is guided by more than you can see.",
+      "vibe": "guided"
+    },
+    {
+      "id": "celestial_aurora_spirit_guide",
+      "archetype": "celestial",
+      "imageName": "celestial_aurora_spirit_guide",
+      "quote": "You are guided by lights you may not yet see.",
+      "vibe": "inspired"
+    },
+    {
+      "id": "celestial_dawnlight_dreamer",
+      "archetype": "celestial",
+      "imageName": "celestial_dawnlight_dreamer",
+      "quote": "Each new light carries a quiet beginning.",
+      "vibe": "beginning"
+    },
+
+    {
+      "id": "cozy_rainy_window_mystic",
+      "archetype": "cozy",
+      "imageName": "cozy_rainy_window_mystic",
+      "quote": "It’s okay to rest in the in-between.",
       "vibe": "restful"
+    },
+    {
+      "id": "cozy_fireplace_sage",
+      "archetype": "cozy",
+      "imageName": "cozy_fireplace_sage",
+      "quote": "Warmth can be found in the simplest moments.",
+      "vibe": "cozy"
+    },
+    {
+      "id": "cozy_teacup_tarot_reader",
+      "archetype": "cozy",
+      "imageName": "cozy_teacup_tarot_reader",
+      "quote": "The answers you seek are already unfolding.",
+      "vibe": "reflective"
+    },
+    {
+      "id": "cozy_lantern_lit_night_wanderer",
+      "archetype": "cozy",
+      "imageName": "cozy_lantern_lit_night_wanderer",
+      "quote": "You don’t have to walk the whole path tonight.",
+      "vibe": "ease"
+    },
+    {
+      "id": "cozy_candlelit_study_companion",
+      "archetype": "cozy",
+      "imageName": "cozy_candlelit_study_companion",
+      "quote": "There is comfort in turning the next page.",
+      "vibe": "comfort"
     }
-  ],
-  "imageNames": [
-    "cat_01",
-    "cat_02",
-    "cat_03",
-    "cat_04",
-    "cat_05"
   ]
 }

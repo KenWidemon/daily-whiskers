@@ -9,15 +9,13 @@ struct DailyContentProvider {
         self.manifest = Self.loadManifest(from: bundle)
     }
 
-    func contentForToday() -> DailyWhiskerEntry? {
-        guard !manifest.quotes.isEmpty, !manifest.imageNames.isEmpty else {
+    func contentForToday() -> DailyCard? {
+        guard !manifest.cards.isEmpty else {
             return nil
         }
 
         let seed = daySeed(for: Date())
-        let quote = manifest.quotes[seed % manifest.quotes.count]
-        let imageName = manifest.imageNames[seed % manifest.imageNames.count]
-        return DailyWhiskerEntry(quote: quote, imageName: imageName)
+        return manifest.cards[seed % manifest.cards.count]
     }
 
     private func daySeed(for date: Date) -> Int {
@@ -30,14 +28,14 @@ struct DailyContentProvider {
 
     private static func loadManifest(from bundle: Bundle) -> DailyContentManifest {
         guard let url = bundle.url(forResource: "daily_whiskers_content", withExtension: "json") else {
-            return DailyContentManifest(quotes: [], imageNames: [])
+            return DailyContentManifest(cards: [])
         }
 
         do {
             let data = try Data(contentsOf: url)
             return try JSONDecoder().decode(DailyContentManifest.self, from: data)
         } catch {
-            return DailyContentManifest(quotes: [], imageNames: [])
+            return DailyContentManifest(cards: [])
         }
     }
 }

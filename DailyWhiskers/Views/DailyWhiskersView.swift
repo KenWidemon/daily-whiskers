@@ -19,12 +19,12 @@ struct DailyWhiskersView: View {
                             .frame(width: 260, height: 260)
                             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
 
-                        Text("\"\(entry.quote.text)\"")
+                        Text("\"\(entry.quote)\"")
                             .font(.title3)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
 
-                        if let vibe = entry.quote.vibe, !vibe.isEmpty {
+                        if let vibe = entry.vibe, !vibe.isEmpty {
                             Text(vibe.uppercased())
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 10)
