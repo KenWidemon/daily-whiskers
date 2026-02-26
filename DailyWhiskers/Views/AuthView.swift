@@ -214,7 +214,7 @@ struct AuthView: View {
                 password: password
             )
         } catch {
-            authError = error.localizedDescription
+            authError = AuthErrorMapper.message(for: error)
         }
     }
 
@@ -231,7 +231,7 @@ struct AuthView: View {
                 password: password
             )
         } catch {
-            authError = error.localizedDescription
+            authError = AuthErrorMapper.message(for: error)
         }
     }
 
@@ -247,7 +247,7 @@ struct AuthView: View {
                 password: TestAccount.password
             )
         } catch {
-            authError = error.localizedDescription
+            authError = AuthErrorMapper.message(for: error)
         }
     }
 }
