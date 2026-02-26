@@ -86,17 +86,24 @@ struct AuthView: View {
                     Button {
                         Task { await handleEmailSignIn() }
                     } label: {
-                        Text("Sign In")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 54)
-                            .background(primaryGradient)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
+                        Group {
+                            if isWorking {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Text("Sign In")
+                            }
+                        }
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(primaryGradient)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
                     }
                     .padding(.horizontal, 26)
-                    .opacity(canSubmit ? 1 : 0.45)
+                    .opacity(canSubmit || isWorking ? 1 : 0.45)
                     .disabled(!canSubmit)
                     
                     // Secondary: Create Account (outline)
@@ -148,6 +155,12 @@ struct AuthView: View {
                 Spacer()
             }
         }
+        .onChange(of: email) { _, _ in
+            authError = nil
+        }
+        .onChange(of: password) { _, _ in
+            authError = nil
+        }
     }
     
     // MARK: - Subviews
@@ -175,13 +188,22 @@ struct AuthView: View {
     }
 
     private var canSubmit: Bool {
-        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !password.isEmpty &&
+        isValidEmail(email) &&
+        password.count >= 6 &&
         !isWorking
+    }
+
+    private func isValidEmail(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        let pattern = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+        return trimmed.range(of: pattern, options: .regularExpression) != nil
     }
 
     private func handleEmailSignIn() async {
         guard !isWorking else { return }
+        guard canSubmit else { return }
         isWorking = true
         authError = nil
         defer { isWorking = false }
@@ -198,6 +220,7 @@ struct AuthView: View {
 
     private func handleEmailCreateAccount() async {
         guard !isWorking else { return }
+        guard canSubmit else { return }
         isWorking = true
         authError = nil
         defer { isWorking = false }
