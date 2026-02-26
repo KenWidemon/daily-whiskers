@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */; };
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
+		E1D5A91C3B4F2A6D7C8E9012 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C8D2E6F1A3579B0C4D8E12 /* AuthErrorMapper.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
@@ -32,6 +33,7 @@
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
+		B4C8D2E6F1A3579B0C4D8E12 /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
 		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
 		F2DF0399E6F73432BDB3FDC4 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FAEBF90CA567AEF2C4445900 /* DailyContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContent.swift; sourceTree = "<group>"; };
@@ -63,6 +65,7 @@
 		B8E545F01C8523CF52683A93 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B4C8D2E6F1A3579B0C4D8E12 /* AuthErrorMapper.swift */,
 				2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */,
 			);
 			path = Services;
@@ -192,6 +195,7 @@
 			files = (
 				3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */,
 				CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */,
+				E1D5A91C3B4F2A6D7C8E9012 /* AuthErrorMapper.swift in Sources */,
 				476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */,
 				D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */,
 				FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */,
