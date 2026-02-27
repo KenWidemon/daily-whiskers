@@ -97,12 +97,13 @@ struct ArchetypeTheme {
 }
 
 struct DailyRitualCardView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let data: DailyCardData
     private var theme: ArchetypeTheme { .forArchetype(data.archetype) }
 
     var body: some View {
         ZStack {
-            CosmicBackground(theme: theme)
+            CosmicBackground(theme: theme, reduceMotion: reduceMotion)
 
             RitualCard(theme: theme) {
                 ZStack(alignment: .bottom) {
@@ -111,6 +112,7 @@ struct DailyRitualCardView: View {
                         .scaledToFill()
                         .frame(maxWidth: .infinity)
                         .clipped()
+                        .accessibilityHidden(true)
 
                     LinearGradient(
                         colors: [
@@ -140,11 +142,13 @@ struct DailyRitualCardView: View {
             .padding(.vertical, 34)
         }
         .ignoresSafeArea()
+        .accessibilityElement(children: .contain)
     }
 }
 
 private struct CosmicBackground: View {
     let theme: ArchetypeTheme
+    let reduceMotion: Bool
 
     var body: some View {
         ZStack {
@@ -165,10 +169,11 @@ private struct CosmicBackground: View {
             )
             .blendMode(.screen)
 
-            SparkleField()
+            SparkleField(reduceMotion: reduceMotion)
                 .compositingGroup()
                 .blendMode(.plusLighter)
                 .opacity(0.4)
+                .accessibilityHidden(true)
         }
     }
 }
@@ -231,13 +236,14 @@ private struct QuoteBlock: View {
         VStack(spacing: 14) {
             HStack {
                 Text("“")
-                    .font(.system(size: 38, weight: .semibold, design: .serif))
+                    .font(.system(.title, design: .serif).weight(.semibold))
                     .foregroundStyle(theme.quote.opacity(0.75))
+                    .accessibilityHidden(true)
                 Spacer()
             }
 
             Text(text)
-                .font(.system(size: 26, weight: .semibold, design: .serif))
+                .font(.system(.title2, design: .serif).weight(.semibold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(theme.quote)
                 .fixedSize(horizontal: false, vertical: true)
@@ -246,10 +252,13 @@ private struct QuoteBlock: View {
             HStack {
                 Spacer()
                 Text("”")
-                    .font(.system(size: 38, weight: .semibold, design: .serif))
+                    .font(.system(.title, design: .serif).weight(.semibold))
                     .foregroundStyle(theme.quote.opacity(0.75))
+                    .accessibilityHidden(true)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
     }
 }
 
@@ -259,7 +268,7 @@ private struct VibePill: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(.system(.caption, design: .rounded).weight(.semibold))
             .tracking(1.5)
             .foregroundStyle(theme.text.opacity(0.92))
             .padding(.horizontal, 18)
@@ -273,65 +282,78 @@ private struct VibePill: View {
                     )
                     .shadow(color: theme.glow.opacity(0.35), radius: 10, y: 6)
             )
+            .accessibilityLabel("Vibe: \(text)")
     }
 }
 
 private struct SparkleField: View {
+    let reduceMotion: Bool
+
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-
+        if reduceMotion {
             Canvas { context, size in
-                let dotCount = 120
+                drawSparkles(context: context, size: size, time: 0, animated: false)
+            }
+        } else {
+            TimelineView(.animation) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
 
-                for index in 0..<dotCount {
-                    let phase = Double(pseudoRandom(index: index, seed: 0.17)) * Double.pi * 2
-                    let speed = 0.35 + Double(pseudoRandom(index: index, seed: 0.41)) * 0.8
-                    let twinkle = (sin(t * speed + phase) + 1) / 2
-
-                    let baseX = pseudoRandom(index: index, seed: 0.73) * size.width
-                    // bias upward so it feels like “cosmic dust” near the top of the screen
-                    let yBias = pow(pseudoRandom(index: index, seed: 0.39), 1.35)
-                    let baseY = yBias * size.height
-
-                    // gentle drift so sparkles feel alive
-                    let driftX = CGFloat(sin(t * 0.18 + phase)) * 0.8
-                    let driftY = CGFloat(cos(t * 0.14 + phase)) * 0.6
-
-                    let x = baseX + driftX
-                    let y = baseY + driftY
-
-                    let baseRadius = 1.2 + pseudoRandom(index: index, seed: 0.11) * 2.0
-                    let radius = baseRadius + CGFloat(twinkle) * 1.4
-
-                    let baseAlpha = 0.05 + pseudoRandom(index: index, seed: 0.91) * 0.08
-                    let alpha = min(0.28, baseAlpha + CGFloat(twinkle) * 0.14)
-
-                    let tintMix = pseudoRandom(index: index, seed: 0.66)
-                    let sparkleColor: Color = (tintMix > 0.65)
-                        ? Color(red: 1.0, green: 0.96, blue: 0.90)
-                        : Color(red: 0.93, green: 0.95, blue: 1.0)
-
-                    let rect = CGRect(x: x, y: y, width: radius, height: radius)
-                    context.fill(
-                        Path(ellipseIn: rect),
-                        with: .color(sparkleColor.opacity(alpha))
-                    )
-
-                    if index % 14 == 0 {
-                        let starRadius = radius * (2.6 + CGFloat(twinkle) * 0.9)
-                        let starRect = CGRect(
-                            x: x - starRadius * 0.35,
-                            y: y - starRadius * 0.35,
-                            width: starRadius,
-                            height: starRadius
-                        )
-                        context.fill(
-                            Path(ellipseIn: starRect),
-                            with: .color(sparkleColor.opacity(min(0.22, alpha * 0.85)))
-                        )
-                    }
+                Canvas { context, size in
+                    drawSparkles(context: context, size: size, time: t, animated: true)
                 }
+            }
+        }
+    }
+
+    private func drawSparkles(context: GraphicsContext, size: CGSize, time: Double, animated: Bool) {
+        let dotCount = animated ? 120 : 48
+
+        for index in 0..<dotCount {
+            let phase = Double(pseudoRandom(index: index, seed: 0.17)) * Double.pi * 2
+            let speed = 0.35 + Double(pseudoRandom(index: index, seed: 0.41)) * 0.8
+            let twinkle = animated ? (sin(time * speed + phase) + 1) / 2 : 0.4
+
+            let baseX = pseudoRandom(index: index, seed: 0.73) * size.width
+            // bias upward so it feels like “cosmic dust” near the top of the screen
+            let yBias = pow(pseudoRandom(index: index, seed: 0.39), 1.35)
+            let baseY = yBias * size.height
+
+            // gentle drift so sparkles feel alive
+            let driftX = animated ? CGFloat(sin(time * 0.18 + phase)) * 0.8 : 0
+            let driftY = animated ? CGFloat(cos(time * 0.14 + phase)) * 0.6 : 0
+
+            let x = baseX + driftX
+            let y = baseY + driftY
+
+            let baseRadius = 1.2 + pseudoRandom(index: index, seed: 0.11) * 2.0
+            let radius = baseRadius + CGFloat(twinkle) * (animated ? 1.4 : 0.6)
+
+            let baseAlpha = 0.05 + pseudoRandom(index: index, seed: 0.91) * 0.08
+            let alpha = min(0.28, baseAlpha + CGFloat(twinkle) * (animated ? 0.14 : 0.06))
+
+            let tintMix = pseudoRandom(index: index, seed: 0.66)
+            let sparkleColor: Color = (tintMix > 0.65)
+                ? Color(red: 1.0, green: 0.96, blue: 0.90)
+                : Color(red: 0.93, green: 0.95, blue: 1.0)
+
+            let rect = CGRect(x: x, y: y, width: radius, height: radius)
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .color(sparkleColor.opacity(alpha))
+            )
+
+            if index % 14 == 0 {
+                let starRadius = radius * (2.6 + CGFloat(twinkle) * 0.9)
+                let starRect = CGRect(
+                    x: x - starRadius * 0.35,
+                    y: y - starRadius * 0.35,
+                    width: starRadius,
+                    height: starRadius
+                )
+                context.fill(
+                    Path(ellipseIn: starRect),
+                    with: .color(sparkleColor.opacity(min(0.22, alpha * 0.85)))
+                )
             }
         }
     }

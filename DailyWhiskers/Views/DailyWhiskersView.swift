@@ -49,6 +49,8 @@ struct DailyWhiskersView: View {
                     } label: {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel("Settings")
+                    .accessibilityHint("Opens account options, including log out.")
                 }
             }
             .navigationTitle("")
