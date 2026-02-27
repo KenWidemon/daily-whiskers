@@ -47,10 +47,8 @@ targets:
       - path: DailyWhiskersTests
     settings:
       base:
-        BUNDLE_LOADER: ""
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: 5.0
-        TEST_HOST: ""
     dependencies:
       - target: DailyWhiskers
       - package: Firebase
