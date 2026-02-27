@@ -51,3 +51,7 @@ targets:
         SWIFT_VERSION: 5.0
     dependencies:
       - target: DailyWhiskers
+      - package: Firebase
+        product: FirebaseCore
+      - package: Firebase
+        product: FirebaseAuth
