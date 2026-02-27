@@ -25,13 +25,21 @@ struct DailyContentProvider {
     }
 
     func contentForToday() -> DailyCard? {
+        content(for: Date())
+    }
+
+    func content(for date: Date) -> DailyCard? {
         guard !manifest.cards.isEmpty else {
             Self.logger.error("Manifest unexpectedly empty after load; using fallback card.")
             return Self.fallbackCard
         }
 
-        let seed = daySeed(for: Date())
+        let seed = daySeed(for: date)
         return manifest.cards[seed % manifest.cards.count]
+    }
+
+    func dayIdentifier(for date: Date) -> Int {
+        daySeed(for: date)
     }
 
     private func daySeed(for date: Date) -> Int {
