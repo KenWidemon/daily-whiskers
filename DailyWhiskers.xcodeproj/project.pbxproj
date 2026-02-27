@@ -3,19 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */; };
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
-		E1D5A91C3B4F2A6D7C8E9012 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C8D2E6F1A3579B0C4D8E12 /* AuthErrorMapper.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
+		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
+		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
 		8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */ = {isa = PBXBuildFile; fileRef = 6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
+		89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDA5B8412ED5644FF9CCB41F /* FirebaseCore */; };
+		ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */; };
 		C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */ = {isa = PBXBuildFile; fileRef = D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */; };
+		C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */; };
 		C7F73EC61DDF0150C6517EF8 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B8FFFD00B2F2E374E95837DF /* FirebaseCore */; };
 		CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FBA1D67F9BBA070EDC581FD /* AuthView.swift */; };
 		CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14427E6E78184E5322A7BE40 /* Assets.xcassets */; };
@@ -23,17 +27,30 @@
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		CA133B30276BB0A3D89BB0A6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D3A39E10EE7E092DAFADA9CF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2AB9B0B3C585C082AD7E240D;
+			remoteInfo = DailyWhiskers;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
 		2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProvider.swift; sourceTree = "<group>"; };
 		2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
 		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
-		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
-		B4C8D2E6F1A3579B0C4D8E12 /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
+		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
+		CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
 		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
 		F2DF0399E6F73432BDB3FDC4 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FAEBF90CA567AEF2C4445900 /* DailyContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContent.swift; sourceTree = "<group>"; };
@@ -49,13 +66,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C91A397F105EA9396F8F14AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */,
+				78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		79A038FFD12432178B834B4F /* DailyWhiskersTests */ = {
+			isa = PBXGroup;
+			children = (
+				A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */,
+			);
+			path = DailyWhiskersTests;
+			sourceTree = "<group>";
+		};
 		A47B08FA9509A9E409C0268E /* Views */ = {
 			isa = PBXGroup;
 			children = (
 				0FBA1D67F9BBA070EDC581FD /* AuthView.swift */,
+				30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */,
 				2A0132BD83383C6288582604 /* DailyWhiskersView.swift */,
 				F2DF0399E6F73432BDB3FDC4 /* RootView.swift */,
 			);
@@ -65,7 +100,7 @@
 		B8E545F01C8523CF52683A93 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				B4C8D2E6F1A3579B0C4D8E12 /* AuthErrorMapper.swift */,
+				CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */,
 				2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */,
 			);
 			path = Services;
@@ -94,6 +129,7 @@
 			isa = PBXGroup;
 			children = (
 				FB93A48E3F6CB53E768018CD /* DailyWhiskers */,
+				79A038FFD12432178B834B4F /* DailyWhiskersTests */,
 				BEA3400425A717CE50367DA1 /* Resources */,
 				FDAFDF466C071B497103475E /* Products */,
 			);
@@ -116,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */,
+				9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -144,6 +181,27 @@
 			productReference = 72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */;
 			productType = "com.apple.product-type.application";
 		};
+		C6AA38FDF8A0D5761E7A1EC3 /* DailyWhiskersTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4E67D5BF22A8DA516D6B4E95 /* Build configuration list for PBXNativeTarget "DailyWhiskersTests" */;
+			buildPhases = (
+				BCB01E95C8858701DBCCE6DB /* Sources */,
+				C91A397F105EA9396F8F14AD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5CE8D819574BB273B51F2914 /* PBXTargetDependency */,
+			);
+			name = DailyWhiskersTests;
+			packageProductDependencies = (
+				DDA5B8412ED5644FF9CCB41F /* FirebaseCore */,
+				DF2C3279053AF6625304C773 /* FirebaseAuth */,
+			);
+			productName = DailyWhiskersTests;
+			productReference = 9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -166,10 +224,12 @@
 			packageReferences = (
 				34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				2AB9B0B3C585C082AD7E240D /* DailyWhiskers */,
+				C6AA38FDF8A0D5761E7A1EC3 /* DailyWhiskersTests */,
 			);
 		};
 /* End PBXProject section */
@@ -189,15 +249,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		BCB01E95C8858701DBCCE6DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C7F61F752BAA4A92BF280ED2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */,
+				C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */,
 				CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */,
-				E1D5A91C3B4F2A6D7C8E9012 /* AuthErrorMapper.swift in Sources */,
 				476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */,
 				D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */,
+				ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */,
 				FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */,
 				82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */,
 				4AD1999233F7FB7DD753194F /* RootView.swift in Sources */,
@@ -206,13 +275,20 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		5CE8D819574BB273B51F2914 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2AB9B0B3C585C082AD7E240D /* DailyWhiskers */;
+			targetProxy = CA133B30276BB0A3D89BB0A6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		076B64F08AF92E8085587C1F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = HYU33CNQ69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Daily Whiskers";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -235,7 +311,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = HYU33CNQ69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Daily Whiskers";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -316,6 +391,42 @@
 			};
 			name = Debug;
 		};
+		746784E7DAB4256A6ED350EF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.DailyWhiskersTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyWhiskers.app/DailyWhiskers";
+			};
+			name = Release;
+		};
+		E91EBDBE64CE288026D5C098 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.DailyWhiskersTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyWhiskers.app/DailyWhiskers";
+			};
+			name = Debug;
+		};
 		FDC2CB622E31FEFC0599B48A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -384,6 +495,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		4E67D5BF22A8DA516D6B4E95 /* Build configuration list for PBXNativeTarget "DailyWhiskersTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E91EBDBE64CE288026D5C098 /* Debug */,
+				746784E7DAB4256A6ED350EF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		C1BC387146486851D6C2BE8E /* Build configuration list for PBXProject "DailyWhiskers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -416,6 +536,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCore;
+		};
+		DDA5B8412ED5644FF9CCB41F /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		DF2C3279053AF6625304C773 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

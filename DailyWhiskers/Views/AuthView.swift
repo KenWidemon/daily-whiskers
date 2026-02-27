@@ -7,6 +7,7 @@ struct AuthView: View {
     }
 
     @EnvironmentObject private var router: AppRouter
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var email: String = ""
     @State private var password: String = ""
@@ -26,14 +27,16 @@ struct AuthView: View {
             )
             .ignoresSafeArea()
 
-            GlowOverlay()
+            GlowOverlay(reduceMotion: reduceMotion)
+                .accessibilityHidden(true)
                 .ignoresSafeArea()
 
-            SparkleOverlay()
+            SparkleOverlay(reduceMotion: reduceMotion)
                 .compositingGroup()
                 .blendMode(.plusLighter)
                 .opacity(0.4)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             // MARK: - Content
             VStack(spacing: 18) {
@@ -42,12 +45,13 @@ struct AuthView: View {
 
                 VStack(spacing: 10) {
                     Text("Daily Whiskers")
-                        .font(.system(size: 36, weight: .semibold, design: .rounded))
+                        .font(.system(.largeTitle, design: .rounded).weight(.semibold))
                         .tracking(0.5)
                         .foregroundStyle(.primary)
+                        .minimumScaleFactor(0.8)
 
                     Text("A calm cat moment, once per day.")
-                        .font(.system(size: 18, weight: .regular))
+                        .font(.headline)
                         .foregroundStyle(Color.primary.opacity(0.60))
                 }
                 .padding(.bottom, 10)
@@ -56,27 +60,35 @@ struct AuthView: View {
                     // Email
                     TextField("Email", text: $email)
                         .keyboardType(.emailAddress)
+                        .textContentType(.emailAddress)
+                        .submitLabel(.next)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
-                        .font(.system(size: 20, weight: .regular))
+                        .font(.body)
                         .padding(.horizontal, 16)
-                        .frame(height: 54)
+                        .frame(minHeight: 54)
                         .background(fieldBackground)
                         .overlay(fieldBorder)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+                        .accessibilityLabel("Email")
+                        .accessibilityHint("Enter the email for your account.")
                     
                     // Password
                     SecureField("Password", text: $password)
+                        .textContentType(.password)
+                        .submitLabel(.done)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
-                        .font(.system(size: 20, weight: .regular))
+                        .font(.body)
                         .padding(.horizontal, 16)
-                        .frame(height: 54)
+                        .frame(minHeight: 54)
                         .background(fieldBackground)
                         .overlay(fieldBorder)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+                        .accessibilityLabel("Password")
+                        .accessibilityHint("Enter your password.")
                 }
                 .padding(.horizontal, 26)
                 .padding(.top, 6)
@@ -90,14 +102,15 @@ struct AuthView: View {
                             if isWorking {
                                 ProgressView()
                                     .tint(.white)
+                                    .accessibilityLabel("Signing in")
                             } else {
                                 Text("Sign In")
                             }
                         }
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(minHeight: 54)
                         .background(primaryGradient)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
@@ -105,26 +118,28 @@ struct AuthView: View {
                     .padding(.horizontal, 26)
                     .opacity(canSubmit || isWorking ? 1 : 0.45)
                     .disabled(!canSubmit)
+                    .accessibilityHint("Signs into your account.")
                     
                     // Secondary: Create Account (outline)
                     Button {
                         Task { await handleEmailCreateAccount() }
                     } label: {
                         Text("Create Account")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color(red: 0.90, green: 0.62, blue: 0.28))
+                            .font(.headline)
+                            .foregroundStyle(Color(red: 0.74, green: 0.44, blue: 0.16))
                             .frame(maxWidth: .infinity)
-                            .frame(height: 54)
+                            .frame(minHeight: 54)
                             .background(Color.white.opacity(0.25))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(Color(red: 0.90, green: 0.62, blue: 0.28).opacity(0.35), lineWidth: 1)
+                                    .stroke(Color(red: 0.74, green: 0.44, blue: 0.16).opacity(0.45), lineWidth: 1)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                     .padding(.horizontal, 26)
                     .opacity(canSubmit ? 1 : 0.45)
                     .disabled(!canSubmit)
+                    .accessibilityHint("Creates a new account with your email and password.")
                 }
                 .padding(.top, 10)
 
@@ -136,12 +151,13 @@ struct AuthView: View {
                     Task { await handleTestAccountSignInOrCreate() }
                 } label: {
                     Text("Use Test Account")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.primary.opacity(0.55))
                         .padding(.top, 2)
                 }
                 .opacity(isWorking ? 0.45 : 1)
                 .disabled(isWorking)
+                .accessibilityHint("Uses the built-in debug account.")
 #endif
 
                 if let authError {
@@ -253,6 +269,7 @@ struct AuthView: View {
 }
 
 private struct GlowOverlay: View {
+    let reduceMotion: Bool
     @State private var pulse = false
 
     var body: some View {
@@ -268,72 +285,79 @@ private struct GlowOverlay: View {
         )
         .scaleEffect(pulse ? 1.03 : 0.98)
         .animation(
-            .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
+            reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
             value: pulse
         )
-        .onAppear { pulse = true }
+        .onAppear { pulse = !reduceMotion }
     }
 }
 
 private struct SparkleOverlay: View {
+    let reduceMotion: Bool
+
     var body: some View {
-        TimelineView(.animation) { timeline in
+        if reduceMotion {
+            Canvas { context, size in
+                drawSparkles(context: context, size: size, time: 0, animated: false)
+            }
+        } else {
+            TimelineView(.animation) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
 
-            GeometryReader { geometry in
                 Canvas { context, size in
-                    let dotCount = 75
-
-                    for index in 0..<dotCount {
-                        // Base positions
-                        let baseX = pseudoRandom(index: index, seed: 0.73) * size.width
-                        let yBias = pow(pseudoRandom(index: index, seed: 0.39), 1.6)
-                        let baseY = yBias * size.height
-
-                        // Each dot twinkles at a slightly different rate/phase
-                        let phase = Double(pseudoRandom(index: index, seed: 0.17)) * Double.pi * 2
-                        let speed = 0.6 + Double(pseudoRandom(index: index, seed: 0.41)) * 1.6
-                        let twinkle = (sin(t * speed + phase) + 1) / 2 // 0...1
-
-                        // Gentle drift (very small) so the field feels alive
-                        let driftX = CGFloat(sin(t * 0.18 + phase)) * 0.7
-                        let driftY = CGFloat(cos(t * 0.14 + phase)) * 0.5
-
-                        let x = baseX + driftX
-                        let y = baseY + driftY
-
-                        // Bigger points so they read on a light background
-                        let baseRadius = 1.6 + pseudoRandom(index: index, seed: 0.11) * 2.2
-                        let radius = baseRadius + CGFloat(twinkle) * 1.4
-
-                        // Higher alpha so sparkles are actually visible
-                        let baseAlpha = 0.07 + pseudoRandom(index: index, seed: 0.91) * 0.07
-                        let alpha = min(0.38, baseAlpha + CGFloat(twinkle) * 0.18)
-
-                        // Slight tint so sparkles read on a very light background
-                        let tintMix = pseudoRandom(index: index, seed: 0.66)
-                        let sparkleColor: Color = (tintMix > 0.6)
-                            ? Color(red: 1.0, green: 0.96, blue: 0.90) // warm ivory sparkle
-                            : Color(red: 0.93, green: 0.95, blue: 1.0) // cool lunar sparkle
-
-                        let rect = CGRect(x: x, y: y, width: radius, height: radius)
-                        context.fill(
-                            Path(ellipseIn: rect),
-                            with: .color(sparkleColor.opacity(alpha))
-                        )
-
-                        // Occasionally draw a slightly larger star sparkle
-                        if index % 20 == 0 {
-                            let starRadius = radius * (2.4 + CGFloat(twinkle) * 1.1)
-                            let starRect = CGRect(x: x - starRadius * 0.35, y: y - starRadius * 0.35, width: starRadius, height: starRadius)
-                            context.fill(
-                                Path(ellipseIn: starRect),
-                                with: .color(sparkleColor.opacity(min(0.26, alpha * 0.85)))
-                            )
-                        }
-                    }
+                    drawSparkles(context: context, size: size, time: t, animated: true)
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+        }
+    }
+
+    private func drawSparkles(context: GraphicsContext, size: CGSize, time: Double, animated: Bool) {
+        let dotCount = animated ? 75 : 36
+
+        for index in 0..<dotCount {
+            let baseX = pseudoRandom(index: index, seed: 0.73) * size.width
+            let yBias = pow(pseudoRandom(index: index, seed: 0.39), 1.6)
+            let baseY = yBias * size.height
+
+            let phase = Double(pseudoRandom(index: index, seed: 0.17)) * Double.pi * 2
+            let speed = 0.6 + Double(pseudoRandom(index: index, seed: 0.41)) * 1.6
+            let twinkle = animated ? (sin(time * speed + phase) + 1) / 2 : 0.35
+
+            let driftX = animated ? CGFloat(sin(time * 0.18 + phase)) * 0.7 : 0
+            let driftY = animated ? CGFloat(cos(time * 0.14 + phase)) * 0.5 : 0
+
+            let x = baseX + driftX
+            let y = baseY + driftY
+
+            let baseRadius = 1.6 + pseudoRandom(index: index, seed: 0.11) * 2.2
+            let radius = baseRadius + CGFloat(twinkle) * (animated ? 1.4 : 0.5)
+
+            let baseAlpha = 0.07 + pseudoRandom(index: index, seed: 0.91) * 0.07
+            let alpha = min(0.38, baseAlpha + CGFloat(twinkle) * (animated ? 0.18 : 0.07))
+
+            let tintMix = pseudoRandom(index: index, seed: 0.66)
+            let sparkleColor: Color = (tintMix > 0.6)
+                ? Color(red: 1.0, green: 0.96, blue: 0.90)
+                : Color(red: 0.93, green: 0.95, blue: 1.0)
+
+            let rect = CGRect(x: x, y: y, width: radius, height: radius)
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .color(sparkleColor.opacity(alpha))
+            )
+
+            if index % 20 == 0 {
+                let starRadius = radius * (2.4 + CGFloat(twinkle) * 1.1)
+                let starRect = CGRect(
+                    x: x - starRadius * 0.35,
+                    y: y - starRadius * 0.35,
+                    width: starRadius,
+                    height: starRadius
+                )
+                context.fill(
+                    Path(ellipseIn: starRect),
+                    with: .color(sparkleColor.opacity(min(0.26, alpha * 0.85)))
+                )
             }
         }
     }

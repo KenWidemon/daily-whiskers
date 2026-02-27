@@ -11,7 +11,7 @@ struct DailyContentProvider {
         subsystem: Bundle.main.bundleIdentifier ?? "DailyWhiskers",
         category: "DailyContentProvider"
     )
-    private static let fallbackCard = DailyCard(
+    static let fallbackCard = DailyCard(
         id: "fallback_celestial_constellation_watcher",
         archetype: "celestial",
         imageName: "celestial_constellation_watcher",
@@ -24,14 +24,29 @@ struct DailyContentProvider {
         self.manifest = Self.loadManifest(from: bundle)
     }
 
+    init(calendar: Calendar = .current, manifest: DailyContentManifest) {
+        self.calendar = calendar
+        self.manifest = manifest.cards.isEmpty
+            ? DailyContentManifest(cards: [Self.fallbackCard])
+            : manifest
+    }
+
     func contentForToday() -> DailyCard? {
+        content(for: Date())
+    }
+
+    func content(for date: Date) -> DailyCard? {
         guard !manifest.cards.isEmpty else {
             Self.logger.error("Manifest unexpectedly empty after load; using fallback card.")
             return Self.fallbackCard
         }
 
-        let seed = daySeed(for: Date())
+        let seed = daySeed(for: date)
         return manifest.cards[seed % manifest.cards.count]
+    }
+
+    func dayIdentifier(for date: Date) -> Int {
+        daySeed(for: date)
     }
 
     private func daySeed(for date: Date) -> Int {
@@ -50,22 +65,46 @@ struct DailyContentProvider {
 
         do {
             let data = try Data(contentsOf: url)
-            let decoded = try JSONDecoder().decode(DailyContentManifest.self, from: data)
-            let validatedCards = validateManifestCards(decoded.cards, bundle: bundle)
-            if validatedCards.isEmpty {
-                logger.error("No valid cards after manifest validation; using fallback card.")
-                return DailyContentManifest(cards: [fallbackCard])
-            }
-            return DailyContentManifest(cards: validatedCards)
+            return manifest(from: data, bundle: bundle)
         } catch {
             logger.error("Failed to decode daily_whiskers_content.json: \(error.localizedDescription, privacy: .public). Using fallback card.")
             return DailyContentManifest(cards: [fallbackCard])
         }
     }
 
-    private static func validateManifestCards(_ cards: [DailyCard], bundle: Bundle) -> [DailyCard] {
+    static func manifest(
+        from data: Data,
+        bundle: Bundle = .main,
+        imageResolver: ((String) -> Bool)? = nil
+    ) -> DailyContentManifest {
+        do {
+            let decoded = try JSONDecoder().decode(DailyContentManifest.self, from: data)
+            let validatedCards = validateManifestCards(
+                decoded.cards,
+                bundle: bundle,
+                imageResolver: imageResolver
+            )
+            if validatedCards.isEmpty {
+                logger.error("No valid cards after manifest validation; using fallback card.")
+                return DailyContentManifest(cards: [fallbackCard])
+            }
+            return DailyContentManifest(cards: validatedCards)
+        } catch {
+            logger.error("Failed to decode daily_whiskers_content.json data: \(error.localizedDescription, privacy: .public). Using fallback card.")
+            return DailyContentManifest(cards: [fallbackCard])
+        }
+    }
+
+    private static func validateManifestCards(
+        _ cards: [DailyCard],
+        bundle: Bundle,
+        imageResolver: ((String) -> Bool)? = nil
+    ) -> [DailyCard] {
         var seenIDs = Set<String>()
         var validCards: [DailyCard] = []
+        let resolveImage = imageResolver ?? { imageName in
+            hasImageNamed(imageName, in: bundle)
+        }
 
         for (index, card) in cards.enumerated() {
             let normalizedCard = DailyCard(
@@ -96,7 +135,7 @@ struct DailyContentProvider {
                 continue
             }
 
-            guard hasImageNamed(normalizedCard.imageName, in: bundle) else {
+            guard resolveImage(normalizedCard.imageName) else {
                 logger.error("Card id \(normalizedCard.id, privacy: .public) references missing image asset \(normalizedCard.imageName, privacy: .public). Card was dropped.")
                 continue
             }
