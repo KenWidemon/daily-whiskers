@@ -72,10 +72,18 @@ struct DailyContentProvider {
         }
     }
 
-    static func manifest(from data: Data, bundle: Bundle = .main) -> DailyContentManifest {
+    static func manifest(
+        from data: Data,
+        bundle: Bundle = .main,
+        imageResolver: ((String) -> Bool)? = nil
+    ) -> DailyContentManifest {
         do {
             let decoded = try JSONDecoder().decode(DailyContentManifest.self, from: data)
-            let validatedCards = validateManifestCards(decoded.cards, bundle: bundle)
+            let validatedCards = validateManifestCards(
+                decoded.cards,
+                bundle: bundle,
+                imageResolver: imageResolver
+            )
             if validatedCards.isEmpty {
                 logger.error("No valid cards after manifest validation; using fallback card.")
                 return DailyContentManifest(cards: [fallbackCard])
@@ -87,9 +95,16 @@ struct DailyContentProvider {
         }
     }
 
-    private static func validateManifestCards(_ cards: [DailyCard], bundle: Bundle) -> [DailyCard] {
+    private static func validateManifestCards(
+        _ cards: [DailyCard],
+        bundle: Bundle,
+        imageResolver: ((String) -> Bool)? = nil
+    ) -> [DailyCard] {
         var seenIDs = Set<String>()
         var validCards: [DailyCard] = []
+        let resolveImage = imageResolver ?? { imageName in
+            hasImageNamed(imageName, in: bundle)
+        }
 
         for (index, card) in cards.enumerated() {
             let normalizedCard = DailyCard(
@@ -120,7 +135,7 @@ struct DailyContentProvider {
                 continue
             }
 
-            guard hasImageNamed(normalizedCard.imageName, in: bundle) else {
+            guard resolveImage(normalizedCard.imageName) else {
                 logger.error("Card id \(normalizedCard.id, privacy: .public) references missing image asset \(normalizedCard.imageName, privacy: .public). Card was dropped.")
                 continue
             }

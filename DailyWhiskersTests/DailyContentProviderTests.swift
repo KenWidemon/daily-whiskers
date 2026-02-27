@@ -21,7 +21,11 @@ struct DailyContentProviderTests {
         """
 
         let data = Data(json.utf8)
-        let manifest = DailyContentProvider.manifest(from: data, bundle: .main)
+        let manifest = DailyContentProvider.manifest(
+            from: data,
+            bundle: .main,
+            imageResolver: { _ in true }
+        )
 
         #expect(manifest.cards.count == 1)
         #expect(manifest.cards[0].id == "valid_card")
@@ -50,7 +54,11 @@ struct DailyContentProviderTests {
     @Test("Invalid JSON falls back to built-in fallback card")
     func invalidJSONFallsBack() {
         let data = Data("not-json".utf8)
-        let manifest = DailyContentProvider.manifest(from: data, bundle: .main)
+        let manifest = DailyContentProvider.manifest(
+            from: data,
+            bundle: .main,
+            imageResolver: { _ in true }
+        )
 
         #expect(manifest.cards.count == 1)
         #expect(manifest.cards[0].id == DailyContentProvider.fallbackCard.id)
@@ -81,5 +89,38 @@ struct DailyContentProviderTests {
         #expect(morningIdentifier == eveningIdentifier)
         #expect(nextDayIdentifier != morningIdentifier)
         #expect(morningCard.id == eveningCard.id)
+    }
+
+    @Test("Cards with missing image assets are dropped during validation")
+    func missingImageCardIsDropped() {
+        let json = """
+        {
+          "cards": [
+            {
+              "id": "valid_card",
+              "archetype": "cozy",
+              "imageName": "present_image",
+              "quote": "Valid quote"
+            },
+            {
+              "id": "missing_image_card",
+              "archetype": "cozy",
+              "imageName": "missing_image",
+              "quote": "Should be dropped"
+            }
+          ]
+        }
+        """
+
+        let data = Data(json.utf8)
+        let manifest = DailyContentProvider.manifest(
+            from: data,
+            imageResolver: { imageName in
+                imageName != "missing_image"
+            }
+        )
+
+        #expect(manifest.cards.count == 1)
+        #expect(manifest.cards[0].id == "valid_card")
     }
 }
