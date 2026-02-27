@@ -11,7 +11,7 @@ struct DailyContentProvider {
         subsystem: Bundle.main.bundleIdentifier ?? "DailyWhiskers",
         category: "DailyContentProvider"
     )
-    private static let fallbackCard = DailyCard(
+    static let fallbackCard = DailyCard(
         id: "fallback_celestial_constellation_watcher",
         archetype: "celestial",
         imageName: "celestial_constellation_watcher",
@@ -22,6 +22,13 @@ struct DailyContentProvider {
     init(calendar: Calendar = .current, bundle: Bundle = .main) {
         self.calendar = calendar
         self.manifest = Self.loadManifest(from: bundle)
+    }
+
+    init(calendar: Calendar = .current, manifest: DailyContentManifest) {
+        self.calendar = calendar
+        self.manifest = manifest.cards.isEmpty
+            ? DailyContentManifest(cards: [Self.fallbackCard])
+            : manifest
     }
 
     func contentForToday() -> DailyCard? {
@@ -58,6 +65,15 @@ struct DailyContentProvider {
 
         do {
             let data = try Data(contentsOf: url)
+            return manifest(from: data, bundle: bundle)
+        } catch {
+            logger.error("Failed to decode daily_whiskers_content.json: \(error.localizedDescription, privacy: .public). Using fallback card.")
+            return DailyContentManifest(cards: [fallbackCard])
+        }
+    }
+
+    static func manifest(from data: Data, bundle: Bundle = .main) -> DailyContentManifest {
+        do {
             let decoded = try JSONDecoder().decode(DailyContentManifest.self, from: data)
             let validatedCards = validateManifestCards(decoded.cards, bundle: bundle)
             if validatedCards.isEmpty {
@@ -66,7 +82,7 @@ struct DailyContentProvider {
             }
             return DailyContentManifest(cards: validatedCards)
         } catch {
-            logger.error("Failed to decode daily_whiskers_content.json: \(error.localizedDescription, privacy: .public). Using fallback card.")
+            logger.error("Failed to decode daily_whiskers_content.json data: \(error.localizedDescription, privacy: .public). Using fallback card.")
             return DailyContentManifest(cards: [fallbackCard])
         }
     }
