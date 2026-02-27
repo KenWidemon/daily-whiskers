@@ -96,13 +96,13 @@ struct DailyContentProvider {
                 continue
             }
 
-            guard seenIDs.insert(normalizedCard.id).inserted else {
-                logger.error("Duplicate card id \(normalizedCard.id, privacy: .public) detected. Card was dropped.")
+            guard hasImageNamed(normalizedCard.imageName, in: bundle) else {
+                logger.error("Card id \(normalizedCard.id, privacy: .public) references missing image asset \(normalizedCard.imageName, privacy: .public). Card was dropped.")
                 continue
             }
 
-            guard hasImageNamed(normalizedCard.imageName, in: bundle) else {
-                logger.error("Card id \(normalizedCard.id, privacy: .public) references missing image asset \(normalizedCard.imageName, privacy: .public). Card was dropped.")
+            guard seenIDs.insert(normalizedCard.id).inserted else {
+                logger.error("Duplicate card id \(normalizedCard.id, privacy: .public) detected. Card was dropped.")
                 continue
             }
 
