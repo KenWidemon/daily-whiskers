@@ -40,3 +40,14 @@ targets:
         product: FirebaseAuth
     preBuildScripts: []
     postCompileScripts: []
+  DailyWhiskersTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: DailyWhiskersTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0
+    dependencies:
+      - target: DailyWhiskers
