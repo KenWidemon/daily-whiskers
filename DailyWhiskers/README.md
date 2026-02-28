@@ -19,7 +19,6 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day wit
    - `xcodegen generate`
 3. Open project:
    - `open DailyWhiskers.xcodeproj`
-4. Build and run from Xcode.
 
 ## Firebase Config
 1. Place Firebase plist at:
@@ -28,6 +27,7 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day wit
    - `xcodegen generate`
 3. In Firebase Console > Authentication > Sign-in method:
    - enable `Email/Password`
+4. Build and run from Xcode.
 
 The app currently depends on:
 - `FirebaseCore`
