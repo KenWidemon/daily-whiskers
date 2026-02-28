@@ -14,10 +14,8 @@
 		67FD22802F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */ = {isa = PBXBuildFile; fileRef = 67FD227F2F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
 		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
-		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
 		8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */ = {isa = PBXBuildFile; fileRef = 6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
-		89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDA5B8412ED5644FF9CCB41F /* FirebaseCore */; };
 		ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */; };
 		C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */ = {isa = PBXBuildFile; fileRef = D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */; };
 		C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */; };
@@ -72,8 +70,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */,
-				78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -198,8 +194,6 @@
 			);
 			name = DailyWhiskersTests;
 			packageProductDependencies = (
-				DDA5B8412ED5644FF9CCB41F /* FirebaseCore */,
-				DF2C3279053AF6625304C773 /* FirebaseAuth */,
 			);
 			productName = DailyWhiskersTests;
 			productReference = 9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */;
@@ -539,16 +533,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCore;
-		};
-		DDA5B8412ED5644FF9CCB41F /* FirebaseCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCore;
-		};
-		DF2C3279053AF6625304C773 /* FirebaseAuth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
