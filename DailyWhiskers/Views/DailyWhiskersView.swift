@@ -59,14 +59,14 @@ struct DailyWhiskersView: View {
     }
 
     private func refreshDailyContentIfNeeded(force: Bool) {
-        let todayIdentifier = provider.dayIdentifier(for: Date())
+        let now = Date()
+        let todayIdentifier = provider.dayIdentifier(for: now)
 
         guard force || currentDayIdentifier != todayIdentifier else {
             return
         }
 
-        currentCard = provider.content(for: Date())
+        currentCard = provider.content(for: now)
         currentDayIdentifier = todayIdentifier
     }
 }
-
