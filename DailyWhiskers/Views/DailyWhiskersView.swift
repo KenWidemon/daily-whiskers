@@ -5,6 +5,7 @@ struct DailyWhiskersView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var contentState = DailyContentState()
+    @StateObject private var logoutRequest = AuthRequestState()
 
     var body: some View {
         NavigationStack {
@@ -36,12 +37,9 @@ struct DailyWhiskersView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Log Out", role: .destructive) {
-                            do {
-                                try router.signOut()
-                            } catch {
-                                // Keep UI minimal for v1.
-                            }
+                            logOut()
                         }
+                        .disabled(logoutRequest.isWorking)
                     } label: {
                         Image(systemName: "gearshape")
                     }
@@ -51,6 +49,23 @@ struct DailyWhiskersView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Couldn't Log Out", isPresented: Binding(
+                get: { logoutRequest.errorMessage != nil },
+                set: { if !$0 { logoutRequest.errorMessage = nil } }
+            )) {
+                Button("Try Again") { logOut() }
+                Button("Cancel", role: .cancel) { logoutRequest.clearFeedback() }
+            } message: {
+                Text(logoutRequest.errorMessage ?? "")
+            }
+        }
+    }
+
+    private func logOut() {
+        Task {
+            await logoutRequest.perform(.logout) {
+                try router.signOut()
+            }
         }
     }
 }
