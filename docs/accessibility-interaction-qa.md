@@ -23,7 +23,12 @@
 
 ## Verified
 
-- Normally signed simulator build and all 32 regression tests passed.
+- Normally signed simulator build and all 35 regression tests passed.
+- The concurrency matrix covers all five auth operations, including logout,
+  as both the in-flight request and the blocked subsequent request.
+- Regression tests cover every operation's announcement text, successful sign-in
+  feedback cleanup, and dismissal of error/reset feedback. Existing injected
+  keychain-error coverage verifies logout failure and successful retry.
 - On a separate iPhone 17e simulator, keyboard Next moved input from email to
   password; Done with invalid credentials did not start an auth request.
 - Software keyboard displayed the Hide Keyboard control, which dismissed it.
@@ -31,18 +36,27 @@
   with disabled auth actions correctly represented. Decorations were absent.
 - Login displayed dark status-bar content against its light background.
 - Source audit confirmed the static motion branches and minimum target dimensions.
+- Live login Reduce Motion toggle passed on iPhone 17e: with the setting enabled,
+  screenshots taken two seconds apart were byte-identical. Disabling the setting
+  resumed visible sparkle/glow changes in the same app process, without relaunch.
+  Reduce Motion was restored to its original disabled setting afterward.
 
 ## Remaining Manual Acceptance Checks
 
 - VoiceOver speech: loading announcements, error focus, complete reading order,
   and alert dismissal focus on a physical device.
-- Toggle Reduce Motion on/off while each screen remains alive; confirm glow and
+- Toggle Reduce Motion on/off while the signed-in card remains alive; confirm
   sparkles stop/resume without relaunch. Also check screen transitions.
 - Valid keyboard Done submission with a controlled account and repeated presses.
 - Software-keyboard scrolling in landscape and with large Dynamic Type; iPad
   multitasking and rotation checks carried forward from 4A.
-- Logout failure alert navigation with an injected storage failure.
+- Logout failure alert navigation and accessibility focus with an injected storage
+  failure. State-level failure/retry tests pass, but do not verify alert focus.
 
-The remaining live checks were limited by simulator focus changing during QA.
+Live keyboard submission remains unverified: simulator text injection produced
+incorrect input, so no valid controlled-account submission was attempted in this
+follow-up. Landscape, large-text keyboard, and iPad interaction checks remain open.
+The simulator's Accessibility settings do not expose iOS VoiceOver, so speech and
+focus acceptance need a physical device.
 Accessibility-tree inspection is not a substitute for listening with VoiceOver.
 Performance profiling remains Step 5.
