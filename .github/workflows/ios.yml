@@ -1,0 +1,66 @@
+name: iOS CI
+
+on:
+  pull_request:
+    branches: [main, codex/develop]
+  push:
+    branches: [main, codex/develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and unit tests
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare project
+        run: |
+          brew install xcodegen
+          cp ci/firebase-test-config.plist DailyWhiskers/Resources/GoogleService-Info.plist
+          xcodegen generate
+          xcodebuild -version
+
+      - name: Select available iPhone simulator
+        run: |
+          device_id=$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid // empty')
+          test -n "$device_id"
+          echo "SIMULATOR_ID=$device_id" >> "$GITHUB_ENV"
+
+      - name: Build and run unit tests
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild test \
+            -project DailyWhiskers.xcodeproj \
+            -scheme DailyWhiskers \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath build/TestResults.xcresult \
+            -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO 2>&1 \
+            | tee build/xcodebuild.log
+
+      - name: Upload test results and build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            build/TestResults.xcresult
+            build/xcodebuild.log
+          retention-days: 7
+          if-no-files-found: ignore

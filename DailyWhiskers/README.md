@@ -71,14 +71,34 @@ Image import details:
   - rollover expectations
   - missing-image validation behavior
 
+## Continuous Integration
+
+The `iOS CI` GitHub Actions workflow builds the Debug simulator app and runs
+unit tests on pull requests and pushes to `main` and `codex/develop`. It can
+also be started manually. It uses macOS 26 and Xcode 26.6, generates the project
+with XcodeGen, and selects an available iPhone simulator.
+
+CI copies `ci/firebase-test-config.plist` into the generated app resources before
+project generation. This is a fake configuration for initializing the hosted
+test app, not a Firebase account or a working backend. No repository secrets
+are required. These tests do not exercise real authentication; keep using your
+local Firebase plist for interactive development and authentication testing.
+
+The workflow uploads its build log and `.xcresult` bundle for seven days.
+Its `Build and unit tests` check can be made required in GitHub branch rules
+after the first successful run.
+
 ## Branch / PR Workflow
-Team convention is one branch per roadmap item:
-- naming: `pass-<n>-item-<n>-<slug>`
-- example: `pass-1-item-3-day-rollover-behavior`
+Branch roles:
+- `main`: stable release branch.
+- `codex/develop`: integration branch for approved work.
+- `codex/<task>`: one task branch per roadmap item, created from `codex/develop`
+  (for example, `codex/ci-baseline`).
 
 Expected flow per item:
-1. branch from `codex/develop`
-2. implement one item only
-3. sign-off
-4. commit and open PR to `codex/develop`
-5. merge PR before starting next item
+1. Create a `codex/<task>` branch from the updated `codex/develop` branch.
+2. Implement and verify one item only.
+3. Get Ken's sign-off.
+4. Commit, push, and open a PR into `codex/develop`.
+5. Merge the approved PR before starting the next item.
+6. When ready for release, promote `codex/develop` into `main` through a release PR.
