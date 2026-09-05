@@ -104,44 +104,58 @@ struct DailyRitualCardView: View {
     var body: some View {
         ZStack {
             CosmicBackground(theme: theme, reduceMotion: reduceMotion)
+                .ignoresSafeArea()
 
-            RitualCard(theme: theme) {
-                ZStack(alignment: .bottom) {
-                    Image(data.imageName)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .clipped()
-                        .accessibilityHidden(true)
-
-                    LinearGradient(
-                        colors: [
-                            Color.clear,
-                            Color.black.opacity(0.55),
-                            Color.black.opacity(0.78)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 360)
-                }
-            } overlayContent: {
-                VStack(spacing: 18) {
-                    Spacer()
-
-                    QuoteBlock(text: data.quote, theme: theme)
-                        .padding(.horizontal, 28)
-
-                    if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        VibePill(text: data.vibe.uppercased(), theme: theme)
-                            .padding(.bottom, 24)
+            GeometryReader { geometry in
+                let cardWidth = max(0, min(geometry.size.width - 44, 520))
+                ScrollView {
+                    RitualCard(theme: theme) {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: cardWidth * 0.65)
+                            VStack(spacing: 18) {
+                                QuoteBlock(text: data.quote, theme: theme)
+                                if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    VibePill(text: data.vibe.uppercased(), theme: theme)
+                                }
+                            }
+                            .padding(24)
+                            .frame(maxWidth: .infinity)
+                            .background {
+                                LinearGradient(
+                                    colors: [.black.opacity(0.70), .black.opacity(0.86)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .overlay(alignment: .top) {
+                                    LinearGradient(
+                                        colors: [.clear, .black.opacity(0.70)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                    .frame(height: 64)
+                                    .offset(y: -64)
+                                }
+                            }
+                        }
+                        .frame(minHeight: cardWidth * 1.45)
+                        .background {
+                            GeometryReader { imageGeometry in
+                                Image(data.imageName)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: imageGeometry.size.width, height: imageGeometry.size.height)
+                                    .clipped()
+                                    .accessibilityHidden(true)
+                            }
+                        }
                     }
+                    .frame(width: cardWidth)
+                    .padding(.vertical, 28)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: geometry.size.height)
                 }
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 34)
         }
-        .ignoresSafeArea()
         .accessibilityElement(children: .contain)
     }
 }
@@ -178,19 +192,16 @@ private struct CosmicBackground: View {
     }
 }
 
-private struct RitualCard<Content: View, Overlay: View>: View {
+private struct RitualCard<Content: View>: View {
     let theme: ArchetypeTheme
     let content: Content
-    let overlay: Overlay
 
     init(
         theme: ArchetypeTheme,
-        @ViewBuilder content: () -> Content,
-        @ViewBuilder overlayContent: () -> Overlay
+        @ViewBuilder content: () -> Content
     ) {
         self.theme = theme
         self.content = content()
-        self.overlay = overlayContent()
     }
 
     var body: some View {
@@ -198,8 +209,6 @@ private struct RitualCard<Content: View, Overlay: View>: View {
             content
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 
-            overlay
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         }
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -224,7 +233,6 @@ private struct RitualCard<Content: View, Overlay: View>: View {
                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 .padding(2)
         )
-        .aspectRatio(3 / 4, contentMode: .fit)
     }
 }
 
@@ -270,6 +278,8 @@ private struct VibePill: View {
         Text(text)
             .font(.system(.caption, design: .rounded).weight(.semibold))
             .tracking(1.5)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(theme.text.opacity(0.92))
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
