@@ -78,6 +78,8 @@ Image import details:
 - see `DailyWhiskers/Resources/CAT_IMAGE_IMPORT.md`
 
 ## Tests
+- Step 4A layout changes and verification limits are recorded in
+  [Visual readability QA](../docs/visual-readability-qa.md).
 - Unit tests live in `DailyWhiskersTests/`.
 - Current suite validates:
   - JSON decode path

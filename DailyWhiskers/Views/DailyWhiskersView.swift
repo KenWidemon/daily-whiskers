@@ -59,6 +59,7 @@ struct DailyWhiskersView: View {
                 Text(logoutRequest.errorMessage ?? "")
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func logOut() {

@@ -43,159 +43,18 @@ struct AuthView: View {
                 .accessibilityHidden(true)
 
             // MARK: - Content
-            VStack(spacing: 18) {
-                Spacer()
-                    .frame(height: 140)
-
-                VStack(spacing: 10) {
-                    Text("Daily Whiskers")
-                        .font(.system(.largeTitle, design: .rounded).weight(.semibold))
-                        .tracking(0.5)
-                        .foregroundStyle(.primary)
-                        .minimumScaleFactor(0.8)
-
-                    Text("A calm cat moment, once per day.")
-                        .font(.headline)
-                        .foregroundStyle(Color.primary.opacity(0.60))
-                }
-                .padding(.bottom, 10)
-
-                VStack(spacing: 14) {
-                    // Email
-                    TextField("Email", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textContentType(.emailAddress)
-                        .submitLabel(.next)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .font(.body)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 54)
-                        .background(fieldBackground)
-                        .overlay(fieldBorder)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
-                        .accessibilityLabel("Email")
-                        .accessibilityHint("Enter the email for your account.")
-                    
-                    // Password
-                    SecureField("Password", text: $password)
-                        .textContentType(.password)
-                        .submitLabel(.done)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .font(.body)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 54)
-                        .background(fieldBackground)
-                        .overlay(fieldBorder)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
-                        .accessibilityLabel("Password")
-                        .accessibilityHint("Enter your password.")
-                }
-                .padding(.horizontal, 26)
-                .padding(.top, 6)
-                .disabled(isWorking)
-
-                Button {
-                    Task {
-                        await request.resetPassword(email: email) { address in
-                            try await router.sendPasswordReset(email: address)
-                        }
-                    }
-                } label: {
-                    HStack {
-                        if request.operation == .passwordReset {
-                            ProgressView()
-                        }
-                        Text(request.operation == .passwordReset ? "Sending Reset Link..." : "Forgot password?")
-                    }
-                    .font(.subheadline)
-                    .frame(minHeight: 44)
-                }
-                .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
-                .disabled(isWorking)
-                .accessibilityHint("Sends a password reset link to the email entered above.")
-
-                VStack(spacing: 14) {
-                    // Primary: Sign In
-                    Button {
-                        Task { await handleEmailSignIn() }
-                    } label: {
-                        Group {
-                            if request.operation == .signIn || request.operation == .testAccount {
-                                ProgressView()
-                                    .tint(.white)
-                                    .accessibilityLabel("Signing in")
-                            } else {
-                                Text("Sign In")
-                            }
-                        }
-                        .font(.headline)
-                        .foregroundStyle(.white)
+            GeometryReader { geometry in
+                ScrollView {
+                    loginContent
+                        .frame(maxWidth: 520)
+                        .padding(.vertical, 28)
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 54)
-                        .background(primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
-                    }
-                    .padding(.horizontal, 26)
-                    .opacity(canSubmit || isWorking ? 1 : 0.45)
-                    .disabled(!canSubmit)
-                    .accessibilityHint("Signs into your account.")
-                    
-                    // Secondary: Create Account (outline)
-                    Button {
-                        Task { await handleEmailCreateAccount() }
-                    } label: {
-                        Text(request.operation == .createAccount ? "Creating Account..." : "Create Account")
-                            .font(.headline)
-                            .foregroundStyle(Color(red: 0.74, green: 0.44, blue: 0.16))
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 54)
-                            .background(Color.white.opacity(0.25))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(Color(red: 0.74, green: 0.44, blue: 0.16).opacity(0.45), lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    }
-                    .padding(.horizontal, 26)
-                    .opacity(canSubmit ? 1 : 0.45)
-                    .disabled(!canSubmit)
-                    .accessibilityHint("Creates a new account with your email and password.")
+                        .frame(minHeight: geometry.size.height)
                 }
-                .padding(.top, 10)
-
-                // Dev-only helper
-#if DEBUG
-                Button {
-                    email = TestAccount.email
-                    password = TestAccount.password
-                    Task { await handleTestAccountSignInOrCreate() }
-                } label: {
-                    Text("Use Test Account")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.primary.opacity(0.55))
-                        .padding(.top, 2)
-                }
-                .opacity(isWorking ? 0.45 : 1)
-                .disabled(isWorking)
-                .accessibilityHint("Uses the built-in debug account.")
-#endif
-
-                if let authError = request.errorMessage {
-                    Text(authError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 26)
-                }
-
-                Spacer()
+                .scrollDismissesKeyboard(.interactively)
             }
         }
+        .preferredColorScheme(.light)
         .alert("Check Your Email", isPresented: Binding(
             get: { request.confirmation != nil },
             set: { if !$0 { request.confirmation = nil } }
@@ -211,7 +70,172 @@ struct AuthView: View {
             request.clearFeedback()
         }
     }
-    
+
+    private var loginContent: some View {
+        VStack(spacing: 18) {
+            VStack(spacing: 10) {
+                Text("Daily Whiskers")
+                    .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("A calm cat moment, once per day.")
+                    .font(.headline)
+                    .foregroundStyle(Color.primary.opacity(0.60))
+            }
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 26)
+            .padding(.bottom, 10)
+
+            VStack(spacing: 14) {
+                // Email
+                TextField("Email", text: $email, prompt: Text("Email").foregroundStyle(Color(white: 0.38)))
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .submitLabel(.next)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 54)
+                    .background(fieldBackground)
+                    .overlay(fieldBorder)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+                    .accessibilityLabel("Email")
+                    .accessibilityHint("Enter the email for your account.")
+
+                // Password
+                SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(Color(white: 0.38)))
+                    .textContentType(.password)
+                    .submitLabel(.done)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 54)
+                    .background(fieldBackground)
+                    .overlay(fieldBorder)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+                    .accessibilityLabel("Password")
+                    .accessibilityHint("Enter your password.")
+            }
+            .padding(.horizontal, 26)
+            .padding(.top, 6)
+            .disabled(isWorking)
+
+            Button {
+                Task {
+                    await request.resetPassword(email: email) { address in
+                        try await router.sendPasswordReset(email: address)
+                    }
+                }
+            } label: {
+                HStack {
+                    if request.operation == .passwordReset {
+                        ProgressView()
+                    }
+                    Text(request.operation == .passwordReset ? "Sending Reset Link..." : "Forgot password?")
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.subheadline)
+                .frame(minHeight: 44)
+            }
+            .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
+            .padding(.horizontal, 26)
+            .disabled(isWorking)
+            .accessibilityHint("Sends a password reset link to the email entered above.")
+
+            VStack(spacing: 14) {
+                // Primary: Sign In
+                Button {
+                    Task { await handleEmailSignIn() }
+                } label: {
+                    Group {
+                        if request.operation == .signIn || request.operation == .testAccount {
+                            ProgressView()
+                                .tint(Color(red: 0.24, green: 0.12, blue: 0.04))
+                                .accessibilityLabel("Signing in")
+                        } else {
+                            Text("Sign In")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundStyle(Color(red: 0.24, green: 0.12, blue: 0.04))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 54)
+                    .background(primaryGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
+                }
+                .padding(.horizontal, 26)
+                .saturation(canSubmit || isWorking ? 1 : 0.25)
+                .disabled(!canSubmit)
+                .accessibilityHint("Signs into your account.")
+
+                // Secondary: Create Account (outline)
+                Button {
+                    Task { await handleEmailCreateAccount() }
+                } label: {
+                    Text(request.operation == .createAccount ? "Creating Account..." : "Create Account")
+                        .font(.headline)
+                        .foregroundStyle(Color(red: 0.55, green: 0.29, blue: 0.08))
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 54)
+                        .background(Color.white.opacity(0.25))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color(red: 0.55, green: 0.29, blue: 0.08).opacity(0.45), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+                .padding(.horizontal, 26)
+                .saturation(canSubmit ? 1 : 0.25)
+                .disabled(!canSubmit)
+                .accessibilityHint("Creates a new account with your email and password.")
+            }
+            .padding(.top, 10)
+
+            // Dev-only helper
+#if DEBUG
+            Button {
+                email = TestAccount.email
+                password = TestAccount.password
+                Task { await handleTestAccountSignInOrCreate() }
+            } label: {
+                Text("Use Test Account")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.primary.opacity(0.55))
+                    .padding(.top, 2)
+            }
+            .opacity(isWorking ? 0.45 : 1)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 26)
+            .disabled(isWorking)
+            .accessibilityHint("Uses the built-in debug account.")
+#endif
+
+            if let authError = request.errorMessage {
+                Text(authError)
+                    .font(.footnote)
+                    .foregroundStyle(Color(red: 0.65, green: 0.12, blue: 0.12))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 26)
+            }
+
+        }
+    }
+
     // MARK: - Subviews
 
     private var primaryGradient: LinearGradient {
