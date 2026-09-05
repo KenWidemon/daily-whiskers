@@ -25,6 +25,7 @@
 		CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FBA1D67F9BBA070EDC581FD /* AuthView.swift */; };
 		CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14427E6E78184E5322A7BE40 /* Assets.xcassets */; };
 		D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */; };
+		D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */; };
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -54,6 +55,7 @@
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
 		CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
 		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
+		E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentCorrectnessTests.swift; sourceTree = "<group>"; };
 		F2DF0399E6F73432BDB3FDC4 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FAEBF90CA567AEF2C4445900 /* DailyContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -83,6 +85,7 @@
 		79A038FFD12432178B834B4F /* DailyWhiskersTests */ = {
 			isa = PBXGroup;
 			children = (
+				E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */,
 				A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */,
 			);
 			path = DailyWhiskersTests;
@@ -257,6 +260,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */,
 				7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
