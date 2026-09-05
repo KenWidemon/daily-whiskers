@@ -4,15 +4,12 @@ struct DailyWhiskersView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
 
-    private let provider = DailyContentProvider()
-
-    @State private var currentCard: DailyCard?
-    @State private var currentDayIdentifier: Int?
+    @State private var contentState = DailyContentState()
 
     var body: some View {
         NavigationStack {
             ZStack {
-                if let entry = currentCard {
+                if let entry = contentState.currentCard {
                     DailyRitualCardView(
                         data: DailyCardData(
                             archetype: entry.archetype,
@@ -30,11 +27,10 @@ struct DailyWhiskersView: View {
                 }
             }
             .onAppear {
-                refreshDailyContentIfNeeded(force: true)
+                contentState.refresh(at: Date(), force: true)
             }
             .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase == .active else { return }
-                refreshDailyContentIfNeeded(force: false)
+                contentState.scenePhaseDidChange(to: newPhase, at: Date())
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -57,16 +53,30 @@ struct DailyWhiskersView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
     }
+}
 
-    private func refreshDailyContentIfNeeded(force: Bool) {
-        let now = Date()
-        let todayIdentifier = provider.dayIdentifier(for: now)
+struct DailyContentState {
+    private let provider: DailyContentProvider
+    private(set) var currentCard: DailyCard?
+    private(set) var currentDayIdentifier: Int?
+
+    init(provider: DailyContentProvider = DailyContentProvider()) {
+        self.provider = provider
+    }
+
+    mutating func scenePhaseDidChange(to phase: ScenePhase, at date: Date) {
+        guard phase == .active else { return }
+        refresh(at: date)
+    }
+
+    mutating func refresh(at date: Date, force: Bool = false) {
+        let todayIdentifier = provider.dayIdentifier(for: date)
 
         guard force || currentDayIdentifier != todayIdentifier else {
             return
         }
 
-        currentCard = provider.content(for: now)
+        currentCard = provider.content(for: date)
         currentDayIdentifier = todayIdentifier
     }
 }

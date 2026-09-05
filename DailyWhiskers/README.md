@@ -70,6 +70,10 @@ Image import details:
   - fallback behavior
   - rollover expectations
   - missing-image validation behavior
+  - empty/all-invalid manifests, required fields, duplicate IDs, and normalization
+  - bundled manifest and asset integrity, including the fallback image
+  - foreground refresh state across month/year/leap-day boundaries and missed days
+  - time-zone selection and daylight-saving transitions
 
 ## Continuous Integration
 
