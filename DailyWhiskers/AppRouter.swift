@@ -49,6 +49,10 @@ final class AppRouter: ObservableObject {
         try Auth.auth().signOut()
     }
 
+    func sendPasswordReset(email: String) async throws {
+        try await Auth.auth().sendPasswordReset(withEmail: email)
+    }
+
     private func isUserNotFound(_ error: Error) -> Bool {
         let nsError = error as NSError
         guard let code = AuthErrorCode(rawValue: nsError.code) else {

@@ -9,8 +9,10 @@
 /* Begin PBXBuildFile section */
 		30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */; };
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
+		3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
+		50FE26DA6F41C15C7A1DA6FE /* AuthRequestState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
 		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
 		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
@@ -45,6 +47,7 @@
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
 		2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProvider.swift; sourceTree = "<group>"; };
 		2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRecoveryTests.swift; sourceTree = "<group>"; };
 		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
 		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
@@ -53,6 +56,7 @@
 		917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
+		BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRequestState.swift; sourceTree = "<group>"; };
 		CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
 		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
 		E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentCorrectnessTests.swift; sourceTree = "<group>"; };
@@ -85,6 +89,7 @@
 		79A038FFD12432178B834B4F /* DailyWhiskersTests */ = {
 			isa = PBXGroup;
 			children = (
+				2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */,
 				E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */,
 				A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */,
 			);
@@ -106,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */,
+				BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */,
 				2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */,
 			);
 			path = Services;
@@ -260,6 +266,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */,
 				D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */,
 				7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */,
 			);
@@ -271,6 +278,7 @@
 			files = (
 				3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */,
 				C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */,
+				50FE26DA6F41C15C7A1DA6FE /* AuthRequestState.swift in Sources */,
 				CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */,
 				476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */,
 				D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */,

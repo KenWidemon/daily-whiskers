@@ -7,10 +7,25 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day wit
 - Auth UI supports:
   - Sign In (email/password)
   - Create Account (email/password)
+  - Forgot password (uses the entered email; no password required)
   - Debug-only "Use Test Account"
 - Daily content is selected deterministically from local date:
   - `YYYYMMDD % cards.count`
 - Daily content refreshes when app returns to foreground and local day changed.
+
+## Authentication Recovery
+
+- Password reset uses Firebase's reset email flow. Confirmation is deliberately
+  neutral whether the account exists or not; it does not prove email delivery.
+- Sign-in, account creation, and reset share a request lock. Controls are disabled
+  while a request is pending, and failures allow retry.
+- Logout failures show an alert with Try Again and Cancel, retaining the daily screen.
+- The debug test-account UI, credentials, and helper are excluded from Release builds.
+
+Recovery unit tests use injected operations, not live Firebase or real email.
+Before release, manually verify reset delivery to a controlled account (including
+spam), login persistence after relaunch, and offline/retry behavior. A reset request
+alone does not change the password; completing the emailed link does.
 
 ## Setup
 1. Install XcodeGen:

@@ -1,18 +1,22 @@
 import SwiftUI
 
 struct AuthView: View {
+#if DEBUG
     private enum TestAccount {
         static let email = "test@dailywhiskers.app"
         static let password = "WhiskersTest123!"
     }
+
+#endif
 
     @EnvironmentObject private var router: AppRouter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var email: String = ""
     @State private var password: String = ""
-    @State private var authError: String?
-    @State private var isWorking = false
+    @StateObject private var request = AuthRequestState()
+
+    private var isWorking: Bool { request.isWorking }
 
     var body: some View {
         ZStack {
@@ -92,6 +96,27 @@ struct AuthView: View {
                 }
                 .padding(.horizontal, 26)
                 .padding(.top, 6)
+                .disabled(isWorking)
+
+                Button {
+                    Task {
+                        await request.resetPassword(email: email) { address in
+                            try await router.sendPasswordReset(email: address)
+                        }
+                    }
+                } label: {
+                    HStack {
+                        if request.operation == .passwordReset {
+                            ProgressView()
+                        }
+                        Text(request.operation == .passwordReset ? "Sending Reset Link..." : "Forgot password?")
+                    }
+                    .font(.subheadline)
+                    .frame(minHeight: 44)
+                }
+                .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
+                .disabled(isWorking)
+                .accessibilityHint("Sends a password reset link to the email entered above.")
 
                 VStack(spacing: 14) {
                     // Primary: Sign In
@@ -99,7 +124,7 @@ struct AuthView: View {
                         Task { await handleEmailSignIn() }
                     } label: {
                         Group {
-                            if isWorking {
+                            if request.operation == .signIn || request.operation == .testAccount {
                                 ProgressView()
                                     .tint(.white)
                                     .accessibilityLabel("Signing in")
@@ -124,7 +149,7 @@ struct AuthView: View {
                     Button {
                         Task { await handleEmailCreateAccount() }
                     } label: {
-                        Text("Create Account")
+                        Text(request.operation == .createAccount ? "Creating Account..." : "Create Account")
                             .font(.headline)
                             .foregroundStyle(Color(red: 0.74, green: 0.44, blue: 0.16))
                             .frame(maxWidth: .infinity)
@@ -160,7 +185,7 @@ struct AuthView: View {
                 .accessibilityHint("Uses the built-in debug account.")
 #endif
 
-                if let authError {
+                if let authError = request.errorMessage {
                     Text(authError)
                         .font(.footnote)
                         .foregroundStyle(.red)
@@ -171,11 +196,19 @@ struct AuthView: View {
                 Spacer()
             }
         }
+        .alert("Check Your Email", isPresented: Binding(
+            get: { request.confirmation != nil },
+            set: { if !$0 { request.confirmation = nil } }
+        )) {
+            Button("OK", role: .cancel) { request.confirmation = nil }
+        } message: {
+            Text(request.confirmation ?? "")
+        }
         .onChange(of: email) { _, _ in
-            authError = nil
+            request.clearFeedback()
         }
         .onChange(of: password) { _, _ in
-            authError = nil
+            request.clearFeedback()
         }
     }
     
@@ -204,68 +237,35 @@ struct AuthView: View {
     }
 
     private var canSubmit: Bool {
-        isValidEmail(email) &&
-        password.count >= 6 &&
-        !isWorking
-    }
-
-    private func isValidEmail(_ value: String) -> Bool {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-
-        let pattern = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
-        return trimmed.range(of: pattern, options: .regularExpression) != nil
+        AuthRequestState.isValidEmail(email) && password.count >= 6 && !isWorking
     }
 
     private func handleEmailSignIn() async {
-        guard !isWorking else { return }
         guard canSubmit else { return }
-        isWorking = true
-        authError = nil
-        defer { isWorking = false }
-
-        do {
+        await request.perform(.signIn) {
             try await router.signInWithEmail(
-                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
-                password: password
+                email: AuthRequestState.normalizedEmail(email), password: password
             )
-        } catch {
-            authError = AuthErrorMapper.message(for: error)
         }
     }
 
     private func handleEmailCreateAccount() async {
-        guard !isWorking else { return }
         guard canSubmit else { return }
-        isWorking = true
-        authError = nil
-        defer { isWorking = false }
-
-        do {
+        await request.perform(.createAccount) {
             try await router.createEmailAccount(
-                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
-                password: password
+                email: AuthRequestState.normalizedEmail(email), password: password
             )
-        } catch {
-            authError = AuthErrorMapper.message(for: error)
         }
     }
 
+#if DEBUG
     private func handleTestAccountSignInOrCreate() async {
-        guard !isWorking else { return }
-        isWorking = true
-        authError = nil
-        defer { isWorking = false }
-
-        do {
-            try await router.signInOrCreateEmail(
-                email: TestAccount.email,
-                password: TestAccount.password
-            )
-        } catch {
-            authError = AuthErrorMapper.message(for: error)
+        await request.perform(.testAccount) {
+            try await router.signInOrCreateEmail(email: TestAccount.email, password: TestAccount.password)
         }
     }
+#endif
+
 }
 
 private struct GlowOverlay: View {
