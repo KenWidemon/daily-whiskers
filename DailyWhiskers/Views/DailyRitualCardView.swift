@@ -299,6 +299,7 @@ private struct VibePill: View {
 }
 
 private struct SparkleField: View {
+    @Environment(\.scenePhase) private var scenePhase
     let reduceMotion: Bool
 
     var body: some View {
@@ -307,7 +308,7 @@ private struct SparkleField: View {
                 drawSparkles(context: context, size: size, time: 0, animated: false)
             }
         } else {
-            TimelineView(.animation) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
 
                 Canvas { context, size in
