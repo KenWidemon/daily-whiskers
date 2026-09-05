@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,11 +11,13 @@
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
-		67FD22802F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */ = {isa = PBXBuildFile; fileRef = 67FD227F2F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
 		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
+		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
+		79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */ = {isa = PBXBuildFile; fileRef = 917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */; };
 		8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */ = {isa = PBXBuildFile; fileRef = 6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
+		89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDA5B8412ED5644FF9CCB41F /* FirebaseCore */; };
 		ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */; };
 		C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */ = {isa = PBXBuildFile; fileRef = D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */; };
 		C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */; };
@@ -44,10 +46,10 @@
 		2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
 		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
-		67FD227F2F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
+		917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
 		CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
@@ -70,6 +72,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */,
+				78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,8 +111,8 @@
 		BEA3400425A717CE50367DA1 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				67FD227F2F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */,
 				6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */,
+				917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */,
 				D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */,
 				2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */,
 			);
@@ -194,6 +198,8 @@
 			);
 			name = DailyWhiskersTests;
 			packageProductDependencies = (
+				DDA5B8412ED5644FF9CCB41F /* FirebaseCore */,
+				DF2C3279053AF6625304C773 /* FirebaseAuth */,
 			);
 			productName = DailyWhiskersTests;
 			productReference = 9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */;
@@ -221,6 +227,7 @@
 			packageReferences = (
 				34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -237,9 +244,9 @@
 			files = (
 				CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */,
 				8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */,
+				79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */,
 				30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */,
 				C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */,
-				67FD22802F526A9D00FFB7CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -533,6 +540,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCore;
+		};
+		DDA5B8412ED5644FF9CCB41F /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		DF2C3279053AF6625304C773 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
