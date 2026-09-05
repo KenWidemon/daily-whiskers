@@ -339,13 +339,14 @@ struct AuthView: View {
 }
 
 private struct GlowOverlay: View {
+    @Environment(\.scenePhase) private var scenePhase
     let reduceMotion: Bool
 
     var body: some View {
         if reduceMotion {
             glow(pulse: 0)
         } else {
-            TimelineView(.animation) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
                 let pulse = (sin(timeline.date.timeIntervalSinceReferenceDate * .pi / 3) + 1) / 2
                 glow(pulse: pulse)
             }
@@ -367,6 +368,7 @@ private struct GlowOverlay: View {
 }
 
 private struct SparkleOverlay: View {
+    @Environment(\.scenePhase) private var scenePhase
     let reduceMotion: Bool
 
     var body: some View {
@@ -375,8 +377,8 @@ private struct SparkleOverlay: View {
                 drawSparkles(context: context, size: size, time: 0, animated: false)
             }
         } else {
-            TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
 
                 Canvas { context, size in
                     drawSparkles(context: context, size: size, time: t, animated: true)

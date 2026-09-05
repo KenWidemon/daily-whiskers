@@ -112,6 +112,8 @@ Its `Build and unit tests` check can be made required in GitHub branch rules
 after the first successful run.
 
 ## Branch / PR Workflow
+Performance findings and remaining device checks: [Step 5 QA](../docs/performance-qa.md).
+
 Branch roles:
 - `main`: stable release branch.
 - `codex/develop`: integration branch for approved work.
