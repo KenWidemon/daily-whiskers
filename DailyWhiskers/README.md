@@ -78,6 +78,8 @@ Image import details:
 - see `DailyWhiskers/Resources/CAT_IMAGE_IMPORT.md`
 
 ## Tests
+- Step 4B behavior and manual acceptance checks are recorded in
+  [Accessibility and interaction QA](../docs/accessibility-interaction-qa.md).
 - Step 4A layout changes and verification limits are recorded in
   [Visual readability QA](../docs/visual-readability-qa.md).
 - Unit tests live in `DailyWhiskersTests/`.

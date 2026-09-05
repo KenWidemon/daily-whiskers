@@ -61,7 +61,7 @@ struct AuthRecoveryTests {
     }
 
     @Test("An in-flight operation blocks every other auth action", arguments: [
-        AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset
+        AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset, .logout
     ])
     func concurrentRequests(_ operation: AuthRequestState.Operation) async {
         let state = AuthRequestState()
@@ -78,7 +78,7 @@ struct AuthRecoveryTests {
             }
         }
         var duplicateCalls = 0
-        for next in [AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset] {
+        for next in [AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset, .logout] {
             await state.perform(next) { duplicateCalls += 1 }
         }
         await state.resetPassword(email: "cat@example.com") { _ in duplicateCalls += 1 }
@@ -142,5 +142,50 @@ struct AuthRecoveryTests {
     func keychainFailure() {
         #expect(AuthErrorMapper.message(for: error(.keychainError)) ==
             "Couldn't access secure account storage. Restart the app and try again.")
+    }
+
+    @Test("Every operation has account-neutral accessibility feedback", arguments: [
+        (AuthRequestState.Operation.signIn, "Signing in."),
+        (.createAccount, "Creating account."),
+        (.testAccount, "Signing in."),
+        (.passwordReset, "Sending reset link."),
+        (.logout, "Logging out.")
+    ])
+    func operationAnnouncement(_ operation: AuthRequestState.Operation, _ expected: String) {
+        #expect(operation.announcement == expected)
+    }
+
+    @Test("Dismissing feedback clears both alert and inline error state")
+    func dismissFeedback() async {
+        let state = AuthRequestState()
+        await state.perform(.logout) { throw error(.keychainError) }
+        state.clearFeedback()
+        #expect(state.errorMessage == nil)
+        #expect(state.confirmation == nil)
+        #expect(!state.isWorking)
+
+        await state.resetPassword(email: "cat@example.com") { _ in }
+        #expect(state.confirmation != nil)
+        state.clearFeedback()
+        #expect(state.errorMessage == nil)
+        #expect(state.confirmation == nil)
+    }
+
+    @Test("A successful sign-in clears stale feedback and releases the lock")
+    func successfulSignIn() async {
+        let state = AuthRequestState()
+        state.errorMessage = "Previous failure"
+        state.confirmation = "Previous confirmation"
+        var calls = 0
+        await state.perform(.signIn) {
+            calls += 1
+            #expect(state.operation == .signIn)
+            #expect(state.errorMessage == nil)
+            #expect(state.confirmation == nil)
+        }
+        #expect(calls == 1)
+        #expect(!state.isWorking)
+        #expect(state.errorMessage == nil)
+        #expect(state.confirmation == nil)
     }
 }

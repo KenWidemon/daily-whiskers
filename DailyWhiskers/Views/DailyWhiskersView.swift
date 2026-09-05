@@ -6,6 +6,7 @@ struct DailyWhiskersView: View {
 
     @State private var contentState = DailyContentState()
     @StateObject private var logoutRequest = AuthRequestState()
+    @AccessibilityFocusState private var settingsFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -42,19 +43,22 @@ struct DailyWhiskersView: View {
                         .disabled(logoutRequest.isWorking)
                     } label: {
                         Image(systemName: "gearshape")
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Settings")
                     .accessibilityHint("Opens account options, including log out.")
+                    .accessibilityFocused($settingsFocused)
                 }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .alert("Couldn't Log Out", isPresented: Binding(
                 get: { logoutRequest.errorMessage != nil },
-                set: { if !$0 { logoutRequest.errorMessage = nil } }
+                set: { if !$0 { dismissLogoutError() } }
             )) {
                 Button("Try Again") { logOut() }
-                Button("Cancel", role: .cancel) { logoutRequest.clearFeedback() }
+                Button("Cancel", role: .cancel) { dismissLogoutError() }
             } message: {
                 Text(logoutRequest.errorMessage ?? "")
             }
@@ -68,6 +72,11 @@ struct DailyWhiskersView: View {
                 try router.signOut()
             }
         }
+    }
+
+    private func dismissLogoutError() {
+        logoutRequest.clearFeedback()
+        settingsFocused = true
     }
 }
 

@@ -10,6 +10,15 @@ final class AuthRequestState: ObservableObject {
 #endif
     enum Operation {
         case signIn, createAccount, testAccount, passwordReset, logout
+
+        var announcement: String {
+            switch self {
+            case .signIn, .testAccount: return "Signing in."
+            case .createAccount: return "Creating account."
+            case .passwordReset: return "Sending reset link."
+            case .logout: return "Logging out."
+            }
+        }
     }
 
     @Published private(set) var operation: Operation?

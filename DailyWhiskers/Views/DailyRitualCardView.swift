@@ -105,6 +105,8 @@ struct DailyRitualCardView: View {
         ZStack {
             CosmicBackground(theme: theme, reduceMotion: reduceMotion)
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             GeometryReader { geometry in
                 let cardWidth = max(0, min(geometry.size.width - 44, 520))
