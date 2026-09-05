@@ -1,6 +1,11 @@
 import SwiftUI
+import UIKit
 
 struct AuthView: View {
+    private enum Field: Hashable { case email, password }
+    private enum AccessibilityTarget: Hashable { case error, reset }
+    @FocusState private var focusedField: Field?
+    @AccessibilityFocusState private var accessibilityTarget: AccessibilityTarget?
 #if DEBUG
     private enum TestAccount {
         static let email = "test@dailywhiskers.app"
@@ -33,6 +38,7 @@ struct AuthView: View {
 
             GlowOverlay(reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
+                .allowsHitTesting(false)
                 .ignoresSafeArea()
 
             SparkleOverlay(reduceMotion: reduceMotion)
@@ -44,22 +50,35 @@ struct AuthView: View {
 
             // MARK: - Content
             GeometryReader { geometry in
-                ScrollView {
-                    loginContent
-                        .frame(maxWidth: 520)
-                        .padding(.vertical, 28)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: geometry.size.height)
+                ScrollViewReader { scroll in
+                    ScrollView {
+                        loginContent
+                            .frame(maxWidth: 520)
+                            .padding(.vertical, 28)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: geometry.size.height)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: request.errorMessage) { _, message in
+                        guard message != nil else { return }
+                        scroll.scrollTo("auth-error", anchor: .bottom)
+                    }
                 }
-                .scrollDismissesKeyboard(.interactively)
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Hide Keyboard") { focusedField = nil }
+                    .frame(minHeight: 44)
             }
         }
         .preferredColorScheme(.light)
         .alert("Check Your Email", isPresented: Binding(
             get: { request.confirmation != nil },
-            set: { if !$0 { request.confirmation = nil } }
+            set: { if !$0 { dismissResetConfirmation() } }
         )) {
-            Button("OK", role: .cancel) { request.confirmation = nil }
+            Button("OK", role: .cancel) { dismissResetConfirmation() }
         } message: {
             Text(request.confirmation ?? "")
         }
@@ -68,6 +87,10 @@ struct AuthView: View {
         }
         .onChange(of: password) { _, _ in
             request.clearFeedback()
+        }
+        .onChange(of: request.operation) { _, operation in
+            guard let message = operation?.announcement else { return }
+            UIAccessibility.post(notification: .announcement, argument: message)
         }
     }
 
@@ -79,6 +102,7 @@ struct AuthView: View {
                     .tracking(0.5)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
 
                 Text("A calm cat moment, once per day.")
                     .font(.headline)
@@ -95,6 +119,8 @@ struct AuthView: View {
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .submitLabel(.next)
+                    .focused($focusedField, equals: .email)
+                    .onSubmit { if !isWorking { focusedField = .password } }
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .font(.body)
@@ -112,6 +138,11 @@ struct AuthView: View {
                 SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(Color(white: 0.38)))
                     .textContentType(.password)
                     .submitLabel(.done)
+                    .focused($focusedField, equals: .password)
+                    .onSubmit {
+                        guard canSubmit else { return }
+                        Task { await handleEmailSignIn() }
+                    }
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .font(.body)
@@ -130,6 +161,7 @@ struct AuthView: View {
             .disabled(isWorking)
 
             Button {
+                focusedField = nil
                 Task {
                     await request.resetPassword(email: email) { address in
                         try await router.sendPasswordReset(email: address)
@@ -151,6 +183,7 @@ struct AuthView: View {
             .padding(.horizontal, 26)
             .disabled(isWorking)
             .accessibilityHint("Sends a password reset link to the email entered above.")
+            .accessibilityFocused($accessibilityTarget, equals: .reset)
 
             VStack(spacing: 14) {
                 // Primary: Sign In
@@ -217,6 +250,8 @@ struct AuthView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.primary.opacity(0.55))
                     .padding(.top, 2)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .opacity(isWorking ? 0.45 : 1)
             .multilineTextAlignment(.center)
@@ -231,6 +266,9 @@ struct AuthView: View {
                     .foregroundStyle(Color(red: 0.65, green: 0.12, blue: 0.12))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 26)
+                    .id("auth-error")
+                    .accessibilityFocused($accessibilityTarget, equals: .error)
+                    .onAppear { accessibilityTarget = .error }
             }
 
         }
@@ -264,8 +302,14 @@ struct AuthView: View {
         AuthRequestState.isValidEmail(email) && password.count >= 6 && !isWorking
     }
 
+    private func dismissResetConfirmation() {
+        request.confirmation = nil
+        accessibilityTarget = .reset
+    }
+
     private func handleEmailSignIn() async {
         guard canSubmit else { return }
+        focusedField = nil
         await request.perform(.signIn) {
             try await router.signInWithEmail(
                 email: AuthRequestState.normalizedEmail(email), password: password
@@ -275,6 +319,7 @@ struct AuthView: View {
 
     private func handleEmailCreateAccount() async {
         guard canSubmit else { return }
+        focusedField = nil
         await request.perform(.createAccount) {
             try await router.createEmailAccount(
                 email: AuthRequestState.normalizedEmail(email), password: password
@@ -284,6 +329,7 @@ struct AuthView: View {
 
 #if DEBUG
     private func handleTestAccountSignInOrCreate() async {
+        focusedField = nil
         await request.perform(.testAccount) {
             try await router.signInOrCreateEmail(email: TestAccount.email, password: TestAccount.password)
         }
@@ -294,25 +340,29 @@ struct AuthView: View {
 
 private struct GlowOverlay: View {
     let reduceMotion: Bool
-    @State private var pulse = false
 
     var body: some View {
-        // A subtle animated glow that draws attention to the title area
+        if reduceMotion {
+            glow(pulse: 0)
+        } else {
+            TimelineView(.animation) { timeline in
+                let pulse = (sin(timeline.date.timeIntervalSinceReferenceDate * .pi / 3) + 1) / 2
+                glow(pulse: pulse)
+            }
+        }
+    }
+
+    private func glow(pulse: Double) -> some View {
         RadialGradient(
             colors: [
-                Color.orange.opacity(pulse ? 0.20 : 0.12),
+                Color.orange.opacity(0.12 + 0.08 * pulse),
                 Color.clear
             ],
             center: UnitPoint(x: 0.5, y: 0.18),
-            startRadius: pulse ? 20 : 8,
+            startRadius: 8 + 12 * pulse,
             endRadius: 420
         )
-        .scaleEffect(pulse ? 1.03 : 0.98)
-        .animation(
-            reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
-            value: pulse
-        )
-        .onAppear { pulse = !reduceMotion }
+        .scaleEffect(0.98 + 0.05 * pulse)
     }
 }
 
