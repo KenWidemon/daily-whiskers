@@ -69,15 +69,38 @@ the CPU difference into a shipping performance or battery-life claim.
    display and a lower-memory device. Inspect visual smoothness before accepting
    the 30 Hz cadence. Preserve the current design unless profiling justifies more.
 
+## Signed-in Follow-up (September 5-6)
+
+On revision `27737a5`, the iPhone 17e simulator displayed the signed-in daily
+card. Fifteen one-second observations with the keyboard and password-save prompt
+absent measured 3.7-7.5% CPU (mean 6.09%) and 403.61-403.70 MiB resident memory.
+This is a short steady-state sample, not a leak or allocation test.
+
+- After opening Settings and waiting ten seconds, five observations reported
+  0.0% app CPU. Foregrounding retained the same app process and account session.
+- Enabling Reduce Motion produced byte-identical card screenshots two seconds
+  apart. Disabling it restored visible sparkle changes without relaunch.
+  The original disabled setting was restored after the interrupted QA session.
+- Across the actual local-day change from September 5 to September 6 (EDT),
+  foregrounding changed the card from the devotion quote to `noble_temple_sentinel`,
+  with "Stand firm in what feels true." and "conviction". This matches
+  `20260906 % 31` in the bundled manifest. The process ID stayed unchanged.
+- Instruments CPU Profiler initially failed to find the simulator process by PID.
+  A device-targeted retry attached but stalled beyond its ten-second limit and
+  was terminated. No completed Instruments result is claimed.
+
+No application code changed in this follow-up. The prior 35-test result below
+remains the latest regression run; tests were not rerun for documentation alone.
+
 ## Remaining
 
 The signed simulator build and all 35 existing regression tests passed after the
 changes. These tests cover auth/content behavior, not measured frame pacing.
 
-- Both available simulators were signed out during this pass. The second device's
-  screenshot confirmed login, so its measurements are not a daily-card baseline.
-  Signed-in CPU/GPU, image allocations, rollover memory, and auth-cycle profiling
-  remain unverified. No user credentials or auth bypass were added for profiling.
+- Signed-in GPU/frame-pacing, image allocations, rollover memory, and auth-cycle
+  profiling remain unverified. The follow-up above supplies the signed-in idle CPU
+  baseline, but not those deeper measurements. No user credentials or auth bypass
+  were added for profiling; the existing signed-in session was preserved.
 - Physical-device smoothness, frame pacing, energy use, and live reduced-motion
   acceptance remain required. Existing accessibility acceptance items are tracked
   separately in `accessibility-interaction-qa.md`.

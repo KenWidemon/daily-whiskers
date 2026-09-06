@@ -43,10 +43,13 @@
 
 ## Remaining Manual Acceptance Checks
 
+September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
+screenshots were byte-identical two seconds apart; disabling the setting restored
+visible sparkle changes in the same app process. The original setting was restored.
+
 - VoiceOver speech: loading announcements, error focus, complete reading order,
   and alert dismissal focus on a physical device.
-- Toggle Reduce Motion on/off while the signed-in card remains alive; confirm
-  sparkles stop/resume without relaunch. Also check screen transitions.
+- Check auth screen transitions with Reduce Motion on a physical device.
 - Valid keyboard Done submission with a controlled account and repeated presses.
 - Software-keyboard scrolling in landscape and with large Dynamic Type; iPad
   multitasking and rotation checks carried forward from 4A.
