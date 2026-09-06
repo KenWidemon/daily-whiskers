@@ -16,6 +16,7 @@ struct AuthView: View {
 
     @EnvironmentObject private var router: AppRouter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var email: String = ""
     @State private var password: String = ""
@@ -59,6 +60,14 @@ struct AuthView: View {
                             .frame(minHeight: geometry.size.height)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: dynamicTypeSize) { _, _ in
+                        Task { @MainActor in
+                            // Let the resized fields lay out before restoring the editing position.
+                            await Task.yield()
+                            guard let field = focusedField else { return }
+                            scroll.scrollTo(field, anchor: .center)
+                        }
+                    }
                     .onChange(of: request.errorMessage) { _, message in
                         guard message != nil else { return }
                         scroll.scrollTo("auth-error", anchor: .bottom)
@@ -133,6 +142,7 @@ struct AuthView: View {
                     .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
                     .accessibilityLabel("Email")
                     .accessibilityHint("Enter the email for your account.")
+                    .id(Field.email)
 
                 // Password
                 SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(Color(white: 0.38)))
@@ -155,6 +165,7 @@ struct AuthView: View {
                     .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
                     .accessibilityLabel("Password")
                     .accessibilityHint("Enter your password.")
+                    .id(Field.password)
             }
             .padding(.horizontal, 26)
             .padding(.top, 6)
