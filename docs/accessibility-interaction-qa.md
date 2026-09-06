@@ -47,18 +47,44 @@ September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
 screenshots were byte-identical two seconds apart; disabling the setting restored
 visible sparkle changes in the same app process. The original setting was restored.
 
+September 6 keyboard follow-up: with credentials entered by the user on iPhone
+17e, activating the software keyboard's Done button signed in successfully and
+displayed the expected daily card. No credentials were changed or recorded.
+
+September 6 landscape follow-up on a separate, signed-out iPhone 17 Pro Max:
+the focused password field remained visible with the software keyboard at normal
+text size. Changing live to the largest accessibility size moved the field behind
+the keyboard. AuthView now scrolls the focused field into view after a Dynamic
+Type change. Repeating the same landscape test showed the enlarged password field
+above the keyboard. Text size was restored to its original `large` value. This
+targeted check does not establish full-form scrolling or iPad acceptance.
+
+The focused-field fix built successfully and all 35 existing regression tests
+passed on the separate Pro Max simulator. These are auth/content tests; the
+Dynamic Type positioning result above was verified visually, not by those tests.
+
+Fresh iPad Air 11-inch (M4), iOS 26.5 follow-up: login remained centered and
+width-constrained in portrait and landscape. In landscape, the focused password
+field stayed above the software keyboard at normal text size and after a live
+change to the largest accessibility size with the fix installed. Text size was
+restored to `large`. The first app launch stalled after first-boot migration;
+one simulator restart recovered it. These checks cover the full-screen login,
+not iPad window resizing/multitasking or signed-in card interaction.
+
 - VoiceOver speech: loading announcements, error focus, complete reading order,
   and alert dismissal focus on a physical device.
 - Check auth screen transitions with Reduce Motion on a physical device.
-- Valid keyboard Done submission with a controlled account and repeated presses.
-- Software-keyboard scrolling in landscape and with large Dynamic Type; iPad
-  multitasking and rotation checks carried forward from 4A.
+- Live repeated keyboard submission while a request is in flight. A single valid
+  Done submission passed; the request-lock unit tests cover duplicate blocking.
+- Full-form software-keyboard scrolling in landscape and with large Dynamic Type;
+  iPad multitasking/window resizing and signed-in rotation. Full-screen login
+  rotation and focused-password visibility passed as described above.
 - Logout failure alert navigation and accessibility focus with an injected storage
   failure. State-level failure/retry tests pass, but do not verify alert focus.
 
-Live keyboard submission remains unverified: simulator text injection produced
-incorrect input, so no valid controlled-account submission was attempted in this
-follow-up. Landscape, large-text keyboard, and iPad interaction checks remain open.
+The earlier simulator text-injection limitation was avoided by having the user
+enter credentials. Landscape, large-text keyboard, and iPad interaction checks
+remain open.
 The simulator's Accessibility settings do not expose iOS VoiceOver, so speech and
 focus acceptance need a physical device.
 Accessibility-tree inspection is not a substitute for listening with VoiceOver.
