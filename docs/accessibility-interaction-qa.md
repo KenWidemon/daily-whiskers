@@ -47,18 +47,23 @@ September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
 screenshots were byte-identical two seconds apart; disabling the setting restored
 visible sparkle changes in the same app process. The original setting was restored.
 
+September 6 keyboard follow-up: with credentials entered by the user on iPhone
+17e, activating the software keyboard's Done button signed in successfully and
+displayed the expected daily card. No credentials were changed or recorded.
+
 - VoiceOver speech: loading announcements, error focus, complete reading order,
   and alert dismissal focus on a physical device.
 - Check auth screen transitions with Reduce Motion on a physical device.
-- Valid keyboard Done submission with a controlled account and repeated presses.
+- Live repeated keyboard submission while a request is in flight. A single valid
+  Done submission passed; the request-lock unit tests cover duplicate blocking.
 - Software-keyboard scrolling in landscape and with large Dynamic Type; iPad
   multitasking and rotation checks carried forward from 4A.
 - Logout failure alert navigation and accessibility focus with an injected storage
   failure. State-level failure/retry tests pass, but do not verify alert focus.
 
-Live keyboard submission remains unverified: simulator text injection produced
-incorrect input, so no valid controlled-account submission was attempted in this
-follow-up. Landscape, large-text keyboard, and iPad interaction checks remain open.
+The earlier simulator text-injection limitation was avoided by having the user
+enter credentials. Landscape, large-text keyboard, and iPad interaction checks
+remain open.
 The simulator's Accessibility settings do not expose iOS VoiceOver, so speech and
 focus acceptance need a physical device.
 Accessibility-tree inspection is not a substitute for listening with VoiceOver.
