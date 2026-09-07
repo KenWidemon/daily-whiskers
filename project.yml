@@ -7,6 +7,13 @@ schemes:
     test:
       targets:
         - DailyWhiskersTests
+  DailyWhiskersInteraction:
+    build:
+      targets:
+        DailyWhiskers: all
+    test:
+      targets:
+        - DailyWhiskersUITests
 options:
   bundleIdPrefix: com.ken
   deploymentTarget:
@@ -63,3 +70,14 @@ targets:
         product: FirebaseCore
       - package: Firebase
         product: FirebaseAuth
+  DailyWhiskersUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: DailyWhiskersUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0
+    dependencies:
+      - target: DailyWhiskers

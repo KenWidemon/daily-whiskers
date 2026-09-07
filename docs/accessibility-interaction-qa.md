@@ -41,6 +41,39 @@
   resumed visible sparkle/glow changes in the same app process, without relaunch.
   Reduce Motion was restored to its original disabled setting afterward.
 
+## Repeatable UI Checks
+
+The opt-in `DailyWhiskersInteraction` scheme runs three XCTest UI checks on a
+dedicated signed-out simulator:
+
+- Portrait: Email Next moves to Password Done; empty Done stays on login with
+  Sign In and Create Account disabled.
+- Landscape: start with an on-screen password keyboard and scroll until the
+  complete Create Account button is within the visible viewport.
+- Repeat landscape scrolling with the largest accessibility text-size launch
+  override. Interactive scrolling may dismiss the keyboard, as designed.
+
+Each keyboard precondition checks a tappable key contained within the app window.
+Merely finding a keyboard accessibility element is insufficient: the first iPad
+runs exposed keyboard elements below the screen. Showing the software keyboard
+resolved that setup issue; all three checks then passed on iPad Air 11-inch (M4),
+iOS 26.5. These tests never submit valid credentials or sign out a user. Existing
+unit-test CI remains separate. See the README for invocation and setup.
+
+Latest run of the final UI-test code: all three checks passed on iPad Air 11-inch
+(M4), and the existing 35 unit tests passed. On iPhone 17 Pro Max, portrait
+navigation and normal-size landscape scrolling passed, but largest-text landscape
+scrolling still failed. After eight upper-form drags, the captured Create Account
+frame was y=378 through y=465.3 in a 440-point-high window. The test correctly
+rejects this as not fully visible. Whether this is an app interaction defect or
+simulator gesture/rotation behavior remains unresolved; do not mark phone
+largest-text scrolling accepted or ship this test branch as fully green.
+
+Failure screenshots and UI trees are attached to the `.xcresult` bundle. The
+phone diagnostic run is locally available in `/tmp/whiskers-ui-phone-verified.log`;
+the passing iPad and unit runs are `/tmp/whiskers-ui-ipad-final.log` and
+`/tmp/whiskers-unit-final.log`. No application code changed during this test pass.
+
 ## Remaining Manual Acceptance Checks
 
 September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
@@ -76,15 +109,18 @@ not iPad window resizing/multitasking or signed-in card interaction.
 - Check auth screen transitions with Reduce Motion on a physical device.
 - Live repeated keyboard submission while a request is in flight. A single valid
   Done submission passed; the request-lock unit tests cover duplicate blocking.
-- Full-form software-keyboard scrolling in landscape and with large Dynamic Type;
-  iPad multitasking/window resizing and signed-in rotation. Full-screen login
-  rotation and focused-password visibility passed as described above.
+- Physical-device full-form scrolling, iPad multitasking/window resizing, and
+  signed-in rotation. The simulator login scrolling checks are described above;
+  they do not cover those other configurations.
+- Resolve the phone largest-text landscape UI-test failure before accepting that
+  configuration. Keep the failing assertion; do not substitute a keyboard-hidden
+  check for the current keyboard-open-start scenario.
 - Logout failure alert navigation and accessibility focus with an injected storage
   failure. State-level failure/retry tests pass, but do not verify alert focus.
 
 The earlier simulator text-injection limitation was avoided by having the user
-enter credentials. Landscape, large-text keyboard, and iPad interaction checks
-remain open.
+enter credentials. Simulator login scrolling now has repeatable coverage;
+multitasking, signed-in interaction, and physical-device checks remain open.
 The simulator's Accessibility settings do not expose iOS VoiceOver, so speech and
 focus acceptance need a physical device.
 Accessibility-tree inspection is not a substitute for listening with VoiceOver.

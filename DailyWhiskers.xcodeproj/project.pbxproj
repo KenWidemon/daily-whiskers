@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */; };
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
+		34BACE37C29F827F30C2DF5D /* AuthLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D49C6335115DC858536C84 /* AuthLayoutTests.swift */; };
 		3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
@@ -39,9 +40,17 @@
 			remoteGlobalIDString = 2AB9B0B3C585C082AD7E240D;
 			remoteInfo = DailyWhiskers;
 		};
+		F9AE155F2FFD023C34DD0C17 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D3A39E10EE7E092DAFADA9CF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2AB9B0B3C585C082AD7E240D;
+			remoteInfo = DailyWhiskers;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03D49C6335115DC858536C84 /* AuthLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthLayoutTests.swift; sourceTree = "<group>"; };
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
@@ -49,6 +58,7 @@
 		2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRecoveryTests.swift; sourceTree = "<group>"; };
 		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
+		5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -107,6 +117,14 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		A8E6564DFB0B5946BC6D9882 /* DailyWhiskersUITests */ = {
+			isa = PBXGroup;
+			children = (
+				03D49C6335115DC858536C84 /* AuthLayoutTests.swift */,
+			);
+			path = DailyWhiskersUITests;
+			sourceTree = "<group>";
+		};
 		B8E545F01C8523CF52683A93 /* Services */ = {
 			isa = PBXGroup;
 			children = (
@@ -142,6 +160,7 @@
 			children = (
 				FB93A48E3F6CB53E768018CD /* DailyWhiskers */,
 				79A038FFD12432178B834B4F /* DailyWhiskersTests */,
+				A8E6564DFB0B5946BC6D9882 /* DailyWhiskersUITests */,
 				BEA3400425A717CE50367DA1 /* Resources */,
 				FDAFDF466C071B497103475E /* Products */,
 			);
@@ -165,6 +184,7 @@
 			children = (
 				72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */,
 				9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */,
+				5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -192,6 +212,24 @@
 			productName = DailyWhiskers;
 			productReference = 72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */;
 			productType = "com.apple.product-type.application";
+		};
+		89A545EE19A8CC480521F425 /* DailyWhiskersUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BFBFC9D97C02113023221E87 /* Build configuration list for PBXNativeTarget "DailyWhiskersUITests" */;
+			buildPhases = (
+				9948D4D33EB6383D61369C74 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AC1E6539153CA2E2A602F36D /* PBXTargetDependency */,
+			);
+			name = DailyWhiskersUITests;
+			packageProductDependencies = (
+			);
+			productName = DailyWhiskersUITests;
+			productReference = 5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		C6AA38FDF8A0D5761E7A1EC3 /* DailyWhiskersTests */ = {
 			isa = PBXNativeTarget;
@@ -222,6 +260,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					89A545EE19A8CC480521F425 = {
+						TestTargetID = 2AB9B0B3C585C082AD7E240D;
+					};
+				};
 			};
 			buildConfigurationList = C1BC387146486851D6C2BE8E /* Build configuration list for PBXProject "DailyWhiskers" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -242,6 +285,7 @@
 			targets = (
 				2AB9B0B3C585C082AD7E240D /* DailyWhiskers */,
 				C6AA38FDF8A0D5761E7A1EC3 /* DailyWhiskersTests */,
+				89A545EE19A8CC480521F425 /* DailyWhiskersUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -262,6 +306,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		9948D4D33EB6383D61369C74 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34BACE37C29F827F30C2DF5D /* AuthLayoutTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BCB01E95C8858701DBCCE6DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -296,6 +348,11 @@
 			isa = PBXTargetDependency;
 			target = 2AB9B0B3C585C082AD7E240D /* DailyWhiskers */;
 			targetProxy = CA133B30276BB0A3D89BB0A6 /* PBXContainerItemProxy */;
+		};
+		AC1E6539153CA2E2A602F36D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2AB9B0B3C585C082AD7E240D /* DailyWhiskers */;
+			targetProxy = F9AE155F2FFD023C34DD0C17 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -407,6 +464,24 @@
 			};
 			name = Debug;
 		};
+		6FACF606A682157294A052E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.DailyWhiskersUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DailyWhiskers;
+			};
+			name = Debug;
+		};
 		746784E7DAB4256A6ED350EF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -422,6 +497,24 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyWhiskers.app/DailyWhiskers";
+			};
+			name = Release;
+		};
+		DDFB48F8DD080F4210E39A1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.DailyWhiskersUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DailyWhiskers;
 			};
 			name = Release;
 		};
@@ -516,6 +609,15 @@
 			buildConfigurations = (
 				E91EBDBE64CE288026D5C098 /* Debug */,
 				746784E7DAB4256A6ED350EF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BFBFC9D97C02113023221E87 /* Build configuration list for PBXNativeTarget "DailyWhiskersUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FACF606A682157294A052E5 /* Debug */,
+				DDFB48F8DD080F4210E39A1B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
