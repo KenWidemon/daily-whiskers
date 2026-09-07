@@ -51,7 +51,8 @@ The app currently depends on:
 ## Test Account Behavior (Debug)
 In debug builds, `AuthView` includes "Use Test Account":
 - email: `test@dailywhiskers.app`
-- password: `WhiskersTest123!`
+- Obtain debug test-account credentials through a private channel; do not publish passwords in documentation.
+
 - behavior: attempts sign-in first; if user is not found, creates the account.
 
 ## Content Pipeline
@@ -110,6 +111,34 @@ local Firebase plist for interactive development and authentication testing.
 The workflow uploads its build log and `.xcresult` bundle for seven days.
 Its `Build and unit tests` check can be made required in GitHub branch rules
 after the first successful run.
+
+## Optional Interaction Tests
+
+Select the `DailyWhiskersInteraction` scheme to run the UI checks on a dedicated,
+signed-out simulator. They exercise keyboard navigation and landscape form
+scrolling at default and largest accessibility text sizes using empty fields.
+Show the software keyboard in Simulator (I/O > Keyboard > Toggle Software
+Keyboard). Tests require an on-screen, tappable keyboard key and fail clearly
+when only an offscreen keyboard accessibility tree is available.
+They do not create accounts, submit valid credentials, or sign out an existing
+user. The scheme fails its login precondition on a signed-in device.
+
+```sh
+xcodebuild test -project DailyWhiskers.xcodeproj \
+  -scheme DailyWhiskersInteraction \
+  -destination 'platform=iOS Simulator,id=YOUR_QA_SIMULATOR_ID' \
+  -parallel-testing-enabled NO -onlyUsePackageVersionsFromResolvedFile
+```
+
+Use the normal signed development build and a local Firebase configuration.
+The existing `DailyWhiskers` unit-test scheme and CI job are unchanged. The UI
+suite restores portrait orientation and passes text size as a launch argument,
+rather than changing the simulator's persistent accessibility preference.
+
+Current status: all three UI checks pass on iPad Air 11-inch (M4). The Pro Max
+largest-text landscape scrolling check still fails and is under investigation;
+see [interaction QA](../docs/accessibility-interaction-qa.md). This optional scheme
+is not yet a fully green phone acceptance gate.
 
 ## Branch / PR Workflow
 Performance findings and remaining device checks: [Step 5 QA](../docs/performance-qa.md).
