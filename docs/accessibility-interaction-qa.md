@@ -74,6 +74,46 @@ phone diagnostic run is locally available in `/tmp/whiskers-ui-phone-verified.lo
 the passing iPad and unit runs are `/tmp/whiskers-ui-ipad-final.log` and
 `/tmp/whiskers-unit-final.log`. No application code changed during this test pass.
 
+## September 7 Follow-up
+
+Retested the merged PR #32 baseline on the dedicated, signed-out iPhone 17 Pro
+Max (iOS 26.5). After restarting the simulator and displaying its software
+keyboard, the original suite again passed portrait navigation and default-size
+landscape scrolling, but failed largest-text landscape scrolling. The failure
+remains reproducible; restarting alone is not a fix.
+
+Diagnostic experiments did not establish a fix:
+
+- Moving the drag beside the text fields still failed.
+- Launching in portrait, then rotating and waiting for landscape window bounds,
+  still failed.
+- A standard `swipeUp()` with the software-keyboard precondition satisfied also
+  failed the full-button visibility assertion.
+- One intermediate run failed the keyboard precondition instead. That run is
+  not evidence about scrolling.
+
+The simulator also produced cropped/misoriented failure screenshots and initially
+incomplete accessibility output. Direct simulator gestures did not establish
+successful scrolling either, but these environment symptoms prevent attributing
+the result conclusively to app layout. All experimental test changes were
+discarded; the original keyboard and visibility assertions remain unchanged.
+No production app code changed and no credentials were submitted.
+
+Local evidence: `/tmp/whiskers-phone-sept7-fresh.log` (original full suite),
+`/tmp/whiskers-phone-sept7-margin.log`,
+`/tmp/whiskers-phone-sept7-rotation.log`, and
+`/tmp/whiskers-phone-sept7-clean-swipe.log`. The baseline screenshot and hierarchy
+were exported to `/tmp/whiskers-sept7-baseline-attachments`.
+
+Final regression checks against the unchanged test code: all three iPad Air
+11-inch (M4), iOS 26.5 UI tests passed, followed by all 35 unit tests in four
+suites. Logs: `/tmp/whiskers-ipad-sept7.log` and
+`/tmp/whiskers-unit-sept7.log`. The phone suite remains two passes and one failure.
+
+Next diagnostic: compare the same keyboard-open, largest-text landscape flow on
+a physical phone or a separate simulator runtime before choosing an app fix or
+a test-harness adjustment. Do not weaken the acceptance assertion to get green.
+
 ## Remaining Manual Acceptance Checks
 
 September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
