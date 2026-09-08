@@ -49,11 +49,25 @@ The app currently depends on:
 - `FirebaseAuth`
 
 ## Test Account Behavior (Debug)
-In debug builds, `AuthView` includes "Use Test Account":
-- email: `test@dailywhiskers.app`
-- Obtain debug test-account credentials through a private channel; do not publish passwords in documentation.
+In Debug builds, "Use Test Account" is visible only when both launch environment
+variables `DAILY_WHISKERS_TEST_EMAIL` and `DAILY_WHISKERS_TEST_PASSWORD` are set.
+Configure them in a local, unshared Xcode scheme. Never save credentials in the
+shared schemes, source files, documentation, or CI logs. Leave them unset for
+normal development and automated UI checks.
 
-- behavior: attempts sign-in first; if user is not found, creates the account.
+The helper attempts sign-in first and can create the configured account when
+Firebase reports it missing. Use only a controlled development account. The
+helper and its environment lookup are excluded from Release builds.
+
+Previously embedded credentials remain in Git history. Their owner must rotate
+or retire that account; deleting the source literals does not revoke access.
+
+## Release Readiness
+
+See [release readiness](../docs/release-readiness.md) for configuration, archive
+verification, and the remaining owner-controlled signing/security steps.
+`project.yml` is the source of truth for the initial version `1.0`, build `1`.
+Increment the build number before subsequent distribution uploads.
 
 ## Content Pipeline
 Primary content file:
