@@ -8,8 +8,9 @@ struct AuthView: View {
     @AccessibilityFocusState private var accessibilityTarget: AccessibilityTarget?
 #if DEBUG
     private enum TestAccount {
-        static let email = "test@dailywhiskers.app"
-        static let password = "WhiskersTest123!"
+        static let email = ProcessInfo.processInfo.environment["DAILY_WHISKERS_TEST_EMAIL"] ?? ""
+        static let password = ProcessInfo.processInfo.environment["DAILY_WHISKERS_TEST_PASSWORD"] ?? ""
+        static var isConfigured: Bool { !email.isEmpty && !password.isEmpty }
     }
 
 #endif
@@ -252,23 +253,25 @@ struct AuthView: View {
 
             // Dev-only helper
 #if DEBUG
-            Button {
-                email = TestAccount.email
-                password = TestAccount.password
-                Task { await handleTestAccountSignInOrCreate() }
-            } label: {
-                Text("Use Test Account")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.primary.opacity(0.55))
-                    .padding(.top, 2)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+            if TestAccount.isConfigured {
+                Button {
+                    email = TestAccount.email
+                    password = TestAccount.password
+                    Task { await handleTestAccountSignInOrCreate() }
+                } label: {
+                    Text("Use Test Account")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.primary.opacity(0.55))
+                        .padding(.top, 2)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .opacity(isWorking ? 0.45 : 1)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 26)
+                .disabled(isWorking)
+                .accessibilityHint("Uses the locally configured debug account.")
             }
-            .opacity(isWorking ? 0.45 : 1)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 26)
-            .disabled(isWorking)
-            .accessibilityHint("Uses the built-in debug account.")
 #endif
 
             if let authError = request.errorMessage {
