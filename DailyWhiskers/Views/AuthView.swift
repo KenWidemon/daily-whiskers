@@ -285,6 +285,17 @@ struct AuthView: View {
                     .onAppear { accessibilityTarget = .error }
             }
 
+            VStack(spacing: 0) {
+                Link("Privacy Policy", destination: AppLinks.privacyPolicy)
+                    .frame(minHeight: 44)
+                Link("Support", destination: AppLinks.support)
+                    .frame(minHeight: 44)
+            }
+            .font(.footnote)
+            .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 26)
         }
     }
 
