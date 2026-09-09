@@ -5,7 +5,8 @@ struct DailyWhiskersView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var contentState = DailyContentState()
-    @StateObject private var logoutRequest = AuthRequestState()
+    @StateObject private var accountRequest = AuthRequestState()
+    @State private var showingDeletion = false
     @AccessibilityFocusState private var settingsFocused: Bool
 
     var body: some View {
@@ -37,30 +38,44 @@ struct DailyWhiskersView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Link("Privacy Policy", destination: AppLinks.privacyPolicy)
+                        Link("Support", destination: AppLinks.support)
+                        Divider()
                         Button("Log Out", role: .destructive) {
                             logOut()
                         }
-                        .disabled(logoutRequest.isWorking)
+                        .disabled(accountRequest.isWorking)
+                        Button("Delete Account", role: .destructive) {
+                            accountRequest.clearFeedback()
+                            showingDeletion = true
+                        }
+                        .disabled(accountRequest.isWorking)
                     } label: {
                         Image(systemName: "gearshape")
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Settings")
-                    .accessibilityHint("Opens account options, including log out.")
+                    .accessibilityHint("Opens privacy, support, and account options, including log out and account deletion.")
                     .accessibilityFocused($settingsFocused)
                 }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingDeletion, onDismiss: {
+                accountRequest.clearFeedback()
+                settingsFocused = true
+            }) {
+                DeleteAccountView(request: accountRequest)
+            }
             .alert("Couldn't Log Out", isPresented: Binding(
-                get: { logoutRequest.errorMessage != nil },
+                get: { !showingDeletion && accountRequest.errorMessage != nil },
                 set: { if !$0 { dismissLogoutError() } }
             )) {
                 Button("Try Again") { logOut() }
                 Button("Cancel", role: .cancel) { dismissLogoutError() }
             } message: {
-                Text(logoutRequest.errorMessage ?? "")
+                Text(accountRequest.errorMessage ?? "")
             }
         }
         .preferredColorScheme(.dark)
@@ -68,14 +83,14 @@ struct DailyWhiskersView: View {
 
     private func logOut() {
         Task {
-            await logoutRequest.perform(.logout) {
+            await accountRequest.perform(.logout) {
                 try router.signOut()
             }
         }
     }
 
     private func dismissLogoutError() {
-        logoutRequest.clearFeedback()
+        accountRequest.clearFeedback()
         settingsFocused = true
     }
 }

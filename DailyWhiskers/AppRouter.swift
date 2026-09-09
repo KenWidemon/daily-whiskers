@@ -53,6 +53,24 @@ final class AppRouter: ObservableObject {
         try await Auth.auth().sendPasswordReset(withEmail: email)
     }
 
+    func deleteAccount(password: String) async throws {
+        let auth = Auth.auth()
+        guard let user = auth.currentUser, let email = user.email else {
+            throw AccountDeletionError.sessionChanged
+        }
+        try await AccountDeletion.perform(password: password) { password in
+            let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+            _ = try await user.reauthenticate(with: credential)
+        } delete: {
+            guard auth.currentUser?.uid == user.uid else {
+                throw AccountDeletionError.sessionChanged
+            }
+            // Firebase deletes the account and clears its local auth session.
+            try await user.delete()
+        }
+        authState = auth.currentUser.map { .signedIn(uid: $0.uid) } ?? .signedOut
+    }
+
     private func isUserNotFound(_ error: Error) -> Bool {
         let nsError = error as NSError
         guard let code = AuthErrorCode(rawValue: nsError.code) else {

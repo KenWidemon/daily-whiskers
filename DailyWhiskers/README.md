@@ -12,6 +12,13 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day wit
 - Daily content is selected deterministically from local date:
   - `YYYYMMDD % cards.count`
 - Daily content refreshes when app returns to foreground and local day changed.
+- Signed-in Settings offers password-confirmed permanent account deletion.
+
+## Account and Privacy Readiness
+
+See [account/privacy audit](../docs/account-privacy-readiness.md) for deletion
+behavior, data inventory, and outstanding privacy-policy/support links and
+owner decisions. Repository implementation is not complete release acceptance.
 
 ## Authentication Recovery
 
@@ -153,6 +160,16 @@ Current status: all three UI checks pass on iPad Air 11-inch (M4). The Pro Max
 largest-text landscape scrolling check still fails and is under investigation;
 see [interaction QA](../docs/accessibility-interaction-qa.md). This optional scheme
 is not yet a fully green phone acceptance gate.
+
+## Public Privacy and Support
+
+- [Privacy policy](https://kenwidemon.github.io/daily-whiskers-site/privacy/)
+- [Support](https://kenwidemon.github.io/daily-whiskers-site/support/)
+- Contact: dailywhiskers.support@gmail.com. Operator: Kenneth Widemon.
+
+Both destinations are accessible without signing in from the login screen and
+from the signed-in Settings menu. Public site source is maintained separately in
+`KenWidemon/daily-whiskers-site` and deployed through GitHub Pages.
 
 ## Branch / PR Workflow
 Performance findings and remaining device checks: [Step 5 QA](../docs/performance-qa.md).

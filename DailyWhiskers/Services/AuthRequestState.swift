@@ -9,7 +9,7 @@ final class AuthRequestState: ObservableObject {
     private static let logger = Logger(subsystem: "DailyWhiskers", category: "AuthRecovery")
 #endif
     enum Operation {
-        case signIn, createAccount, testAccount, passwordReset, logout
+        case signIn, createAccount, testAccount, passwordReset, logout, deleteAccount
 
         var announcement: String {
             switch self {
@@ -17,6 +17,7 @@ final class AuthRequestState: ObservableObject {
             case .createAccount: return "Creating account."
             case .passwordReset: return "Sending reset link."
             case .logout: return "Logging out."
+            case .deleteAccount: return "Deleting account."
             }
         }
     }
@@ -85,6 +86,7 @@ final class AuthRequestState: ObservableObject {
             switch requestedOperation {
             case .passwordReset: context = .passwordReset
             case .logout: context = .logout
+            case .deleteAccount: context = .accountDeletion
             default: context = .authentication
             }
             errorMessage = AuthErrorMapper.message(for: error, context: context)

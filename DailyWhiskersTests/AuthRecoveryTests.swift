@@ -61,7 +61,7 @@ struct AuthRecoveryTests {
     }
 
     @Test("An in-flight operation blocks every other auth action", arguments: [
-        AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset, .logout
+        AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset, .logout, .deleteAccount
     ])
     func concurrentRequests(_ operation: AuthRequestState.Operation) async {
         let state = AuthRequestState()
@@ -78,7 +78,7 @@ struct AuthRecoveryTests {
             }
         }
         var duplicateCalls = 0
-        for next in [AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset, .logout] {
+        for next in [AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset, .logout, .deleteAccount] {
             await state.perform(next) { duplicateCalls += 1 }
         }
         await state.resetPassword(email: "cat@example.com") { _ in duplicateCalls += 1 }
@@ -149,7 +149,8 @@ struct AuthRecoveryTests {
         (.createAccount, "Creating account."),
         (.testAccount, "Signing in."),
         (.passwordReset, "Sending reset link."),
-        (.logout, "Logging out.")
+        (.logout, "Logging out."),
+        (.deleteAccount, "Deleting account.")
     ])
     func operationAnnouncement(_ operation: AuthRequestState.Operation, _ expected: String) {
         #expect(operation.announcement == expected)
