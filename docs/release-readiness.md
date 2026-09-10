@@ -1,5 +1,16 @@
 # Release Configuration and Security
 
+## Current Status
+
+September 9: account/privacy implementation and owner/live acceptance are merged
+(see [account/privacy audit](account-privacy-readiness.md)). A fresh signed Release
+archive passes with explicit orientations and no former orientation warning.
+Local App Store export and Xcode Organizer App Store Connect validation also
+passed for `1.0 (1)`; no TestFlight build upload or review submission was performed.
+Distribution evidence and remaining handoff steps are tracked in
+[distribution readiness](distribution-readiness.md). The earlier attempts below
+are historical evidence, not the current signing/orientation status.
+
 ## Configuration
 
 - `project.yml` is the source of truth; regenerate with `xcodegen generate`.
@@ -113,12 +124,14 @@ September 7 verification:
 
 ## Remaining Owner and Release Steps
 
-- Confirm distribution bundle ID and available version/build number. Apple team
-  `HYU33CNQ69` is confirmed and configured.
+- Owner confirmed the existing App Store Connect record (6809050612), matching
+  bundle ID, and no uploaded builds. Keep `1.0 (1)` and team `HYU33CNQ69`.
 - Rotate or retire the previously exposed development account.
-- Signed development archive is complete. App Store distribution/export
-  validation remains open, including the interface-orientation warning above.
-- Audit account deletion/reauthentication, privacy disclosures, support links,
-  and current submission requirements in the next release-readiness category.
+- Signed development archive, local App Store export, and Xcode Organizer
+  App Store Connect validation passed for `1.0 (1)`; the orientation warning is
+  resolved. The app record is owner-confirmed. No TestFlight build upload or
+  App Review submission was performed.
+- Account deletion, owner privacy review, public support links, and live deletion
+  acceptance are complete. App Store Connect metadata entry remains outstanding.
 - Keep the known phone largest-text landscape scrolling issue and physical-device
   acceptance checks tracked; this configuration pass does not resolve them.
