@@ -172,6 +172,9 @@ from the signed-in Settings menu. Public site source is maintained separately in
 `KenWidemon/daily-whiskers-site` and deployed through GitHub Pages.
 
 ## Branch / PR Workflow
+Local archive/export steps and Apple account handoff:
+[Distribution readiness](../docs/distribution-readiness.md).
+
 Performance findings and remaining device checks: [Step 5 QA](../docs/performance-qa.md).
 
 Branch roles:
