@@ -8,9 +8,11 @@ Reduce Motion comparison are recorded below. A September 11 evening startup
 attempt saved a trace but failed owner-visible launch confirmation; it is not a
 valid startup baseline. The owner approved a separate image-profiling harness;
 its bounded two-pass exercise completed with the limitations recorded below.
-This task adds evidence and the isolated harness only. No shipping-app code has
-changed. No recording is
-active at this checkpoint. A later paused-launch/attach/resume capture obtained
+The temporary harness was removed at the owner's request after measurement;
+the net change is evidence only. Its source remains recoverable from commit
+`0371d04` if another controlled image exercise is needed. No shipping-app code
+has changed. No recording is active at this checkpoint. A later
+paused-launch/attach/resume capture obtained
 owner-visible initialization-memory evidence, with a dyld timeline warning.
 Natural cold-launch timing and real foreground/day-transition memory behavior
 remain unestablished; neither is proved by the isolated exercise.
@@ -209,7 +211,8 @@ different exercises/OS versions as a controlled before/after comparison.
 - Trace: `/tmp/whiskers-device-startup-allocations-20260911-1837.trace`;
   metadata: `/tmp/whiskers-device-startup-allocations-20260911-1837-toc.xml`.
 - Rather than repeatedly retrying the launch path, the owner approved
-  `tools/PerformanceHarness`: a separate developer app, no Firebase dependency,
+  the temporary `tools/PerformanceHarness`: a separate developer app, no Firebase
+  dependency,
   no real account/session access, and no shipping-target changes. It uses the
   real provider, card view, manifest, and assets, with injected Gregorian UTC
   dates instead of changing the phone clock. It does not use `DailyContentState`
@@ -235,8 +238,8 @@ different exercises/OS versions as a controlled before/after comparison.
 - The 210-second recording completed normally (211.014-second envelope), on
   iPhone 17 Pro Max / iOS 26.6.2 (23G90), with no warning in the capture log.
   The owner had confirmed Reduce Motion and Low Power Mode off for this session;
-  no setting changes were requested. The harness uses the real rendering code
-  from `37f9e00` plus the separate driver included with this evidence.
+  no setting changes were requested. The harness used the real rendering code
+  from `37f9e00` plus the temporary driver preserved in commit `0371d04`.
 - Whole-run Created & Persistent statistics reported 250.91 MiB All Heap &
   Anonymous VM: 7.66 MiB heap and 243.25 MiB anonymous VM. Of 2,212,256 tracked
   allocations, 30,152 remained persistent. Total allocated bytes were 1.18 GiB,
@@ -316,8 +319,10 @@ different exercises/OS versions as a controlled before/after comparison.
    attribution and user-visible severity are not established. No optimization
    or full performance sign-off is claimed. Energy, long-session, and lower-memory
    device measurements are outside this completed bounded exercise.
-4. The owner authorized publishing this evidence and harness through the normal
-   task PR into `codex/develop`. The broader physical-device accessibility/
+4. The owner authorized publishing this evidence through the normal task PR
+   into `codex/develop` and subsequently requested removal of the temporary
+   harness. Historical measurements above remain intact. The broader physical-device
+   accessibility/
    interaction acceptance checklist is still pending, not waived.
 
 ## Historical Step 5 Changes
