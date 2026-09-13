@@ -116,6 +116,71 @@ or overall V1 acceptance. No TestFlight build upload or App Review submission wa
 performed. Those actions still require authorization. All simulators remained
 shut down during validation. Changes are prepared for PR review into `codex/develop`.
 
+## Screenshot Candidate Comparison (September 12, 2026)
+
+The approved listing screenshots were statically compared with the existing
+September 9 archive and exported IPA. No new archive or upload was performed.
+
+- Candidate identity remains `1.0 (1)` with the expected bundle ID and minimum OS.
+- All 31 compiled card asset records match the screenshot capture app. Archive
+  and IPA asset catalogs are byte-identical, and packaged daily JSON matches
+  source/capture provenance.
+- Eleven captured Swift source hashes match distribution revision `e3d8575` and
+  current source. No intervening shipping source or project changes were found.
+- IPA executable UUID matches the archive dSYM; strict/deep signature verification
+  passed outside the sandbox. The initial sandbox attempt could not establish
+  certificate trust; no trust settings or signing assets were changed.
+- Packaged Firebase config matches the local real config, not the CI fixture.
+  No targeted screenshot-only/debug-helper markers were found in the executable.
+- Six approved composition files remain unchanged. Local evidence, including
+  the IPA hash, is `build/screenshots/2026-09-12/candidate-comparison.json`.
+
+This closes the static screenshot comparison for this candidate, not physical
+acceptance, current server-side validation, or upload authorization. Repeat the
+comparison after UI/content/candidate changes. See the
+[approved listing and screenshot record](app-store-listing.md).
+
+## Listing Entry (September 12, 2026)
+
+After owner authorization and sign-in, approved English (U.S.) listing copy,
+name/subtitle, Entertainment/Lifestyle categories, and support/privacy URLs were
+saved in the existing app record. Three 6.9-inch iPhone and three 13-inch iPad
+screenshots were uploaded and verified in Celestial, Forest, Cozy order.
+
+The version remains `Prepare for Submission`. No build upload, build selection,
+or App Review submission occurred. Reviewer access, pricing/availability, and regulatory decisions remain
+separate tasks. Existing automatic release behavior was not changed.
+See the [listing entry record](app-store-listing.md#app-store-connect-entry).
+
+Follow-up: Ken confirmed `2026 Kenneth Widemon` and ChatGPT-generated artwork/
+quotes with no third-party photos, artwork, or copied quotations used as inputs.
+Copyright and the `No third-party content` answer were saved and verified after
+reload. These owner-confirmed metadata entries do not establish independent legal
+clearance or close any remaining privacy, age-rating, or physical acceptance gate.
+
+Privacy follow-up: Ken approved the three disclosure categories and explicitly
+accepted Apple's final publication agreement. Published and verified the
+authenticated status on September 12: email and user ID linked for App
+Functionality; Other Diagnostic Data unlinked for Analytics; no tracking for all
+three. This completes privacy-label publication, not build or review submission.
+
+Age-rating follow-up: after owner approval, saved the questionnaire with no
+higher-age override and no Made for Kids enrollment. Verified 9+ in 172 countries
+or regions, 12+ in Vietnam/Brazil, and All in Korea; earlier-than-26 operating
+systems show global 4+ with regional exceptions. The App Information page also
+showed a content-rights setup prompt despite the previous saved/read-back record;
+the subsequent recheck found no selected answer. Restored the owner-approved No
+answer, saved the parent page, and verified persistence after reload.
+
+Reviewer/distribution follow-up (September 13): owner-approved free pricing is
+verified at USD 0.00, with only the United States available on app release.
+Mac/Vision Pro availability is disabled and manual release is saved. Public
+distribution remains selected. Approved review contact name/email and the phone
+Ken entered directly are present with Save disabled; no phone value is recorded
+in the repository. Dedicated reviewer credentials and final review notes remain
+deferred. No build upload, review submission, or release occurred. See the
+prepared notes and detailed evidence in `app-store-listing.md`.
+
 ## References
 
 - [Apple orientation defaults](https://developer.apple.com/documentation/uikit/uiapplication/supportedinterfaceorientations(for:))

@@ -71,6 +71,11 @@ or retire that account; deleting the source literals does not revoke access.
 
 ## Release Readiness
 
+The English App Store copy and screenshot storyboard are in the
+[listing record](../docs/app-store-listing.md). Approved metadata and six final
+screenshots are saved in the App Store Connect version 1.0 draft. No build upload
+or App Review submission has occurred.
+
 See [release readiness](../docs/release-readiness.md) for configuration, archive
 verification, and the remaining owner-controlled signing/security steps.
 `project.yml` is the source of truth for the initial version `1.0`, build `1`.
