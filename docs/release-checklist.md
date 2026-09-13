@@ -8,6 +8,10 @@ release is authorized merely by approval of this checklist.
 
 ## Completed Baseline
 
+- PR #41 merged into `codex/develop`: guest-first access, optional account tools,
+  56 passing unit tests, four focused UI checks, signed Release build, and scoped
+  owner-reported iPhone account-transition/VoiceOver acceptance. RC promotion has
+  not occurred; `release/rc` was created from the stable `main` baseline.
 - PR #40 merged into `codex/develop`: VoiceOver fixes, tests, and scoped physical
   iPhone/iPad acceptance. Latest unit suite: 51 tests in seven suites passed;
   focused error-visibility UI check and signed device builds passed.
@@ -46,9 +50,11 @@ release is authorized merely by approval of this checklist.
    applicable compliance/export questions, public support/privacy URLs, and saved
    listing settings. Accessibility claims must match verified support. Reconcile
    listing/privacy/reviewer copy with any product changes from #3.
-6. **Open: prepare the final release candidate.** Promote approved work from
-   `codex/develop` to `main` through a release PR and identify the release commit.
-   Rerun regression tests; archive, export, and validate a fresh candidate. Verify
+6. **Open: prepare the final release candidate.** `release/rc` starts from `main`;
+   promote the approved `codex/develop` snapshot into RC through a PR, then freeze
+   and identify the candidate commit/tag. Rerun regression tests; archive, export,
+   and validate that exact RC candidate. Promote the accepted RC to `main` through
+   a release PR, preserving its tested source tree and artifact provenance. Verify
    production Firebase configuration if retained, version/build availability,
    and screenshot parity. The September 9 archive predates the VoiceOver fixes.
 7. **Not started: upload to TestFlight and test that exact build.** With upload
@@ -183,6 +189,7 @@ Work branch: `codex/release-security-decisions`, based on merged `codex/develop`
 
 ## Evidence and References
 
+- [Main-based RC branching and promotion strategy](branching-strategy.md)
 - [Physical accessibility and interaction QA](accessibility-interaction-qa.md)
 - [Performance evidence and gaps](performance-qa.md)
 - [Distribution evidence](distribution-readiness.md)

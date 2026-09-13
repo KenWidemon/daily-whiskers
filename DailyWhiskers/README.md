@@ -202,9 +202,13 @@ Performance findings and remaining device checks: [Step 5 QA](../docs/performanc
 
 Branch roles:
 - `main`: stable release branch.
-- `codex/develop`: integration branch for approved work.
+- `codex/develop`: development trunk for approved work, including work for later releases.
+- `release/rc`: long-lived pre-release testing branch, initially created from
+  `main`. It receives approved development snapshots through promotion PRs.
 - `codex/<task>`: one task branch per roadmap item, created from `codex/develop`
   (for example, `codex/ci-baseline`).
+- `codex/rc-<fix>`: release-fix branch created from `release/rc`, targeting RC
+  first; bring every accepted fix back into the development trunk through a PR.
 
 Expected flow per item:
 1. Create a `codex/<task>` branch from the updated `codex/develop` branch.
@@ -212,4 +216,15 @@ Expected flow per item:
 3. Get Ken's sign-off.
 4. Commit, push, and open a PR into `codex/develop`.
 5. Merge the approved PR before starting the next item.
-6. When ready for release, promote `codex/develop` into `main` through a release PR.
+6. When release scope is approved, promote `codex/develop` into `release/rc`
+   through a PR. Freeze the candidate; do not automatically pull in later trunk work.
+7. Test, archive, and validate the RC commit; record its tag, version/build, and
+   artifact provenance. Any candidate change requires renewed relevant validation.
+8. Promote the accepted `release/rc` into `main` through a release PR. Use merge
+   commits for promotions between long-lived branches to preserve ancestry.
+9. Keep `release/rc` and `codex/develop` synchronized with released fixes through
+   PRs. App Store upload, review submission, and manual release remain separately
+   authorized actions.
+
+See [branching strategy](../docs/branching-strategy.md) for promotion, freeze,
+fix propagation, candidate identity, and branch-protection expectations.

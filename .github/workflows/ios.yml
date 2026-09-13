@@ -2,9 +2,9 @@ name: iOS CI
 
 on:
   pull_request:
-    branches: [main, codex/develop]
+    branches: [main, codex/develop, release/rc]
   push:
-    branches: [main, codex/develop]
+    branches: [main, codex/develop, release/rc]
   workflow_dispatch:
 
 permissions:

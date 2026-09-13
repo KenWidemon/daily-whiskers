@@ -14,6 +14,20 @@ Store submission. `project.yml` remains the source of truth.
   These account-side details are owner-reported, not an independently inspected
   authenticated record. Do not create a duplicate or rename the bundle ID.
 
+## Release Branch Workflow
+
+The release path is now `codex/develop` (development trunk) -> `release/rc`
+(pre-release testing) -> `main` (stable release). RC is initially created from
+`main`, not from the development trunk; approved trunk work enters through a
+promotion PR. Build/archive/test the identified RC commit before promoting the
+accepted source tree into `main`. Preserve candidate SHA/tag and artifact hashes
+even when the main merge commit has a different SHA.
+
+RC fixes must return to trunk through reviewed sync PRs. No branch creation or
+promotion authorizes TestFlight upload, App Review submission, or manual release.
+See [branching strategy](branching-strategy.md) for freeze, promotion, and protection
+rules, and [release checklist](release-checklist.md) for current readiness.
+
 ## Orientation Configuration
 
 The previous archive omitted supported-orientation declarations. XcodeGen now
