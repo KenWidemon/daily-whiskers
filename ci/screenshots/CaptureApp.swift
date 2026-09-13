@@ -7,10 +7,14 @@ import SwiftUI
 @main
 struct CaptureApp: App {
     @StateObject private var router = AppRouter()
+    @State private var showingSignIn = ProcessInfo.processInfo.arguments.contains("--login")
 
     var body: some Scene {
         WindowGroup {
             RootView()
+                .sheet(isPresented: $showingSignIn) {
+                    NavigationStack { AuthView() }
+                }
                 .environmentObject(router)
         }
     }

@@ -13,7 +13,7 @@ struct DeleteAccountView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Permanently delete your Daily Whiskers account. You will be signed out. This cannot be undone.")
+                    Text("Permanently delete your Daily Whiskers account. You will be signed out and can keep enjoying daily cards without an account. This cannot be undone.")
                     Text("Daily cat photos and quotes are bundled with the app, not stored in your account.")
                         .foregroundStyle(.secondary)
                 }
@@ -26,7 +26,7 @@ struct DeleteAccountView: View {
                         .submitLabel(.done)
                         .onSubmit { passwordFocused = false }
                         .disabled(request.isWorking)
-                    Text("Forgot your password? Cancel, log out, and use Forgot password on the sign-in screen.")
+                    Text("Forgot your password? Cancel, log out, then open Settings > Sign In and use Forgot password.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

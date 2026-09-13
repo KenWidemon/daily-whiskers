@@ -48,7 +48,9 @@ hashes against the accepted release candidate before final export.
 - Use English (U.S.), default text size, full-screen iPad, and no keyboard/menus.
 - Set only the simulated status bar to 9:41/full battery; do not change the clock.
 - Leave Reduce Motion off for the ordinary UI; sparkle pixels may vary by frame.
-- Launch normally for the card; pass `--login` for the optional empty login view.
+- Launch normally for the card; pass `--login` to present the optional empty
+  sign-in sheet over the card, including its Close action. This remains a preview
+  with all account operations disabled, not a live session-transition test.
 - Wait for layout and entrance animations to settle before `simctl io screenshot`.
 - Inspect all captures for clipping, legibility, correct quote/vibe, and private data.
 - Preserve native, unedited PNGs. Compose approved captions separately, never

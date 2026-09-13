@@ -8,10 +8,41 @@ the login screen and Settings. Policy/disclosure review and the agreed live
 deletion acceptance check are complete. The owner reported completing authorized
 deletion and rejection of the former credentials; the agent verified signed-out
 state persists after relaunch. This implementation pass is ready for commit/PR
-review. Guest access remains deferred. This is not overall release approval,
+review. Guest-first access and optional account tools were approved September 13
+and are implemented with scoped iPhone acceptance passed by owner report; see the
+current decision record below. This is not overall release approval,
 App Store submission, or a certification of legal compliance.
 
 ## Policy Draft Inputs
+
+### September 13 Guest-First Copy Follow-Up
+
+Public privacy/support pages were read successfully on September 13. They still
+describe account use without explaining optional entry from Settings. No public
+site changes were published in this app pass. Prepare the following in the
+separate site repository before release, retaining existing provider/diagnostic
+disclosures and updating the policy effective date when published:
+
+- Privacy, Account information: "You can view daily cards without an account.
+  If you choose to create an account or sign in from Settings, the app uses Google
+  Firebase email/password authentication. Your email address and password are sent
+  to Firebase to create or authenticate your account. Firebase assigns a user
+  identifier and manages authentication information. The app uses that identifier
+  to recognize your signed-in session. Guest access does not create an anonymous
+  Firebase account."
+- Support, before sign-in help: "Do I need an account? No. Daily Whiskers opens
+  directly to your daily card. Optional sign-in and account creation are available
+  from Settings > Sign In. You can close sign-in and keep enjoying daily cards."
+- Support, recovery: explain that guests open Settings > Sign In to reach
+  Forgot password. Existing signed-in users can log out first.
+- Support, deletion: begin with Settings > Sign In if needed, then Settings >
+  Delete Account. Explain that successful deletion returns to guest access and
+  daily cards remain available; keep permanent-deletion and retention caveats.
+
+Guest access changes the entry flow, not the retained Firebase SDK disclosures.
+Do not describe guest use as zero network activity or zero data collection.
+
+### Previously Approved Inputs
 
 - Operator: Kenneth Widemon (confirmed by the owner September 8, 2026).
 - Public support/privacy contact: dailywhiskers.support@gmail.com (confirmed by
@@ -62,8 +93,10 @@ App Store submission, or a certification of legal compliance.
   trimmed or logged; the view clears its password when submitted or dismissed.
 - The router captures the current Firebase user and rejects a changed session
   before deleting. It does not sign into another account to perform deletion.
-- Logout and deletion share the signed-in request lock. Dismissal and controls
-  are disabled while deletion is pending; failures allow a fresh password/retry.
+- Logout and deletion have separate request/feedback state, preventing deletion
+  errors from appearing as logout errors. Each prevents duplicate submissions.
+  Dismissal and controls are disabled while deletion is pending; failures allow
+  a fresh password/retry.
 - Firebase's successful `User.delete()` clears the local auth session. The router
   returns to signed-out state. The pinned SDK can report secure-storage failure
   after the remote deletion request; UI wording deliberately does not claim the
@@ -117,10 +150,15 @@ Store privacy answers. The final answers must combine app and SDK behavior.
 2. Complete: owner approved the published policy covering operator/contact,
    account data, Firebase processing, retention, deletion, and user requests on
    September 8, 2026.
-3. Guest access is deferred by the owner; mandatory login remains unchanged.
-   All current daily content is local and not account-based;
-   mandatory sign-in therefore presents a review risk under Apple's account
-   sign-in guidance. This is an audit finding, not a prediction of rejection.
+3. Guest-first access approved September 13: daily content no longer requires
+   authentication on the work branch. Settings retains optional sign-in and
+   signed-in logout/deletion. No anonymous Firebase account is created. Existing
+   accounts and their deletion/recovery paths remain supported. Scoped iPhone
+   account-transition and VoiceOver acceptance passed by owner report, including
+   authorized disposable-account deletion and post-deletion guest persistence.
+   Public-policy/support copy reconciliation and final-candidate repeats remain.
+   Firebase SDK initialization remains; guest mode is not a claim of zero SDK
+   diagnostics/network activity and does not justify removing privacy disclosures.
 4. Data-use scope confirmed by the owner on September 8: only Firebase
    email/password authentication. Owner approved the presented disclosures on
    September 8, 2026. Entering and verifying the corresponding App Store Connect
@@ -129,9 +167,11 @@ Store privacy answers. The final answers must combine app and SDK behavior.
    signed-out state after relaunch was observed. The owner reported rejection of
    the previously working credentials with "Invalid email or password."
 
-Credential rotation remains deferred by the owner, as recorded in release
-readiness. The known phone scrolling failure and distribution-orientation
-warning also remain open; neither is changed by this work.
+September 13 follow-up: Ken reported disabling the exposed legacy account in
+Firebase Console. No independent rejected-login or token verification was
+performed. The orientation warning was resolved in the distribution pass, and
+the simulator scrolling failure was explicitly deferred after physical testing.
+Use the [canonical release checklist](release-checklist.md) for current status.
 
 ## Sources
 

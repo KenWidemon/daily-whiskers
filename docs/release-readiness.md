@@ -42,9 +42,11 @@ owner must rotate or retire the exposed account and consider revoking existing
 sessions. This change does not modify Firebase users, credentials, or sessions.
 No history rewrite was performed.
 
-Owner disposition: proceed with the repository changes without rotating or
-retiring the account in this pass. Credential remediation remains open; it is
-not verified complete, and no Firebase account action was taken.
+Initial owner disposition was to defer remediation. September 13 follow-up: Ken
+confirmed that he disabled the legacy account in Firebase Console himself.
+Record account retirement as complete by owner report; disabled-state/login and
+token behavior were not independently verified. The agent took no Firebase
+account action. See the [canonical release checklist](release-checklist.md).
 
 ## Signing and Archive Verification
 
@@ -126,7 +128,8 @@ September 7 verification:
 
 - Owner confirmed the existing App Store Connect record (6809050612), matching
   bundle ID, and no uploaded builds. Keep `1.0 (1)` and team `HYU33CNQ69`.
-- Rotate or retire the previously exposed development account.
+- Previously exposed development account disabled by owner report on September
+  13; no independent rejected-login or token verification was performed.
 - Signed development archive, local App Store export, and Xcode Organizer
   App Store Connect validation passed for `1.0 (1)`; the orientation warning is
   resolved. The app record is owner-confirmed. No TestFlight build upload or

@@ -1,10 +1,14 @@
 # Daily Whiskers (SwiftUI)
 
-Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day with Firebase email/password auth.
+Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day, with optional Firebase email/password accounts.
 
 ## Current Behavior
-- Auth routing lives in `AppRouter`.
-- Auth UI supports:
+- The daily card opens immediately without sign-in, including while Firebase restores
+  its session. Guest access does not create a Firebase anonymous account.
+- `AppRouter` tracks the account session; it does not gate daily content.
+- Settings offers optional Sign In for guests, or Log Out and Delete Account for
+  signed-in users. Privacy and Support are always available.
+- Optional auth UI supports:
   - Sign In (email/password)
   - Create Account (email/password)
   - Forgot password (uses the entered email; no password required)
@@ -13,6 +17,10 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day wit
   - `YYYYMMDD % cards.count`
 - Daily content refreshes when app returns to foreground and local day changed.
 - Signed-in Settings offers password-confirmed permanent account deletion.
+- Closing auth returns to the same daily card and discards unfinished credentials.
+  Close/swipe dismissal is disabled while an auth request is running. Successful
+  sign-in or account creation dismisses auth. Logout and deletion return to guest
+  access without removing the daily card or automatically reopening sign-in.
 
 ## Account and Privacy Readiness
 
@@ -141,7 +149,8 @@ after the first successful run.
 ## Optional Interaction Tests
 
 Select the `DailyWhiskersInteraction` scheme to run the UI checks on a dedicated,
-signed-out simulator. They exercise keyboard navigation and landscape form
+signed-out simulator. They first verify guest entry and open Settings > Sign In.
+They exercise optional-auth dismissal/relaunch, keyboard navigation and landscape form
 scrolling at default and largest accessibility text sizes using empty fields,
 plus repeated local validation-error visibility. The latter does not verify
 VoiceOver speech or accessibility focus; those require physical acceptance.
@@ -182,6 +191,10 @@ from the signed-in Settings menu. Public site source is maintained separately in
 `KenWidemon/daily-whiskers-site` and deployed through GitHub Pages.
 
 ## Branch / PR Workflow
+Canonical remaining release steps and owner decisions:
+[V1 release checklist](../docs/release-checklist.md). Keep its item numbers and
+statuses updated as work proceeds; skipped items are not automatically waived.
+
 Local archive/export steps and Apple account handoff:
 [Distribution readiness](../docs/distribution-readiness.md).
 
