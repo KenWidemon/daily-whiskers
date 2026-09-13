@@ -136,9 +136,10 @@ compare simulator gestures, rotation, viewport, and text-size configuration with
 the passing manual flow before choosing an app fix or test-harness adjustment.
 
 Release exception approved by Ken on September 13: skip further diagnosis of
-this simulator failure for V1. Remaining step #2 is complete with this explicit
-exception and the owner-reported physical-phone pass, not a resolved defect or
-green simulator suite. Preserve the test and its assertions; do not disable it
+this simulator failure for V1. Remaining step 2 (_physical device scrolling_)
+is complete with this explicit exception and the owner-reported physical-phone
+pass, not a resolved defect or green simulator suite. Preserve the test and its
+assertions; do not disable it
 or convert the failure to a pass. Track simulator diagnosis as post-release work.
 This exception does not waive final-candidate physical checks or broader QA.
 
