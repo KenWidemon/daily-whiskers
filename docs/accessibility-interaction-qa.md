@@ -114,6 +114,39 @@ Next diagnostic: compare the same keyboard-open, largest-text landscape flow on
 a physical phone or a separate simulator runtime before choosing an app fix or
 a test-harness adjustment. Do not weaken the acceptance assertion to get green.
 
+## Physical Phone Follow-up (September 13, 2026)
+
+Ken performed the manual comparison on the connected iPhone 17 Pro Max, starting
+from the login screen. The requested setup was the largest accessibility text
+size, landscape orientation, and the password field's software keyboard open.
+Ken reported that the entire Create Account button could be brought into view
+by scrolling and that the keyboard stayed visible while scrolling. No credential
+entry or account creation was requested.
+
+This is an owner-reported pass for physical-phone full-button reachability in
+that scenario, not an independently captured screenshot or automated result.
+The installed build identity and OS version were not reverified during this
+manual check; repeat against the final distributed candidate for release sign-off.
+
+The earlier simulator failure remains unresolved. The physical result does not
+establish its root cause or make the simulator suite green. Keep the original
+keyboard-open precondition and full-button visibility assertion unchanged.
+No app or test code was changed based on this result. Further diagnosis should
+compare simulator gestures, rotation, viewport, and text-size configuration with
+the passing manual flow before choosing an app fix or test-harness adjustment.
+
+Release exception approved by Ken on September 13: skip further diagnosis of
+this simulator failure for V1. Remaining step 2 (_physical device scrolling_)
+is complete with this explicit exception and the owner-reported physical-phone
+pass, not a resolved defect or green simulator suite. Preserve the test and its
+assertions; do not disable it
+or convert the failure to a pass. Track simulator diagnosis as post-release work.
+This exception does not waive final-candidate physical checks or broader QA.
+
+Restore the original text-size and rotation-lock settings after testing;
+restoration has not yet been confirmed. Broader physical-device accessibility,
+signed-in interaction, and performance acceptance remain separate checks.
+
 ## Remaining Manual Acceptance Checks
 
 September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
@@ -149,12 +182,14 @@ not iPad window resizing/multitasking or signed-in card interaction.
 - Check auth screen transitions with Reduce Motion on a physical device.
 - Live repeated keyboard submission while a request is in flight. A single valid
   Done submission passed; the request-lock unit tests cover duplicate blocking.
-- Physical-device full-form scrolling, iPad multitasking/window resizing, and
-  signed-in rotation. The simulator login scrolling checks are described above;
-  they do not cover those other configurations.
-- Resolve the phone largest-text landscape UI-test failure before accepting that
-  configuration. Keep the failing assertion; do not substitute a keyboard-hidden
-  check for the current keyboard-open-start scenario.
+- Physical-device full-form scrolling on the final distributed candidate, iPad
+  multitasking/window resizing, and signed-in rotation. The September 13 manual
+  check passed Create Account reachability on the currently installed phone app;
+  it does not cover those other configurations or establish candidate identity.
+- Post-release follow-up: diagnose the phone largest-text landscape simulator
+  UI-test failure, explicitly deferred for V1 by Ken on September 13. Keep the
+  failing assertion; do not substitute a keyboard-hidden check for the current
+  keyboard-open-start scenario.
 - Logout failure alert navigation and accessibility focus with an injected storage
   failure. State-level failure/retry tests pass, but do not verify alert focus.
 
