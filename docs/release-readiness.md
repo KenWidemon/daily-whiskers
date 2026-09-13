@@ -133,5 +133,8 @@ September 7 verification:
   App Review submission was performed.
 - Account deletion, owner privacy review, public support links, and live deletion
   acceptance are complete. App Store Connect metadata entry remains outstanding.
-- Keep the known phone largest-text landscape scrolling issue and physical-device
-  acceptance checks tracked; this configuration pass does not resolve them.
+- September 13 follow-up: physical-phone largest-text landscape scrolling passed
+  by owner report. Ken explicitly deferred the unresolved simulator failure for
+  V1; keep the test unchanged and track diagnosis after release. Final-candidate
+  and broader physical-device acceptance remain open. See
+  `accessibility-interaction-qa.md` for the evidence and release exception.

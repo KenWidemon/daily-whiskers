@@ -181,6 +181,18 @@ in the repository. Dedicated reviewer credentials and final review notes remain
 deferred. No build upload, review submission, or release occurred. See the
 prepared notes and detailed evidence in `app-store-listing.md`.
 
+## Scrolling Release Exception (September 13, 2026)
+
+Remaining step #2 is complete with an owner-approved exception: Ken reported
+that the complete Create Account button is reachable on the physical iPhone
+in largest-text landscape, with the password keyboard remaining visible while
+scrolling, and explicitly deferred the unresolved simulator failure for V1.
+The existing UI test and assertions remain unchanged; the simulator suite is
+not considered green. Resume simulator diagnosis after release. Installed build
+identity was not reverified in this manual check, so final-candidate physical
+acceptance and the broader release gates remain open. See the detailed evidence
+and limitations in `accessibility-interaction-qa.md`.
+
 ## References
 
 - [Apple orientation defaults](https://developer.apple.com/documentation/uikit/uiapplication/supportedinterfaceorientations(for:))
