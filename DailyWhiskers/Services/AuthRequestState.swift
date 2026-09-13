@@ -23,8 +23,19 @@ final class AuthRequestState: ObservableObject {
     }
 
     @Published private(set) var operation: Operation?
-    @Published var errorMessage: String?
+    @Published private(set) var errorPresentationID = UUID()
+    @Published var errorMessage: String? {
+        didSet {
+            if errorMessage != nil { errorPresentationID = UUID() }
+        }
+    }
     @Published var confirmation: String?
+
+    private let announce: (Operation) -> Void
+
+    init(announce: @escaping (Operation) -> Void = { _ in }) {
+        self.announce = announce
+    }
 
     var isWorking: Bool { operation != nil }
 
@@ -59,6 +70,8 @@ final class AuthRequestState: ObservableObject {
         operation = requestedOperation
         clearFeedback()
         defer { operation = nil }
+        // Announce accepted work even if it finishes before SwiftUI renders again.
+        announce(requestedOperation)
 
         do {
             try await action()

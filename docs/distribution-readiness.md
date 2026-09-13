@@ -193,6 +193,51 @@ identity was not reverified in this manual check, so final-candidate physical
 acceptance and the broader release gates remain open. See the detailed evidence
 and limitations in `accessibility-interaction-qa.md`.
 
+## Error-focus Candidate (September 13, 2026)
+
+Physical VoiceOver validation exposed an inline-error focus/speech failure.
+A source-level fix was developed and physically checked on
+`codex/physical-accessibility-acceptance`; see `accessibility-interaction-qa.md`.
+Its simulator build, 48 unit tests, focused repeated-error visibility UI test,
+and signed development Release build passed. Ken confirmed that the installed
+fix focuses and reads the empty-email validation error, including repeat
+activation. A second candidate corrects reset-alert dismissal focus; Ken confirmed
+focus now returns to Forgot password, with reset loading/confirmation also passed.
+The second candidate passed the same 48 unit tests, focused UI check, and signed
+Release build. These scoped owner-reported passes are not full accessibility
+acceptance; other VoiceOver checks remain open. Prepare and validate a new final
+archive and repeat candidate/screenshot comparison before distribution: the
+September 9 archive does not contain this fix. No existing distribution artifact
+was overwritten or uploaded.
+
+A third candidate moves login/reset announcements to the accepted-request
+boundary after Ken reported silent sign-in speech. Its 51 unit tests, focused
+UI regression, and signed Release build passed; it was installed for physical
+retest. Ken confirmed sign-in speech works on this candidate. Daily-card VoiceOver
+reading passed by owner report on the preceding candidate. Ken also confirmed
+the reset loading/confirmation speech and dismissal-focus regression check on
+the third candidate. Physical Reduce Motion also passed by owner report for
+login/card decorative motion, sign-in transition, and animation resuming when
+disabled. Signed-in iPhone rotation through both landscape orientations and back
+to portrait, card readability/scrolling, and landscape Settings access also passed
+by owner report. The rapid keyboard-submission exercise also produced no reported
+visible issues; this does not measure backend request counts or prove that a
+second tap reached the handler. These scoped passes do not complete broader
+physical acceptance.
+
+The same source was subsequently built and installed on the physical iPad
+(`iPad16,6`, iPadOS 26.6.1) after owner enablement of Developer Mode and Xcode
+provisioning updates. Ken reported passes for login and signed-in card layouts
+in portrait/landscape, narrow windows and side-by-side use, keyboard/form
+reachability, Settings access, and returning from a neighboring app without a
+card change. These checks cover the tested text sizes/configurations, not every
+Dynamic Type size or real day rollover. An isolated iPad QA app using unchanged
+production logout UI then passed error-alert speech, Cancel-to-Settings focus,
+and simulated Try Again recovery by owner report. The QA app and temporary
+project/build files were removed, and normal Daily Whiskers was launched again.
+No real account or Keychain failure was induced. Remaining acceptance items and
+the limits of these results are tracked in the interaction QA notes.
+
 ## References
 
 - [Apple orientation defaults](https://developer.apple.com/documentation/uikit/uiapplication/supportedinterfaceorientations(for:))
