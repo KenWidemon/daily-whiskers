@@ -267,6 +267,115 @@ project/build files were removed, and normal Daily Whiskers was launched again.
 No real account or Keychain failure was induced. Remaining acceptance items and
 the limits of these results are tracked in the interaction QA notes.
 
+## Account and Metadata Audit (September 13, 2026)
+
+Work branch: `codex/account-metadata-readiness`, based on merged PR #43
+(`9c2abe59db68d409b927ae61ee604877e5290e2b`). This is a pre-upload readiness audit,
+not a new archive, legal certification, final-device pass, or submission.
+
+### Agreements and Regional Scope
+
+- Business shows the Free Apps Agreement as **Active**, with displayed dates
+  September 5, 2026 through February 17, 2027. Paid Apps Agreement is **New**;
+  no paid agreement, bank/tax setup, or legal-entity change was performed for this
+  free app with no in-app purchases. Revisit if monetization changes.
+- DSA initially showed Complete Compliance Requirements. Ken explicitly confirmed
+  no EU distribution is planned through this developer account and authorized
+  the choice "I'm not a trader under the DSA or I don't plan to distribute in the EU."
+  Selected that option and saved with Done. Business then showed Digital Services
+  Act status **Active**, dated September 13. No contact information was submitted
+  for public DSA display. Reassess before adding EU territories or changing the
+  account's distribution plans; U.S.-only availability does not remove Apple's
+  declaration requirement.
+- App Information still uses Entertainment/Lifestyle, not Medical/Health and
+  Fitness, and the saved rating questionnaire records no medical/treatment
+  information. No regulated-medical-device declaration was submitted. Vietnam
+  game-license setup does not apply to the current non-game, U.S.-only scope.
+- No agreement was accepted by the agent; the only account declaration changed
+  was the specifically owner-approved DSA choice.
+
+### Saved Metadata and Public Pages
+
+- Confirmed name/subtitle, English (U.S.), bundle ID and app ID, No third-party
+  content, and saved age ratings match the listing record. These observations
+  do not independently establish content rights or legal compliance.
+- Version 1.0 description and final review notes retain guest-first wording and
+  optional reviewer access; Save is disabled and manual release is selected.
+  Dedicated credentials remain owner-verified under #4; they were not retrieved.
+- Three iPhone screenshots and three 13-inch iPad screenshots remain in
+  Celestial, Forest, Cozy order. This is inventory verification, not a repeat of
+  final-candidate screenshot parity.
+- Current Price shows United States USD 0.00. Availability lists one territory,
+  United States; 174 are unavailable. Public distribution is selected; Apple
+  silicon Mac and Vision Pro availability remain unchecked. No pricing or
+  availability changes were made.
+- Privacy status is Published, with Email Address and User ID linked for App
+  Functionality and Other Diagnostic Data unlinked for Analytics, consistent
+  with the prior disclosure record. No privacy answers changed.
+- Both public policy/support routes returned HTTP 200. Policy retains the
+  September 13 date, optional-account wording, and Firebase diagnostic disclosures;
+  support explains guest access and Settings sign-in. AppLinks and saved URLs
+  point to these same routes. No website change was needed.
+
+### Accessibility Claims
+
+- App Accessibility shows **Get Started**; no support labels have been configured
+  or published. Left unchanged. Apple currently describes these labels as voluntary;
+  do not answer "supports none" merely because labels are not yet evaluated.
+- The existing scoped VoiceOver/Reduce Motion passes are not complete evidence
+  for all common tasks on each supported device. Artwork is intentionally hidden
+  from accessibility with no descriptive alternative, auth retains a light
+  palette, and the largest-text landscape simulator test remains deferred.
+  Do not infer VoiceOver, Dark Interface, or Larger Text label eligibility from
+  individual passing checks. Evaluate each desired label against Apple's criteria
+  and the final candidate before publishing any claim.
+- Current listing copy does not promise accessibility certification or broad
+  feature support. No new accessibility claims were added to close this audit.
+
+### Encryption Declaration
+
+- No app-owned custom encryption implementation was found. The pinned Firebase
+  Auth 11.15.0 sources use GTMSessionFetcher/NSURLSession for transport, Apple
+  Security Keychain APIs for auth persistence, and CommonCrypto for SDK hashing.
+  Reviewed the actual Auth target dependencies, not every product available in
+  the Firebase package. This supports the proposed OS-provided/exempt encryption
+  classification; it is not a claim of no encryption or an exhaustive binary audit.
+- The App Information upload wizard asks about proprietary algorithms and
+  standard algorithms outside/in addition to Apple's OS. Inspected those choices
+  and cancelled without selecting algorithms or uploading documentation.
+- Ken approved `ITSAppUsesNonExemptEncryption = NO`. Added the generated Info.plist
+  setting in `project.yml` and regenerated both Debug/Release build settings.
+  A new distribution test requires the packaged value to be a Boolean false,
+  not a missing key or a string. The packaged Debug simulator check passed.
+- Recheck the exact RC's app/dependency contents and packaged declaration before
+  upload. Changes to encryption, dependencies, or functionality require renewed
+  assessment. This setting does not represent Apple approval of an uploaded build.
+
+### Verification and Remaining Gates
+
+- Pre-upload checklist #5 is complete. `xcodebuild test` passed all 57 tests in
+  eight suites on iPhone 17e / iOS 26.5 with signing disabled. The compiled Debug
+  app contains `ITSAppUsesNonExemptEncryption` as Boolean false. Release device
+  build settings resolve the same key to NO; this is not a Release archive check.
+- Local evidence: `/tmp/whiskers-readiness-tests.log`,
+  `/tmp/whiskers-readiness-tests.xcresult`, and
+  `/tmp/whiskers-readiness-release-settings.log`. These temporary files are not
+  committed release artifacts. Existing Firebase module/dependency-scan warnings
+  and the skipped AppIntents metadata extraction remain; no test was weakened.
+- The test simulator was restored to Shutdown; no simulators remain booted.
+  No simulator UI or physical QA is claimed by this metadata pass; the known
+  simulator deferral remains unchanged.
+- No new archive, RC promotion, build upload, App Review submission, or release
+  occurred. Final-candidate configuration/parity, TestFlight acceptance, reviewer
+  access, and account-state rechecks remain under canonical checklist #6-#8.
+
+Sources checked September 13:
+- [Apple agreement status](https://developer.apple.com/help/app-store-connect/manage-agreements/view-agreements-status)
+- [Apple DSA requirements](https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements/)
+- [Encryption documentation](https://developer.apple.com/help/app-store-connect/manage-app-information/determine-and-upload-app-encryption-documentation)
+- [Encryption export guidance](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations)
+- [Accessibility label criteria](https://developer.apple.com/help/app-store-connect/manage-app-accessibility/overview-of-accessibility-nutrition-labels)
+
 ## References
 
 - [Apple orientation defaults](https://developer.apple.com/documentation/uikit/uiapplication/supportedinterfaceorientations(for:))

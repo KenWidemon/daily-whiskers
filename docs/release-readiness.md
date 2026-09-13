@@ -9,7 +9,8 @@ predate the merged VoiceOver and guest-first changes and are **not the current R
 A newly frozen RC needs fresh archive/export/validation and candidate acceptance.
 No build upload or review submission is recorded. Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
-owner-verified credentials. See [distribution evidence](distribution-readiness.md)
+owner-verified credentials. The pre-upload account/metadata audit is complete;
+final-candidate checks remain required. See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
 and the [documentation map](README.md).
 
 ## Configuration
@@ -26,6 +27,10 @@ and the [documentation map](README.md).
   every referenced PNG exists and has no alpha channel.
 - Local Firebase configuration remains ignored by Git. The CI plist is fake
   test configuration and must not be used for a distribution build.
+- Ken approved `ITSAppUsesNonExemptEncryption = NO` for the reviewed app/Firebase
+  Auth path. XcodeGen preserves it for Debug and Release; a regression test checks
+  the packaged Boolean. Reassess dependencies and verify the exact RC declaration
+  before upload; this means exempt encryption, not absence of encryption.
 
 ## Debug Credentials
 
@@ -134,7 +139,8 @@ September 7 verification:
 
 Use the [canonical release checklist](release-checklist.md), not the historical
 setup failures above. Initial signing, orientation configuration, metadata entry,
-legacy-account retirement by owner report, and reviewer preparation are no longer
-pending setup tasks. Final-candidate validation, performance, account/compliance
-checks, and authorized distribution remain separate gates. Recheck build-number
+legacy-account retirement by owner report, reviewer preparation, and the pre-upload
+account/metadata audit are no longer pending setup tasks. Final-candidate validation,
+performance, account/compliance rechecks, and authorized distribution remain
+separate gates. Recheck build-number
 availability before uploading; the configured `1.0 (1)` is not a reserved build.

@@ -24,6 +24,14 @@ struct DistributionConfigurationTests {
         #expect(info["UIRequiresFullScreen"] as? Bool != true)
     }
 
+    @Test("App declares exempt encryption in its packaged metadata")
+    func exemptEncryptionDeclaration() throws {
+        let info = try packagedInfo()
+        let value = try #require(info["ITSAppUsesNonExemptEncryption"] as? NSNumber)
+        #expect(CFGetTypeID(value) == CFBooleanGetTypeID())
+        #expect(value.boolValue == false)
+    }
+
     @Test("iPhone keeps portrait and both landscape orientations")
     func iPhoneOrientations() throws {
         let info = try packagedInfo()

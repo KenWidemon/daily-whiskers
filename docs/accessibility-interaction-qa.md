@@ -37,8 +37,8 @@
 ## Historical Initial Verification
 
 The 35-test/five-operation results below predate account deletion and guest-first
-access. The latest recorded guest-first suite has 56 tests in eight suites; see
-the release checklist. Do not treat these older counts as the current suite.
+access. PR #41 recorded 56 tests in eight suites; see the release checklist for
+subsequent regression evidence. Do not treat these older counts as the current suite.
 
 - Normally signed simulator build and all 35 regression tests passed.
 - The concurrency matrix covers all five auth operations, including logout,

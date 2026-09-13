@@ -56,11 +56,14 @@ release is authorized merely by approval of this checklist.
    Final review notes are saved and reload-verified. Account features remain
    optional; retain the reviewer account and retest it on the final candidate.
    No credentials were copied into the repository or chat.
-5. **Open: confirm account/metadata readiness.** Verify Apple agreements and
-   applicable compliance/export questions, public support/privacy URLs, and saved
-   listing settings. Accessibility claims must match verified support. Guest-first
-   copy reconciliation from #3 and reviewer preparation under #4 are complete;
-   recheck final-candidate parity and reviewer access before submission.
+5. **Complete: pre-upload account/metadata readiness audit.** Free Apps Agreement is Active;
+   the owner-approved no-EU-distribution DSA declaration is saved and Active.
+   Saved metadata, pricing/territories, screenshots, and public privacy/support
+   pages were rechecked. No accessibility labels are published. Ken approved the
+   exempt-encryption declaration; all 57 unit tests passed, including the packaged
+   Boolean check. Release build settings also resolve the declaration to NO.
+   See the dated evidence in [distribution readiness](distribution-readiness.md#account-and-metadata-audit-september-13-2026).
+   Final-candidate parity and reviewer access must still be rechecked before submission.
 6. **Open: prepare the final release candidate.** `release/rc` starts from `main`;
    promote the approved `codex/develop` snapshot into RC through a PR, then freeze
    and identify the candidate commit/tag. Rerun regression tests; archive, export,
