@@ -93,8 +93,8 @@ on the first RC promotion before treating it as a gate.
   `db25664e0b8423d80f23e93bab7fd4bfb4531d0c`, without promoting trunk work.
 - Guest-first PR #41 subsequently merged into `codex/develop` at
   `0a2c4ffd08b9fde25f13d2c75f4a5f8bcd8f81e8`. It is not yet in RC.
-- This strategy/CI change is prepared separately on `codex/release-branch-strategy`.
-  Merge it into trunk before the first development-to-RC promotion so the RC
-  workflow and release documentation travel with the candidate.
+- Strategy/CI PR #42 merged into `codex/develop` at
+  `07a34032e2bce166c24094b96e2df6734a4d1738`. The change is no longer awaiting merge.
+  The first approved development-to-RC promotion must include it.
 - No candidate/release tag, RC promotion, App Store upload, submission, or manual
   release is authorized merely by creating this branch.

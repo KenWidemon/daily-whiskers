@@ -1,5 +1,14 @@
 # Step 4B: Accessibility and Interaction
 
+> **Evidence log, not the release roadmap.** Step 4B is a historical development
+> label. As of September 13, scoped pre-guest iPhone/iPad checks and guest-first
+> iPhone account-transition/VoiceOver checks passed by owner report. Final-candidate
+> repeats remain under [release checklist](release-checklist.md) #1 and #7.
+> Earlier failures/pending statements apply to their recorded candidate; later
+> results supersede them only for the tested scope. The largest-text landscape
+> simulator failure is unresolved and explicitly deferred for V1. See the
+> [documentation map](README.md) for evidence and temporary-file conventions.
+
 ## Behavior
 
 - Email Next moves focus to Password. Password Done submits sign-in only when
@@ -13,8 +22,8 @@
 - Native reset/logout alerts provide their own announcement and navigation;
   reset dismissal schedules accessibility focus back to the reset button after
   the native transition settles (passed on the physical phone by owner report).
-  Logout cancellation
-  requests focus back to Settings; physical acceptance remains open.
+  Logout cancellation requests focus back to Settings; an isolated physical iPad
+  check passed by owner report, as recorded below. Final-candidate repeats remain.
 - Settings and the debug test-account button now have explicit 44-point targets.
   Existing auth buttons are at least 54 points high and reset is at least 44.
 - Glow, sparkles, and quotation-mark decorations are hidden from accessibility.
@@ -25,7 +34,11 @@
   Both sparkle layers already select static canvases from the same environment
   setting. Auth screen transitions now also honor Reduce Motion.
 
-## Verified
+## Historical Initial Verification
+
+The 35-test/five-operation results below predate account deletion and guest-first
+access. The latest recorded guest-first suite has 56 tests in eight suites; see
+the release checklist. Do not treat these older counts as the current suite.
 
 - Normally signed simulator build and all 35 regression tests passed.
 - The concurrency matrix covers all five auth operations, including logout,
@@ -48,9 +61,10 @@
 
 ## Repeatable UI Checks
 
-The opt-in `DailyWhiskersInteraction` scheme runs four XCTest UI checks on a
-dedicated signed-out simulator:
+The opt-in `DailyWhiskersInteraction` scheme defines five XCTest UI checks on a
+dedicated signed-out simulator; it opens optional auth through Settings:
 
+- Guest entry, Close/reopen, discarded form state, and guest relaunch persistence.
 - Portrait: Email Next moves to Password Done; empty Done stays on login with
   Sign In and Create Account disabled.
 - Landscape: start with an on-screen password keyboard and scroll until the
@@ -67,14 +81,17 @@ resolved that setup issue; all three checks then passed on iPad Air 11-inch (M4)
 iOS 26.5. These tests never submit valid credentials or sign out a user. Existing
 unit-test CI remains separate. See the README for invocation and setup.
 
-Latest run of the final UI-test code: all three checks passed on iPad Air 11-inch
+Historical pre-guest UI-test run: all three then-existing checks passed on iPad Air 11-inch
 (M4), and the existing 35 unit tests passed. On iPhone 17 Pro Max, portrait
 navigation and normal-size landscape scrolling passed, but largest-text landscape
 scrolling still failed. After eight upper-form drags, the captured Create Account
 frame was y=378 through y=465.3 in a 440-point-high window. The test correctly
 rejects this as not fully visible. Whether this is an app interaction defect or
 simulator gesture/rotation behavior remains unresolved; do not mark phone
-largest-text scrolling accepted or ship this test branch as fully green.
+largest-text simulator scrolling accepted or describe the full suite as green.
+The later physical pass and explicit V1 deferral below supersede the release-blocker
+interpretation, not the failing assertion. Four focused guest-first checks later
+passed on iPhone 17e; the deferred fifth check was not rerun.
 
 Failure screenshots and UI trees are attached to the `.xcresult` bundle. The
 phone diagnostic run is locally available in `/tmp/whiskers-ui-phone-verified.log`;
@@ -117,7 +134,8 @@ Final regression checks against the unchanged test code: all three iPad Air
 suites. Logs: `/tmp/whiskers-ipad-sept7.log` and
 `/tmp/whiskers-unit-sept7.log`. The phone suite remains two passes and one failure.
 
-Next diagnostic: compare the same keyboard-open, largest-text landscape flow on
+Historical next diagnostic (physical comparison since completed below): compare
+the same keyboard-open, largest-text landscape flow on
 a physical phone or a separate simulator runtime before choosing an app fix or
 a test-harness adjustment. Do not weaken the acceptance assertion to get green.
 
@@ -143,7 +161,8 @@ compare simulator gestures, rotation, viewport, and text-size configuration with
 the passing manual flow before choosing an app fix or test-harness adjustment.
 
 Release exception approved by Ken on September 13: skip further diagnosis of
-this simulator failure for V1. Remaining step 2 (_physical device scrolling_)
+this simulator failure for V1. The former step 2 (_physical device scrolling_,
+not current release checklist #2)
 is complete with this explicit exception and the owner-reported physical-phone
 pass, not a resolved defect or green simulator suite. Preserve the test and its
 assertions; do not disable it
@@ -355,7 +374,10 @@ Retained local evidence: `/tmp/whiskers-logout-qa-20260913-build-retry.log` and
 in the workspace or temporary project location. Apple development provisioning
 records created for the separate QA bundle were not removed.
 
-## Remaining Manual Acceptance Checks
+## Historical Follow-ups and Final-Candidate Repeat Scope
+
+This section preserves earlier runs and scenario coverage, not a second release
+checklist. Use canonical #1/#7 for final-candidate acceptance and #2 for performance.
 
 September 5-6 follow-up: signed-in Reduce Motion passed on iPhone 17e. Static
 screenshots were byte-identical two seconds apart; disabling the setting restored
@@ -385,9 +407,10 @@ restored to `large`. The first app launch stalled after first-boot migration;
 one simulator restart recovered it. These checks cover the full-screen login,
 not iPad window resizing/multitasking or signed-in card interaction.
 
-- VoiceOver speech: other operations' loading announcements,
-  signed-in reading order, and other alerts' dismissal focus on a physical device.
-  Login reading order, field/button labels, decorative-sparkle exclusion, initial
+- Repeat the tested VoiceOver flows on the final candidate. Signed-in reading,
+  sign-in/reset/create/delete announcements, alert focus, and guest transitions
+  have scoped owner-reported passes in the September 13 records. Login reading
+  order, field/button labels, decorative-sparkle exclusion, initial
   and repeated local-validation error focus/speech, reset loading/confirmation,
   and reset-dismissal focus passed by owner report on September 13. Backend-error
   announcement/focus also passed in the guest-first follow-up below. Repeat against
@@ -422,7 +445,8 @@ are listed here rather than treating all physical acceptance as complete.
 The simulator's Accessibility settings do not expose iOS VoiceOver, so speech and
 focus acceptance need a physical device.
 Accessibility-tree inspection is not a substitute for listening with VoiceOver.
-Performance profiling remains Step 5.
+Performance profiling is tracked under current release checklist #2; the
+performance document's Step 5 title is historical development numbering.
 
 ## September 13 Guest-First Follow-Up
 

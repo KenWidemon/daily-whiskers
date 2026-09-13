@@ -3,6 +3,8 @@
 Canonical remaining-work list, established September 13, 2026. Maintain this
 file as work proceeds; preserve item numbers when checking items off or recording
 explicit deferrals. Detailed QA documents are evidence, not competing roadmaps.
+Use the [documentation map](README.md) to distinguish current guides from
+historical evidence. Older Step 4A/4B/5 and "step 2" labels are not this numbering.
 Skipping to an item does not waive earlier items. No upload, submission, or manual
 release is authorized merely by approval of this checklist.
 
@@ -12,8 +14,10 @@ release is authorized merely by approval of this checklist.
   56 passing unit tests, four focused UI checks, signed Release build, and scoped
   owner-reported iPhone account-transition/VoiceOver acceptance. RC promotion has
   not occurred; `release/rc` was created from the stable `main` baseline.
+- PR #42 merged into `codex/develop`: documented the main-based `release/rc`
+  strategy and added RC coverage to CI. No RC promotion occurred.
 - PR #40 merged into `codex/develop`: VoiceOver fixes, tests, and scoped physical
-  iPhone/iPad acceptance. Latest unit suite: 51 tests in seven suites passed;
+  iPhone/iPad acceptance. At that checkpoint, 51 tests in seven suites passed;
   focused error-visibility UI check and signed device builds passed.
 - Listing copy, six screenshots, content rights, privacy disclosures, age ratings,
   review contact, and free/U.S.-only/iPhone-and-iPad/manual-release settings were
@@ -35,21 +39,28 @@ release is authorized merely by approval of this checklist.
    remain unresolved. Explicitly defer or schedule longer energy/session and
    lower-memory-device testing. Do not repeat the failed Instruments launch path
    as though it establishes natural launch timing.
-3. **In progress: resolve security/product decisions.** Legacy development account
+3. **Complete: resolve security/product decisions.** Legacy development account
    disabled in Firebase Console by owner report; independent disabled-state/login
    verification has not been performed. Ken confirmed Danny's approval of guest-
    first access and optional account tools. Implementation and automated checks
    pass, as does the scoped physical iPhone transition/VoiceOver pass by owner
-   report. Published-copy reconciliation remains; final-candidate retesting is
-   tracked separately under #1 and #7.
-4. **Deferred by owner: complete reviewer access.** If account features remain,
-   create/verify a dedicated review account, enter its credentials directly in
-   App Store Connect, and finalize review notes. Reassess requirements after #3;
-   do not use the owner's personal account or commit credentials.
+   report. Guest-first public privacy/support copy is published and verified;
+   App Store description and review notes are saved and reload-verified.
+   Reviewer access is tracked separately under #4; final-candidate retesting
+   is tracked separately under #1 and #7.
+4. **Complete: reviewer access prepared.** Ken resumed this item September 13.
+   Ken confirmed creation and successful sign-out/sign-in verification of the
+   dedicated review account (owner-reported, not independently observed).
+   Ken confirmed credentials are saved and visible in App Store Connect; treat
+   persistence as owner-verified, not independently verified by the agent.
+   Final review notes are saved and reload-verified. Account features remain
+   optional; retain the reviewer account and retest it on the final candidate.
+   No credentials were copied into the repository or chat.
 5. **Open: confirm account/metadata readiness.** Verify Apple agreements and
    applicable compliance/export questions, public support/privacy URLs, and saved
-   listing settings. Accessibility claims must match verified support. Reconcile
-   listing/privacy/reviewer copy with any product changes from #3.
+   listing settings. Accessibility claims must match verified support. Guest-first
+   copy reconciliation from #3 and reviewer preparation under #4 are complete;
+   recheck final-candidate parity and reviewer access before submission.
 6. **Open: prepare the final release candidate.** `release/rc` starts from `main`;
    promote the approved `codex/develop` snapshot into RC through a PR, then freeze
    and identify the candidate commit/tag. Rerun regression tests; archive, export,
@@ -70,7 +81,8 @@ release is authorized merely by approval of this checklist.
 ## Item 3 Decision Record
 
 Ken selected #3 on September 13. Items #1 and #2 remain open, not waived.
-Work branch: `codex/release-security-decisions`, based on merged `codex/develop`.
+Historical implementation branch: `codex/release-security-decisions`, merged
+through PR #41. Later copy/reviewer evidence is recorded separately below.
 
 ### Legacy Development Account
 
@@ -92,7 +104,7 @@ Work branch: `codex/release-security-decisions`, based on merged `codex/develop`
 
 - Approved September 13: Ken confirmed Danny's decision to make sign-in and
   account tools optional. This supersedes the earlier guest-access deferral.
-- Implemented on the work branch: open directly to the daily card without authentication; retain
+- Implemented and merged through PR #41: open directly to the daily card without authentication; retain
   optional account entry in Settings and existing-user deletion/recovery access.
 - Guest use should not create a Firebase anonymous user or invent an account
   benefit. Auth-only controls must reflect actual signed-in state.
@@ -102,8 +114,8 @@ Work branch: `codex/release-security-decisions`, based on merged `codex/develop`
 - Firebase email/password accounts remain supported; removing all authentication
   is not approved scope. No account sync, saved favorites, or other new benefit
   is implied by an optional account.
-- Local listing/review copy is being revised; saved App Store Connect metadata
-  and the separate public site have not been changed in this pass.
+- Guest-first listing/review copy and the separate public site were reconciled
+  September 13; see the completion evidence below.
 - Ken also requested removal of the extra Hide Keyboard toolbar button. Native
   keyboard submission, interactive scroll dismissal, and auth Close remain.
 - Verification complete on the work branch: 56 unit tests in eight suites,
@@ -186,6 +198,49 @@ Work branch: `codex/release-security-decisions`, based on merged `codex/develop`
 - Reduce Motion was restored to off; VoiceOver remains on at the end of testing
   unless Ken chooses to restore its original off setting. No restoration of
   VoiceOver has yet been confirmed.
+
+### Published-Copy Completion: September 13
+
+- App documentation branch: `codex/guest-copy-reconciliation`, based on merged
+  PR #42 (`07a34032e2bce166c24094b96e2df6734a4d1738`).
+- Ken explicitly authorized publication and merger of the separate
+  [website PR #1](https://github.com/KenWidemon/daily-whiskers-site/pull/1).
+  Merge: `e80df0d75607ab3d5a5824223bbd2e1f1a99fb60`.
+  [GitHub Pages deployment](https://github.com/KenWidemon/daily-whiskers-site/actions/runs/34782579358)
+  succeeded. Public privacy/support URLs returned HTTP 200; downloaded HTML
+  matched the approved source exactly. Policy effective date: September 13, 2026.
+- Public copy now explains guest access, optional Settings sign-in, recovery,
+  and continued daily-card access after account deletion. Existing Firebase
+  service/security, provider, retention, and other data-use disclosures were
+  preserved; no promise of zero guest network activity or data collection.
+- App Store Connect version 1.0 English (U.S.) description and review notes were
+  saved. Reload confirmed exact text, disabled Save, and manual release selected.
+  No screenshot, privacy-label, review-contact, credential, or binary changes.
+- At #3 completion, Sign-In Information still had Sign-in required checked and
+  dedicated credentials pending. The subsequent #4 record below supersedes this
+  reviewer-access status; daily cards do not require login.
+- Item #3 is complete. No RC promotion, upload, App Review submission, or release
+  occurred. Final-candidate parity/acceptance and other checklist gates remain.
+
+### Reviewer-Access Completion: September 13
+
+- Ken confirmed creating the dedicated account and successfully signing out and
+  back in. This is owner-reported acceptance, not an agent-observed login test.
+- Ken entered credentials privately in App Store Connect and confirmed they are
+  saved and visible. An agent presence-only browser check returned empty fields,
+  conflicting with Ken's visible UI. That check is inconclusive, not proof that
+  credentials are absent; credential persistence is recorded as owner-verified.
+  Credential values were not requested, printed, or committed.
+- Final review notes explain Settings > Sign In, use of the dedicated credentials
+  in Sign-In Information, optional account tools, password recovery, and testing
+  permanent deletion with a separate account. The dedicated account should remain
+  available through review.
+- Notes were saved and matched exactly after reload. Save was disabled, Sign-in
+  required remained checked for optional account-tool access, and manual release
+  remained selected. No credential edits were made by the agent.
+- #4 is complete for reviewer preparation. Reconfirm working access on the final
+  distributed candidate and before submission. No upload, submission, or release
+  occurred.
 
 ## Evidence and References
 

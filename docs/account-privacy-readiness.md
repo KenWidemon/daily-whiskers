@@ -2,26 +2,25 @@
 
 ## Status
 
-Deletion implementation, app manifest, and source/data audit are complete for
-this pass. Public privacy-policy and support pages are published and linked from
-the login screen and Settings. Policy/disclosure review and the agreed live
-deletion acceptance check are complete. The owner reported completing authorized
-deletion and rejection of the former credentials; the agent verified signed-out
-state persists after relaunch. This implementation pass is ready for commit/PR
-review. Guest-first access and optional account tools were approved September 13
-and are implemented with scoped iPhone acceptance passed by owner report; see the
-current decision record below. This is not overall release approval,
-App Store submission, or a certification of legal compliance.
+Current as of September 13: deletion, the app privacy manifest, and guest-first
+access are implemented and merged. Public privacy/support copy is published and
+App Store copy is reconciled. Reviewer preparation is complete with owner-verified
+credentials. Scoped guest-first iPhone acceptance passed by owner report.
+Use the [release checklist](release-checklist.md) for remaining gates, not the
+dated verification history below. This is not overall release approval, App Store
+submission, or a certification of legal compliance. See the
+[documentation map](README.md) for evidence conventions.
 
-## Policy Draft Inputs
+## Policy Decisions and Publication
 
-### September 13 Guest-First Copy Follow-Up
+### September 13 Guest-First Copy Completion
 
-Public privacy/support pages were read successfully on September 13. They still
-describe account use without explaining optional entry from Settings. No public
-site changes were published in this app pass. Prepare the following in the
-separate site repository before release, retaining existing provider/diagnostic
-disclosures and updating the policy effective date when published:
+Ken explicitly approved publishing the guest-first changes through a dedicated
+website PR. [Site PR #1](https://github.com/KenWidemon/daily-whiskers-site/pull/1)
+was merged as `e80df0d75607ab3d5a5824223bbd2e1f1a99fb60`; GitHub Pages deployment
+succeeded. Both public routes returned HTTP 200 and their response bodies matched
+the approved source files exactly. The policy effective date is September 13,
+2026. Published changes:
 
 - Privacy, Account information: "You can view daily cards without an account.
   If you choose to create an account or sign in from Settings, the app uses Google
@@ -41,6 +40,13 @@ disclosures and updating the policy effective date when published:
 
 Guest access changes the entry flow, not the retained Firebase SDK disclosures.
 Do not describe guest use as zero network activity or zero data collection.
+The service/security, local-content, purpose, provider, and retention disclosures
+were compared with the prior source and preserved. Local links and document
+landmarks passed validation; styling and hosting are unchanged. Guest-first
+App Store description/review notes are also saved and reload-verified. Reviewer
+preparation under checklist #4 is complete: Ken confirmed a working dedicated
+account and credentials saved and visible in App Store Connect. Credential
+persistence is owner-verified; final-candidate access must still be rechecked.
 
 ### Previously Approved Inputs
 
@@ -50,13 +56,19 @@ Do not describe guest use as zero network activity or zero data collection.
 - [Published privacy policy](https://kenwidemon.github.io/daily-whiskers-site/privacy/).
 - [Published support page](https://kenwidemon.github.io/daily-whiskers-site/support/).
 - Owner approved the presented policy and disclosures on September 8, 2026:
-  "Policy and disclosure review looks good." App Store Connect metadata has not
-  been submitted or independently verified.
+  "Policy and disclosure review looks good." At that checkpoint, App Store
+  metadata had not been entered; September 12 publication is recorded in the
+  [listing record](app-store-listing.md#privacy-disclosure-review-september-12-2026).
 - Both destinations returned HTTP 200 on September 8, 2026. Public site source is
   maintained separately in `KenWidemon/daily-whiskers-site`; no app configuration
   or private QA material was published with it.
 
-## Verification
+## Historical Verification (September 8)
+
+The results, orientation warning, and signed-out login behavior below describe
+the pre-guest candidate. The warning was resolved September 9 and guest-first
+behavior later merged through PR #41. These archives/tests are not current RC
+acceptance; current scoped evidence is in the release checklist.
 
 - All 44 tests in six suites passed, including verified public-link constants, deletion ordering, failed
   reauthentication, cancellation, retry, the six-operation request-lock matrix,
@@ -77,7 +89,7 @@ Do not describe guest use as zero network activity or zero data collection.
   account absence was not independently inspected in Firebase Console, and a
   generic credential error alone does not prove account deletion.
 - No App Store metadata submission or physical-device acceptance was performed.
-- Latest build/unit run: `/tmp/whiskers-public-links-tests.log` (passed after link integration).
+- Build/unit run for this pass: `/tmp/whiskers-public-links-tests.log` (passed after link integration).
   Simulator was subsequently reopened for live deletion acceptance. No UI
   link-tapping acceptance was performed.
 - Earlier deletion/archive logs: `/tmp/whiskers-account-privacy-final-tests.log` and
@@ -143,26 +155,28 @@ declarations; an empty app-level array does not override those SDK declarations.
 Manifest validity is not equivalent to legal policy approval or complete App
 Store privacy answers. The final answers must combine app and SDK behavior.
 
-## Owner Decisions / Release Blockers
+## Decision History (Not Release Checklist Numbering)
 
 1. Complete: publish public privacy-policy and support URLs and wire links into
    signed-out and signed-in screens.
 2. Complete: owner approved the published policy covering operator/contact,
    account data, Firebase processing, retention, deletion, and user requests on
    September 8, 2026.
-3. Guest-first access approved September 13: daily content no longer requires
-   authentication on the work branch. Settings retains optional sign-in and
+3. Guest-first access approved and merged September 13: daily content no longer
+   requires authentication. Settings retains optional sign-in and
    signed-in logout/deletion. No anonymous Firebase account is created. Existing
    accounts and their deletion/recovery paths remain supported. Scoped iPhone
    account-transition and VoiceOver acceptance passed by owner report, including
    authorized disposable-account deletion and post-deletion guest persistence.
-   Public-policy/support copy reconciliation and final-candidate repeats remain.
+   Public-policy/support and App Store copy reconciliation are complete;
+   final-candidate repeats remain under the canonical release checklist.
    Firebase SDK initialization remains; guest mode is not a claim of zero SDK
    diagnostics/network activity and does not justify removing privacy disclosures.
 4. Data-use scope confirmed by the owner on September 8: only Firebase
    email/password authentication. Owner approved the presented disclosures on
-   September 8, 2026. Entering and verifying the corresponding App Store Connect
-   answers remains a release step; no metadata answers have been submitted.
+   September 8, 2026. Corresponding App Store privacy answers were published and
+   verified September 12; this did not submit a build for App Review. Recheck
+   disclosures if final-candidate app or SDK data use changes.
 5. Complete: live deletion was authorized and reported complete by the owner;
    signed-out state after relaunch was observed. The owner reported rejection of
    the previously working credentials with "Invalid email or password."

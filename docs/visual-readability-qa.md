@@ -1,5 +1,12 @@
 # Step 4A: Visual Readability
 
+> **Historical / superseded for readiness.** This is the original Step 4A layout
+> evidence, not a current TODO list or current-candidate acceptance. Later keyboard,
+> rotation, VoiceOver, iPad, and guest-first results are recorded in
+> [interaction QA](accessibility-interaction-qa.md). Use the
+> [release checklist](release-checklist.md) for final-candidate repeats and the
+> explicit V1 simulator exception. Temporary artifact paths may no longer exist.
+
 ## Changes
 
 - Centered, scrolling login content with a 520-point maximum width; the available
@@ -43,7 +50,10 @@ After restarting Simulator, the normally signed review build launched with the
 existing session intact. A live Pro Max screenshot confirmed white status-bar
 content on the dark daily screen and visible settings, quote, and vibe.
 
-## Manual Checks Still Needed
+## Historical Follow-up Scope (Superseded)
+
+These were the next checks at Step 4A completion. Do not reopen them solely from
+this list; consult the later evidence and current checklist linked above.
 
 - Confirm software-keyboard scrolling on a device, especially landscape.
 - Confirm dark status-bar content on login, including transitions from the daily screen.

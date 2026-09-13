@@ -1,13 +1,32 @@
 # Card Image Import Guide
 
-Images are mapped in the exact sequential order of `cards[]` in `Resources/daily_whiskers_content.json`.
+## Current Asset Workflow
 
-Total card image assets expected: 31.
+The source of truth is each card's `imageName` in
+`DailyWhiskers/Resources/daily_whiskers_content.json`, not a photo's sequence number.
+Paths here are relative to the repository root. The current manifest contains
+31 cards; confirm the count from JSON after content edits.
 
 File location pattern:
-- `Assets.xcassets/<imageName>.imageset/<imageName>.png`
+- `DailyWhiskers/Assets.xcassets/<imageName>.imageset/<imageName>.png`
+- Each imageset also needs a `Contents.json` referencing its exact PNG filename.
 
-Current sequential mapping (JSON order):
+Keep `imageName`, imageset name, and file reference consistent. Replace existing
+artwork in its named imageset; do not re-create a loose `Photos` folder or rename
+the collection by order. For a new card, add its manifest entry and named imageset,
+then run bundled-content/asset-integrity tests. Reordering or changing the number
+of cards changes date selection (`YYYYMMDD % cards.count`).
+
+Artwork is portrait PNG, currently 1024 x 1536. The ritual card uses a rounded,
+portrait, content-sized frame with scaled-to-fill artwork; it is **not a square**.
+Keep the subject clear of edges and the lower quote overlay, and check cropping
+on phone/iPad and at large text sizes before approving replacements.
+
+## Historical First-Import Mapping (Completed)
+
+The following `cat - N.png` names belonged to the original import. This is retained
+as provenance only, not a request to rename current assets. The original mapping
+followed the manifest's order at import time:
 - `cat - 1.png` -> `arcane_spellbook_reader.png`
 - `cat - 2.png` -> `arcane_moonlit_diviner.png`
 - `cat - 3.png` -> `arcane_rune_engraver.png`
@@ -40,7 +59,5 @@ Current sequential mapping (JSON order):
 - `cat - 30.png` -> `cozy_lantern_lit_night_wanderer.png`
 - `cat - 31.png` -> `cozy_candlelit_study_companion.png`
 
-Recommended image spec:
-- PNG format
-- Square-friendly framing (1200x1200 or larger recommended)
-- Keep important subject centered (UI crops to a rounded square)
+For app setup and tests, see the [app README](../README.md). For current release
+work and screenshot parity, see the [release checklist](../../docs/release-checklist.md).

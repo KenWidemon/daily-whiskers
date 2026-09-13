@@ -5,14 +5,24 @@ by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
 Approved metadata is saved and six screenshots are uploaded to the version 1.0
 draft in App Store Connect. No build upload or App Review submission occurred;
-physical-device acceptance remains pending.
+final-candidate physical acceptance remains pending. Earlier scoped physical
+passes are preserved in the release checklist; they are not erased by this gate.
 
-September 13 guest-first revision: the description and prepared review notes below
-now reflect approved optional sign-in. These revised passages are local drafts,
-not yet saved in App Store Connect. Historical console records below describe the
-previous mandatory-login candidate. Recheck screenshot parity, public policy/
-support wording, and Sign-In Information before submission; retained account
-features still need a reviewer-access decision.
+This document contains current copy followed by dated entry history. Historical
+"blank," "pending," and "automatic release" observations describe those earlier
+sessions only. Use the current status below and the
+[release checklist](release-checklist.md), not an old entry snapshot, for next work.
+
+September 13 guest-first revision: the description and review notes below reflect
+approved optional sign-in and are saved in App Store Connect. Reload verification
+confirmed both passages match, Save is disabled, and manual release remains
+selected. Historical console records below describe the previous mandatory-login
+candidate. Reviewer preparation under checklist #4 is now complete: Ken confirmed
+dedicated-account sign-out/sign-in and saved credentials visible in App Store
+Connect. Credential persistence is owner-verified; an agent presence-only check
+did not match his UI. Final review instructions below are saved and reload-verified.
+Sign-in required remains checked for optional account-tool access, not daily-card
+access. Recheck reviewer access on the final candidate before submission.
 
 ## Recommended Positioning
 
@@ -174,17 +184,21 @@ screenshots to show the actual app experience; see
   upload, now complete. Physical acceptance remains open. No app source changes,
   simulator launches, or App Review submission were needed.
 
-### Candidate Comparison
+### Historical Candidate Comparison (September 12)
+
+**Superseded as current-candidate parity:** the September 9 archive predates the
+VoiceOver and guest-first changes. Preserve this comparison as provenance and
+repeat against the final RC; it does not justify uploading the older artifact.
 
 - Static comparison passed September 12 against the existing signed archive and
   exported IPA, not a newly built or newly accepted release candidate.
 - Eleven captured production Swift files match the distribution-preparation
-  revision `e3d8575` and current source. Git shows no subsequent shipping
+  revision `e3d8575` and source at the September 12 checkpoint. Git showed no subsequent shipping
   source/assets/project changes between that revision and capture revision
   `00d720d`.
 - All 31 compiled card asset records match across the archive, exported IPA, and
   capture app. The archive/IPA `Assets.car` files are byte-identical; the full
-  packaged daily manifest matches current source and capture provenance.
+  packaged daily manifest matched source at that checkpoint and capture provenance.
 - The IPA remains `com.example.kenwidemon.dailywhiskers`, version `1.0 (1)`,
   minimum iOS 17. Its executable UUID matches the archive dSYM. Strict/deep code
   signature verification passed using macOS trust services outside the sandbox.
@@ -199,6 +213,9 @@ screenshots to show the actual app experience; see
   remains open; no metadata, screenshot, or build upload was performed.
 
 ## App Store Connect Entry
+
+**Historical entry log:** the initial September 12 gaps below were subsequently
+resolved where recorded. This is not a list of fields still missing today.
 
 Ken authorized saving the approved listing fields and uploading the six approved
 screenshots to the existing record `6809050612`. This does not authorize a build
@@ -226,7 +243,8 @@ credentials/contact information, pricing/availability, and legal/regulatory setu
 were not filled in. The existing automatic-release selection was left unchanged.
 Copyright and content rights were subsequently completed as recorded below.
 Privacy disclosures were subsequently published and age ratings saved as recorded
-below. Reviewer fields remain incomplete.
+below. Reviewer fields were incomplete at this initial checkpoint; September 13
+reviewer preparation is complete as recorded in the current status above.
 
 Local upload record: `build/screenshots/2026-09-12/app-store-connect-entry.json`.
 Earlier approval records describe their scope at that time; the subsequent
@@ -320,6 +338,11 @@ the resulting App Age Ratings section in the authenticated UI.
 
 ### Reviewer and Distribution Setup Check (September 12, 2026)
 
+**Superseded snapshot:** blank credentials/contact, unset pricing, Mac/Vision Pro
+availability, and automatic-release observations below are not current settings.
+The subsequent saved-settings record and current reviewer status supersede them.
+Account agreements/compliance remain a separate current gate.
+
 - Reopened Content Rights: neither answer was selected. Restored the previously
   owner-approved No answer, clicked Done, then saved the parent App Information
   page. Waited for Saving to finish and reloaded; the No declaration persisted.
@@ -355,13 +378,14 @@ Following owner approval, configured and verified:
   initial save reported a required phone number. Ken subsequently entered his
   phone directly in App Store Connect; visual inspection confirmed the complete
   contact fields, and Save was disabled. The phone value is not stored here.
-- Dedicated reviewer username/password remain blank and explicitly deferred by
-  Ken. Review notes remain a local draft until the final account is ready.
+- At this earlier checkpoint, dedicated reviewer credentials were blank and
+  deferred by Ken, and review notes remained a local draft. The September 13
+  reviewer-completion record supersedes both statuses.
 - No build upload, review submission, or release occurred. Account agreements,
   physical acceptance, and other outstanding release checks remain separate.
 
-Prepared review notes (not yet entered; verify the final candidate and reviewer
-account before submission):
+Saved review notes (September 13; recheck final-candidate reviewer access before
+submission; line wrapping below is for readability):
 
 ```text
 Daily Whiskers displays one illustrated cat card and quote for the current local
@@ -372,12 +396,17 @@ bundled with the app; there are 31 cards and six visual themes. Selection is bas
 on the local calendar date, and the app refreshes on foreground if the day changed.
 There is no card picker, purchase, subscription, advertising, or user content feed.
 
+To review the optional account tools, open the Settings gear menu, choose Sign In,
+and use the dedicated account supplied in Sign-In Information. Those credentials
+are for optional account testing; daily cards do not require sign-in.
+
 Settings always offers Privacy Policy and Support. Guests see Sign In; signed-in
 users see Log Out and Delete Account. Closing sign-in returns to the daily card.
-Account deletion requires password reauthentication and permanently removes the
-Firebase authentication account. Signing out or deleting an account returns to
-guest access. A reviewer-created account can be used to test deletion without
-removing the supplied review account, if dedicated review credentials are provided.
+Password recovery is available from the sign-in screen. Account deletion requires
+password reauthentication and permanently removes the Firebase authentication
+account. Signing out or deleting an account returns to guest access. Please create
+a separate account through Settings > Sign In > Create Account to test permanent
+deletion without deleting the dedicated review account.
 ```
 
 ## Existing Public Details
@@ -411,12 +440,12 @@ Validated draft counts (excluding code fences and their boundary newlines):
 | Name | 14 characters | 30 |
 | Subtitle | 26 characters | 30 |
 | Promotional text | 143 characters | 170 |
-| Description | 1,181 characters | 4,000 |
+| Description | 1,283 characters | 4,000 |
 | Keywords | 77 UTF-8 bytes | 100 |
 
 The copy reflects the current 31-card manifest, six archetypes, date-based
-selection, foreground refresh, and email/password account flow. It does not
-claim guest access, reminders, streaks, favorites, sharing, browsing, personalized
+selection, foreground refresh, guest access, and optional email/password accounts.
+It does not claim reminders, streaks, favorites, sharing, browsing, personalized
 recommendations, newly published art each day, universal offline access,
 accessibility certification, or an absence of all SDK data collection.
 
@@ -425,12 +454,13 @@ accessibility certification, or an absence of all SDK data collection.
 - Owner approved September 12, 2026: name/subtitle, overall tone,
   Entertainment/Lifestyle categories, English (U.S.) locale, and screenshot
   direction. This approval does not authorize submission or distribution.
-- Mandatory login is disclosed honestly. The separate guest-access decision
-  remains deferred; revisit this copy if that decision changes.
+- Guest-first access was approved September 13. The revised description and
+  review notes are saved and reload-verified. Dedicated reviewer preparation is
+  complete, with account verification and saved credentials confirmed by Ken.
 - Pricing, availability, reviewer access,
   and distribution are separate tasks. No values were invented or submitted.
 - Approved listing entry, screenshot uploads, and owner-confirmed content
   rights/copyright entries, privacy publication, and age ratings are complete.
   The content-rights discrepancy was resolved by re-entry and reload verification.
-  Finish reviewer access and distribution decisions in separately scoped steps.
+  Recheck final-candidate reviewer access and finish distribution decisions.
   Physical acceptance and outstanding release checks remain open.
