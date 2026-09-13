@@ -15,13 +15,14 @@ App Store submission, or a certification of legal compliance.
 
 ## Policy Draft Inputs
 
-### September 13 Guest-First Copy Follow-Up
+### September 13 Guest-First Copy Completion
 
-Public privacy/support pages were read successfully on September 13. They still
-describe account use without explaining optional entry from Settings. No public
-site changes were published in this app pass. Prepare the following in the
-separate site repository before release, retaining existing provider/diagnostic
-disclosures and updating the policy effective date when published:
+Ken explicitly approved publishing the guest-first changes through a dedicated
+website PR. [Site PR #1](https://github.com/KenWidemon/daily-whiskers-site/pull/1)
+was merged as `e80df0d75607ab3d5a5824223bbd2e1f1a99fb60`; GitHub Pages deployment
+succeeded. Both public routes returned HTTP 200 and their response bodies matched
+the approved source files exactly. The policy effective date is September 13,
+2026. Published changes:
 
 - Privacy, Account information: "You can view daily cards without an account.
   If you choose to create an account or sign in from Settings, the app uses Google
@@ -41,6 +42,13 @@ disclosures and updating the policy effective date when published:
 
 Guest access changes the entry flow, not the retained Firebase SDK disclosures.
 Do not describe guest use as zero network activity or zero data collection.
+The service/security, local-content, purpose, provider, and retention disclosures
+were compared with the prior source and preserved. Local links and document
+landmarks passed validation; styling and hosting are unchanged. Guest-first
+App Store description/review notes are also saved and reload-verified. Reviewer
+preparation under checklist #4 is complete: Ken confirmed a working dedicated
+account and credentials saved and visible in App Store Connect. Credential
+persistence is owner-verified; final-candidate access must still be rechecked.
 
 ### Previously Approved Inputs
 
@@ -156,7 +164,8 @@ Store privacy answers. The final answers must combine app and SDK behavior.
    accounts and their deletion/recovery paths remain supported. Scoped iPhone
    account-transition and VoiceOver acceptance passed by owner report, including
    authorized disposable-account deletion and post-deletion guest persistence.
-   Public-policy/support copy reconciliation and final-candidate repeats remain.
+   Public-policy/support and App Store copy reconciliation are complete;
+   final-candidate repeats remain under the canonical release checklist.
    Firebase SDK initialization remains; guest mode is not a claim of zero SDK
    diagnostics/network activity and does not justify removing privacy disclosures.
 4. Data-use scope confirmed by the owner on September 8: only Firebase

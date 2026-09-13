@@ -7,12 +7,16 @@ Approved metadata is saved and six screenshots are uploaded to the version 1.0
 draft in App Store Connect. No build upload or App Review submission occurred;
 physical-device acceptance remains pending.
 
-September 13 guest-first revision: the description and prepared review notes below
-now reflect approved optional sign-in. These revised passages are local drafts,
-not yet saved in App Store Connect. Historical console records below describe the
-previous mandatory-login candidate. Recheck screenshot parity, public policy/
-support wording, and Sign-In Information before submission; retained account
-features still need a reviewer-access decision.
+September 13 guest-first revision: the description and review notes below reflect
+approved optional sign-in and are saved in App Store Connect. Reload verification
+confirmed both passages match, Save is disabled, and manual release remains
+selected. Historical console records below describe the previous mandatory-login
+candidate. Reviewer preparation under checklist #4 is now complete: Ken confirmed
+dedicated-account sign-out/sign-in and saved credentials visible in App Store
+Connect. Credential persistence is owner-verified; an agent presence-only check
+did not match his UI. Final review instructions below are saved and reload-verified.
+Sign-in required remains checked for optional account-tool access, not daily-card
+access. Recheck reviewer access on the final candidate before submission.
 
 ## Recommended Positioning
 
@@ -355,13 +359,14 @@ Following owner approval, configured and verified:
   initial save reported a required phone number. Ken subsequently entered his
   phone directly in App Store Connect; visual inspection confirmed the complete
   contact fields, and Save was disabled. The phone value is not stored here.
-- Dedicated reviewer username/password remain blank and explicitly deferred by
-  Ken. Review notes remain a local draft until the final account is ready.
+- At this earlier checkpoint, dedicated reviewer credentials were blank and
+  deferred by Ken, and review notes remained a local draft. The September 13
+  reviewer-completion record supersedes both statuses.
 - No build upload, review submission, or release occurred. Account agreements,
   physical acceptance, and other outstanding release checks remain separate.
 
-Prepared review notes (not yet entered; verify the final candidate and reviewer
-account before submission):
+Saved review notes (September 13; recheck final-candidate reviewer access before
+submission; line wrapping below is for readability):
 
 ```text
 Daily Whiskers displays one illustrated cat card and quote for the current local
@@ -372,12 +377,17 @@ bundled with the app; there are 31 cards and six visual themes. Selection is bas
 on the local calendar date, and the app refreshes on foreground if the day changed.
 There is no card picker, purchase, subscription, advertising, or user content feed.
 
+To review the optional account tools, open the Settings gear menu, choose Sign In,
+and use the dedicated account supplied in Sign-In Information. Those credentials
+are for optional account testing; daily cards do not require sign-in.
+
 Settings always offers Privacy Policy and Support. Guests see Sign In; signed-in
 users see Log Out and Delete Account. Closing sign-in returns to the daily card.
-Account deletion requires password reauthentication and permanently removes the
-Firebase authentication account. Signing out or deleting an account returns to
-guest access. A reviewer-created account can be used to test deletion without
-removing the supplied review account, if dedicated review credentials are provided.
+Password recovery is available from the sign-in screen. Account deletion requires
+password reauthentication and permanently removes the Firebase authentication
+account. Signing out or deleting an account returns to guest access. Please create
+a separate account through Settings > Sign In > Create Account to test permanent
+deletion without deleting the dedicated review account.
 ```
 
 ## Existing Public Details
@@ -411,12 +421,12 @@ Validated draft counts (excluding code fences and their boundary newlines):
 | Name | 14 characters | 30 |
 | Subtitle | 26 characters | 30 |
 | Promotional text | 143 characters | 170 |
-| Description | 1,181 characters | 4,000 |
+| Description | 1,283 characters | 4,000 |
 | Keywords | 77 UTF-8 bytes | 100 |
 
 The copy reflects the current 31-card manifest, six archetypes, date-based
-selection, foreground refresh, and email/password account flow. It does not
-claim guest access, reminders, streaks, favorites, sharing, browsing, personalized
+selection, foreground refresh, guest access, and optional email/password accounts.
+It does not claim reminders, streaks, favorites, sharing, browsing, personalized
 recommendations, newly published art each day, universal offline access,
 accessibility certification, or an absence of all SDK data collection.
 
@@ -425,12 +435,13 @@ accessibility certification, or an absence of all SDK data collection.
 - Owner approved September 12, 2026: name/subtitle, overall tone,
   Entertainment/Lifestyle categories, English (U.S.) locale, and screenshot
   direction. This approval does not authorize submission or distribution.
-- Mandatory login is disclosed honestly. The separate guest-access decision
-  remains deferred; revisit this copy if that decision changes.
+- Guest-first access was approved September 13. The revised description and
+  review notes are saved and reload-verified. Dedicated reviewer preparation is
+  complete, with account verification and saved credentials confirmed by Ken.
 - Pricing, availability, reviewer access,
   and distribution are separate tasks. No values were invented or submitted.
 - Approved listing entry, screenshot uploads, and owner-confirmed content
   rights/copyright entries, privacy publication, and age ratings are complete.
   The content-rights discrepancy was resolved by re-entry and reload verification.
-  Finish reviewer access and distribution decisions in separately scoped steps.
+  Recheck final-candidate reviewer access and finish distribution decisions.
   Physical acceptance and outstanding release checks remain open.
