@@ -5,7 +5,13 @@ by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
 Approved metadata is saved and six screenshots are uploaded to the version 1.0
 draft in App Store Connect. No build upload or App Review submission occurred;
-physical-device acceptance remains pending.
+final-candidate physical acceptance remains pending. Earlier scoped physical
+passes are preserved in the release checklist; they are not erased by this gate.
+
+This document contains current copy followed by dated entry history. Historical
+"blank," "pending," and "automatic release" observations describe those earlier
+sessions only. Use the current status below and the
+[release checklist](release-checklist.md), not an old entry snapshot, for next work.
 
 September 13 guest-first revision: the description and review notes below reflect
 approved optional sign-in and are saved in App Store Connect. Reload verification
@@ -178,17 +184,21 @@ screenshots to show the actual app experience; see
   upload, now complete. Physical acceptance remains open. No app source changes,
   simulator launches, or App Review submission were needed.
 
-### Candidate Comparison
+### Historical Candidate Comparison (September 12)
+
+**Superseded as current-candidate parity:** the September 9 archive predates the
+VoiceOver and guest-first changes. Preserve this comparison as provenance and
+repeat against the final RC; it does not justify uploading the older artifact.
 
 - Static comparison passed September 12 against the existing signed archive and
   exported IPA, not a newly built or newly accepted release candidate.
 - Eleven captured production Swift files match the distribution-preparation
-  revision `e3d8575` and current source. Git shows no subsequent shipping
+  revision `e3d8575` and source at the September 12 checkpoint. Git showed no subsequent shipping
   source/assets/project changes between that revision and capture revision
   `00d720d`.
 - All 31 compiled card asset records match across the archive, exported IPA, and
   capture app. The archive/IPA `Assets.car` files are byte-identical; the full
-  packaged daily manifest matches current source and capture provenance.
+  packaged daily manifest matched source at that checkpoint and capture provenance.
 - The IPA remains `com.example.kenwidemon.dailywhiskers`, version `1.0 (1)`,
   minimum iOS 17. Its executable UUID matches the archive dSYM. Strict/deep code
   signature verification passed using macOS trust services outside the sandbox.
@@ -203,6 +213,9 @@ screenshots to show the actual app experience; see
   remains open; no metadata, screenshot, or build upload was performed.
 
 ## App Store Connect Entry
+
+**Historical entry log:** the initial September 12 gaps below were subsequently
+resolved where recorded. This is not a list of fields still missing today.
 
 Ken authorized saving the approved listing fields and uploading the six approved
 screenshots to the existing record `6809050612`. This does not authorize a build
@@ -230,7 +243,8 @@ credentials/contact information, pricing/availability, and legal/regulatory setu
 were not filled in. The existing automatic-release selection was left unchanged.
 Copyright and content rights were subsequently completed as recorded below.
 Privacy disclosures were subsequently published and age ratings saved as recorded
-below. Reviewer fields remain incomplete.
+below. Reviewer fields were incomplete at this initial checkpoint; September 13
+reviewer preparation is complete as recorded in the current status above.
 
 Local upload record: `build/screenshots/2026-09-12/app-store-connect-entry.json`.
 Earlier approval records describe their scope at that time; the subsequent
@@ -323,6 +337,11 @@ the resulting App Age Ratings section in the authenticated UI.
   during the age-rating draft. The subsequent recheck below resolved it.
 
 ### Reviewer and Distribution Setup Check (September 12, 2026)
+
+**Superseded snapshot:** blank credentials/contact, unset pricing, Mac/Vision Pro
+availability, and automatic-release observations below are not current settings.
+The subsequent saved-settings record and current reviewer status supersede them.
+Account agreements/compliance remain a separate current gate.
 
 - Reopened Content Rights: neither answer was selected. Restored the previously
   owner-approved No answer, clicked Done, then saved the parent App Information

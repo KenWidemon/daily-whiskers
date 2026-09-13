@@ -1,23 +1,24 @@
 # Release Configuration and Security
 
-## Current Status
+## Current Status (September 13, 2026)
 
-September 9: account/privacy implementation and owner/live acceptance are merged
-(see [account/privacy audit](account-privacy-readiness.md)). A fresh signed Release
-archive passes with explicit orientations and no former orientation warning.
-Local App Store export and Xcode Organizer App Store Connect validation also
-passed for `1.0 (1)`; no TestFlight build upload or review submission was performed.
-Distribution evidence and remaining handoff steps are tracked in
-[distribution readiness](distribution-readiness.md). The earlier attempts below
-are historical evidence, not the current signing/orientation status.
+Current remaining work lives in the [release checklist](release-checklist.md).
+This document retains configuration guidance and historical signing evidence.
+September 9 archive/export/validation passed for that source only; those artifacts
+predate the merged VoiceOver and guest-first changes and are **not the current RC**.
+A newly frozen RC needs fresh archive/export/validation and candidate acceptance.
+No build upload or review submission is recorded. Privacy/support and App Store
+copy are reconciled, and dedicated reviewer preparation is complete with
+owner-verified credentials. See [distribution evidence](distribution-readiness.md)
+and the [documentation map](README.md).
 
 ## Configuration
 
 - `project.yml` is the source of truth; regenerate with `xcodegen generate`.
 - Bundle ID remains `com.example.kenwidemon.dailywhiskers`. The local Firebase
   plist's `BUNDLE_ID` matches. The `example` component is not a reason to rename
-  an existing Firebase registration; confirm the intended distribution identity
-  before creating the App Store Connect record.
+  an existing Firebase registration. The existing App Store Connect record is
+  `6809050612`; do not create a duplicate or rename its confirmed bundle ID.
 - Initial marketing version is `1.0`, build `1`. These are starting values,
   not a claim that the build number is unused in App Store Connect.
 - iOS deployment target remains 17.0; iPhone and iPad remain supported.
@@ -37,10 +38,9 @@ configured development account if Firebase reports it missing.
 The helper and environment lookups remain inside `#if DEBUG`. Normal sign-in,
 account creation, password reset, and request locking are unchanged.
 
-Previously committed credentials still exist in repository history. The account
-owner must rotate or retire the exposed account and consider revoking existing
-sessions. This change does not modify Firebase users, credentials, or sessions.
-No history rewrite was performed.
+Previously committed credentials still exist in repository history. Deleting
+source literals did not retire that account; the owner's later remediation is
+recorded below. No history rewrite was performed.
 
 Initial owner disposition was to defer remediation. September 13 follow-up: Ken
 confirmed that he disabled the legacy account in Firebase Console himself.
@@ -48,7 +48,13 @@ Record account retirement as complete by owner report; disabled-state/login and
 token behavior were not independently verified. The agent took no Firebase
 account action. See the [canonical release checklist](release-checklist.md).
 
-## Signing and Archive Verification
+## Historical Signing and Archive Verification (Superseded)
+
+The failed attempts and retry instructions below describe the initial setup,
+not actions still required. Team/device provisioning and the orientation warning
+were subsequently resolved. Preserve the logs as history; use the current
+[distribution procedure](distribution-readiness.md#reproduce-without-uploading)
+for a newly approved RC, not these old artifacts.
 
 The initial signed Release archive attempt failed because no development team
 was configured. The owner subsequently confirmed team `HYU33CNQ69` (Kenneth
@@ -124,20 +130,11 @@ September 7 verification:
 - Local logs: `/tmp/whiskers-release-signed.log`,
   `/tmp/whiskers-release-unsigned.log`, and `/tmp/whiskers-release-unit.log`.
 
-## Remaining Owner and Release Steps
+## Release Handoff
 
-- Owner confirmed the existing App Store Connect record (6809050612), matching
-  bundle ID, and no uploaded builds. Keep `1.0 (1)` and team `HYU33CNQ69`.
-- Previously exposed development account disabled by owner report on September
-  13; no independent rejected-login or token verification was performed.
-- Signed development archive, local App Store export, and Xcode Organizer
-  App Store Connect validation passed for `1.0 (1)`; the orientation warning is
-  resolved. The app record is owner-confirmed. No TestFlight build upload or
-  App Review submission was performed.
-- Account deletion, owner privacy review, public support links, and live deletion
-  acceptance are complete. App Store Connect metadata entry remains outstanding.
-- September 13 follow-up: physical-phone largest-text landscape scrolling passed
-  by owner report. Ken explicitly deferred the unresolved simulator failure for
-  V1; keep the test unchanged and track diagnosis after release. Final-candidate
-  and broader physical-device acceptance remain open. See
-  `accessibility-interaction-qa.md` for the evidence and release exception.
+Use the [canonical release checklist](release-checklist.md), not the historical
+setup failures above. Initial signing, orientation configuration, metadata entry,
+legacy-account retirement by owner report, and reviewer preparation are no longer
+pending setup tasks. Final-candidate validation, performance, account/compliance
+checks, and authorized distribution remain separate gates. Recheck build-number
+availability before uploading; the configured `1.0 (1)` is not a reserved build.

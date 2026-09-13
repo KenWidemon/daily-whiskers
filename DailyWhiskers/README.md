@@ -2,6 +2,10 @@
 
 Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day, with optional Firebase email/password accounts.
 
+Documentation entry point: [documentation map](../docs/README.md).
+For current remaining work, use only the [release checklist](../docs/release-checklist.md);
+dated QA reports preserve evidence rather than separate roadmaps.
+
 ## Current Behavior
 - The daily card opens immediately without sign-in, including while Firebase restores
   its session. Guest access does not create a Firebase anonymous account.
@@ -25,8 +29,9 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day, wi
 ## Account and Privacy Readiness
 
 See [account/privacy audit](../docs/account-privacy-readiness.md) for deletion
-behavior, data inventory, and outstanding privacy-policy/support links and
-owner decisions. Repository implementation is not complete release acceptance.
+behavior, data inventory, and published privacy/support decisions. Guest-first
+copy and dedicated reviewer preparation are complete; final-candidate checks
+remain in the release checklist. Implementation is not release acceptance.
 
 ## Authentication Recovery
 
@@ -74,8 +79,9 @@ The helper attempts sign-in first and can create the configured account when
 Firebase reports it missing. Use only a controlled development account. The
 helper and its environment lookup are excluded from Release builds.
 
-Previously embedded credentials remain in Git history. Their owner must rotate
-or retire that account; deleting the source literals does not revoke access.
+Previously embedded credentials remain in Git history. Ken reported disabling
+that legacy account in Firebase Console on September 13; the agent did not
+independently verify disabled state or token behavior. Do not reuse that account.
 
 ## Release Readiness
 
@@ -85,7 +91,7 @@ screenshots are saved in the App Store Connect version 1.0 draft. No build uploa
 or App Review submission has occurred.
 
 See [release readiness](../docs/release-readiness.md) for configuration, archive
-verification, and the remaining owner-controlled signing/security steps.
+requirements and historical signing evidence. Older archives are not the current RC.
 `project.yml` is the source of truth for the initial version `1.0`, build `1`.
 Increment the build number before subsequent distribution uploads.
 
@@ -106,7 +112,7 @@ Load-time integrity checks:
 - required fields non-empty
 - duplicate `id` rejected
 - `imageName` must exist in Assets catalog
-- invalid cards are dropped with debug logging
+- invalid cards are dropped with integrity logging
 - if no valid cards remain, app uses a built-in fallback card
 
 Image import details:
@@ -132,7 +138,7 @@ Image import details:
 ## Continuous Integration
 
 The `iOS CI` GitHub Actions workflow builds the Debug simulator app and runs
-unit tests on pull requests and pushes to `main` and `codex/develop`. It can
+unit tests on pull requests and pushes to `main`, `codex/develop`, and `release/rc`. It can
 also be started manually. It uses macOS 26 and Xcode 26.6, generates the project
 with XcodeGen, and selects an available iPhone simulator.
 
@@ -186,8 +192,8 @@ is not yet a fully green phone acceptance gate.
 - [Support](https://kenwidemon.github.io/daily-whiskers-site/support/)
 - Contact: dailywhiskers.support@gmail.com. Operator: Kenneth Widemon.
 
-Both destinations are accessible without signing in from the login screen and
-from the signed-in Settings menu. Public site source is maintained separately in
+Both destinations are accessible from optional sign-in and from Settings for
+guests and signed-in users. Public site source is maintained separately in
 `KenWidemon/daily-whiskers-site` and deployed through GitHub Pages.
 
 ## Branch / PR Workflow

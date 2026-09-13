@@ -1,8 +1,17 @@
 # Step 5: Performance Tuning
 
+> **Historical measurements; performance gate still open.** Step 5 is the old
+> development label, not current release checklist #5. This log records September
+> 5-11 measurements on pre-guest-first source. Use [release checklist](release-checklist.md)
+> #2 for the next bounded pass. Do not reuse historical branch/PID/device state,
+> test counts, or temporary trace paths as current facts. Later scoped physical
+> accessibility acceptance is recorded separately; it does not establish measured
+> performance. The profiling harness is removed, not a standing test requirement.
+> See the [documentation map](README.md).
+
 ## Focused Device Pass (September 10-11, 2026)
 
-Current checkpoint: `codex/device-performance`, based on merged revision
+Historical checkpoint: `codex/device-performance`, based on merged revision
 `37f9e00`. Login/card sampling, foreground/auth-cycle allocations, and the card's
 Reduce Motion comparison are recorded below. A September 11 evening startup
 attempt saved a trace but failed owner-visible launch confirmation; it is not a
@@ -22,8 +31,9 @@ are recorded here; no automatic continuation is scheduled. No simulator was
 started for the September 11 evening work.
 
 The owner chose to proceed with performance before the broader physical-device
-acceptance checklist. That checklist, including the known largest-text landscape
-scrolling failure, remains pending; it is not waived or marked complete.
+acceptance checklist. At that time the broader checklist and simulator scrolling
+diagnosis were pending. September 13 scoped physical results and Ken's explicit
+V1 simulator deferral supersede that status; final-candidate repeats still apply.
 
 - Baseline: merged `codex/develop` revision `37f9e00`; task branch
   `codex/device-performance`.
@@ -36,7 +46,13 @@ scrolling failure, remains pending; it is not waived or marked complete.
 - Installed Instruments templates include CPU Profiler, Animation Hitches,
   Allocations, App Launch, SwiftUI, and Power Profiler.
 
-### Bounded Measurement Order
+### Historical Measurement Protocol
+
+This is the protocol used/planned for the pre-guest build, not a request to repeat
+completed recordings. For new measurements, start with the guest daily card and
+open optional auth through Settings when needed. Checklist #2 defines remaining
+scope; do not repeat failed Instruments-owned launches or recreate the removed
+harness without a separately justified plan and approval.
 
 1. Install the optimized development build on the connected iPhone. Record OS,
    revision, Low Power Mode, Reduce Motion, thermal/power conditions, and whether
@@ -225,9 +241,9 @@ different exercises/OS versions as a controlled before/after comparison.
   tail, with signposts. It initializes the provider only after the Start button,
   so an attached profiler can capture initialization and subsequent rendering.
 - Harness results follow below. Shipping-app regression tests were not rerun
-  for these isolated harness/documentation changes; the latest full result
-  remains September 9's 46 tests in seven suites. The historical simulator counts
-  below describe their original runs, not the latest suite.
+  for these isolated harness/documentation changes; the latest full result at
+  that checkpoint was September 9's 46 tests in seven suites. All test counts
+  here describe historical runs, not the current guest-first suite.
 
 ### Isolated Image Exercise Results (September 11 Evening)
 
@@ -306,7 +322,7 @@ different exercises/OS versions as a controlled before/after comparison.
   `/tmp/whiskers-paused-startup-resume.json`. Recordings and export have stopped;
   no shipping code changed and no tests were rerun for this evidence-only update.
 
-### Next Performance Decisions
+### Measurement Gaps Carried to Checklist #2
 
 1. Controlled initialization memory now has owner-visible evidence, qualified
    by the dyld warning and intentional launch pause. Natural cold-launch timing
@@ -319,11 +335,9 @@ different exercises/OS versions as a controlled before/after comparison.
    attribution and user-visible severity are not established. No optimization
    or full performance sign-off is claimed. Energy, long-session, and lower-memory
    device measurements are outside this completed bounded exercise.
-4. The owner authorized publishing this evidence through the normal task PR
-   into `codex/develop` and subsequently requested removal of the temporary
-   harness. Historical measurements above remain intact. The broader physical-device
-   accessibility/
-   interaction acceptance checklist is still pending, not waived.
+4. The evidence was published and the temporary harness removed at the owner's
+   request. Later scoped accessibility/interaction checks passed by owner report;
+   final-candidate repeats remain. Those results do not close these measurement gaps.
 
 ## Historical Step 5 Changes
 
@@ -339,7 +353,8 @@ different exercises/OS versions as a controlled before/after comparison.
 ## Measurements
 
 September 5, 2026; Xcode 26.6, iOS 26.5, iPhone 17e simulator, normally signed
-Debug builds. Before revision: `81f1e72`. After: this branch's working tree.
+Debug builds. Before revision: `81f1e72`. After: the Step 5 working tree at the
+time of measurement, not today's checkout.
 The screen was idle and signed out with the keyboard hidden and motion enabled.
 Ten `ps` observations at one-second intervals were collected after launch settled.
 
@@ -376,7 +391,10 @@ the CPU difference into a shipping performance or battery-life claim.
   during parent reconstruction; measure this with SwiftUI Instruments before
   introducing shared caching or changing state ownership.
 
-## Repeatable Acceptance Pass
+## Historical Simulator Sampling Procedure
+
+Retained for reproducing the old experiment, not the current physical acceptance
+plan. Simulator `ps` results cannot close the device-performance gate.
 
 1. Use the same device, build configuration, motion setting, and visible screen
    for both revisions. Wait for startup work to settle. Do not run tests or other
@@ -415,7 +433,8 @@ This is a short steady-state sample, not a leak or allocation test.
   was terminated. No completed Instruments result is claimed.
 
 No application code changed in this follow-up. The prior 35-test result below
-remains the latest regression run; tests were not rerun for documentation alone.
+was the latest regression run at that checkpoint; tests were not rerun for
+documentation alone. Current regression evidence is in the release checklist.
 
 ## Historical Simulator Follow-up Gaps
 

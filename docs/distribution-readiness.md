@@ -1,9 +1,17 @@
 # Distribution Readiness
 
+> **Historical artifacts, current procedure.** Reviewed September 13, 2026.
+> The September 9 archive/export/validation and September 12 screenshot comparison
+> predate VoiceOver and guest-first changes. They are not acceptance of the current
+> RC and must not be used to skip checklist #6. Dated sections below describe their
+> own checkpoint, not current tasks or machine state. Use the
+> [release checklist](release-checklist.md) for remaining work and the
+> [documentation map](README.md) for status conventions.
+
 ## Scope and Identity
 
-This pass prepares local distribution artifacts, not a TestFlight upload or App
-Store submission. `project.yml` remains the source of truth.
+This guide covers local distribution preparation, not authorization for a
+TestFlight upload or App Store submission. `project.yml` is the configuration source.
 
 - Bundle ID: `com.example.kenwidemon.dailywhiskers`, matching packaged Firebase config.
 - Team: `HYU33CNQ69` (Kenneth Widemon).
@@ -11,8 +19,8 @@ Store submission. `project.yml` remains the source of truth.
 - iOS 17 minimum; iPhone and iPad supported.
 - Owner confirmed the existing record and bundle ID on September 9, 2026:
   [Daily Whiskers, app ID 6809050612](https://appstoreconnect.apple.com/apps/6809050612/distribution/ios/version/inflight).
-  These account-side details are owner-reported, not an independently inspected
-  authenticated record. Do not create a duplicate or rename the bundle ID.
+  That initial confirmation was owner-reported; later authenticated listing
+  sessions used this same record. Do not create a duplicate or rename the bundle ID.
 
 ## Release Branch Workflow
 
@@ -54,7 +62,7 @@ or prove visual rotation/multitasking acceptance.
 - Archive log: `/tmp/whiskers-distribution-20260909-archive.log`.
 - Development signing is not distribution-signing or server-validation evidence.
 
-## Local App Store Export Evidence
+## Historical Local App Store Export Evidence (September 9)
 
 - Initial export without provisioning updates failed for lack of a matching
   distribution profile. The retry with `-allowProvisioningUpdates` succeeded.
@@ -69,7 +77,7 @@ or prove visual rotation/multitasking acceptance.
 - App Store Connect validation passed through Xcode Organizer's **Validate App**
   action on September 9, 2026. See validation evidence below.
 
-## Regression Checks
+## Historical Regression Checks (September 9)
 
 - Final build/unit run passed: 46 tests in seven suites, including two packaged-orientation tests.
   Tests read the raw plist because `Bundle.infoDictionary` resolves idiom-specific
@@ -83,6 +91,9 @@ or prove visual rotation/multitasking acceptance.
 
 Run from the repository root with the ignored, real Firebase plist installed.
 Never distribute the CI fixture plist.
+For a release run, first freeze the approved `release/rc` source and record its
+SHA/tag. Use fresh archive/export paths and verify version/build availability;
+the sample paths below are not references to an accepted existing artifact.
 
 ```sh
 xcodegen generate
@@ -104,7 +115,7 @@ The export plist explicitly sets `destination=export`, automatic signing, and
 build number. Provisioning updates may obtain signing assets through the Xcode
 account. Export success alone is not App Store validation or review approval.
 
-## App Store Validation and Owner Handoff
+## Historical App Store Validation and Owner Handoff (September 9)
 
 The existing app record and lack of uploaded builds are owner-confirmed. Use the
 existing identity and `1.0 (1)`; do not create a new record or change its SKU.
@@ -125,10 +136,10 @@ validation settings were used. Xcode reported **App validation complete** and
 
 Local Xcode evidence is in
 `/var/folders/kl/7606x4hd1j5bv19c_lmxgmcr0000gn/T/DailyWhiskers_2026-09-09_21-58-28.726.xcdistributionlogs`.
-This closes the archive/export/validation gate for this candidate, not App Review
+This closed the archive/export/validation gate for the September 9 candidate, not App Review
 or overall V1 acceptance. No TestFlight build upload or App Review submission was
 performed. Those actions still require authorization. All simulators remained
-shut down during validation. Changes are prepared for PR review into `codex/develop`.
+shut down during validation. That implementation pass was subsequently merged.
 
 ## Screenshot Candidate Comparison (September 12, 2026)
 
@@ -140,7 +151,9 @@ September 9 archive and exported IPA. No new archive or upload was performed.
   and IPA asset catalogs are byte-identical, and packaged daily JSON matches
   source/capture provenance.
 - Eleven captured Swift source hashes match distribution revision `e3d8575` and
-  current source. No intervening shipping source or project changes were found.
+  source at the September 12 comparison. No intervening shipping source or project
+  changes were found then; subsequent VoiceOver/guest-first changes invalidate
+  using that source comparison as current-candidate parity.
 - IPA executable UUID matches the archive dSYM; strict/deep signature verification
   passed outside the sandbox. The initial sandbox attempt could not establish
   certificate trust; no trust settings or signing assets were changed.
@@ -191,13 +204,15 @@ verified at USD 0.00, with only the United States available on app release.
 Mac/Vision Pro availability is disabled and manual release is saved. Public
 distribution remains selected. Approved review contact name/email and the phone
 Ken entered directly are present with Save disabled; no phone value is recorded
-in the repository. Dedicated reviewer credentials and final review notes remain
-deferred. No build upload, review submission, or release occurred. See the
-prepared notes and detailed evidence in `app-store-listing.md`.
+in the repository. Reviewer credentials and final notes were deferred at that
+checkpoint; checklist #4 is now complete with owner-verified credentials and
+saved/reload-verified final instructions. See the current
+[listing record](app-store-listing.md). No build upload, submission, or release occurred.
 
 ## Scrolling Release Exception (September 13, 2026)
 
-Remaining step #2 is complete with an owner-approved exception: Ken reported
+The former scrolling task (then called "step #2", **not current checklist #2**)
+is complete with an owner-approved exception: Ken reported
 that the complete Create Account button is reachable on the physical iPhone
 in largest-text landscape, with the password keyboard remaining visible while
 scrolling, and explicitly deferred the unresolved simulator failure for V1.

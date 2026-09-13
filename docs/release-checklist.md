@@ -3,6 +3,8 @@
 Canonical remaining-work list, established September 13, 2026. Maintain this
 file as work proceeds; preserve item numbers when checking items off or recording
 explicit deferrals. Detailed QA documents are evidence, not competing roadmaps.
+Use the [documentation map](README.md) to distinguish current guides from
+historical evidence. Older Step 4A/4B/5 and "step 2" labels are not this numbering.
 Skipping to an item does not waive earlier items. No upload, submission, or manual
 release is authorized merely by approval of this checklist.
 
@@ -15,7 +17,7 @@ release is authorized merely by approval of this checklist.
 - PR #42 merged into `codex/develop`: documented the main-based `release/rc`
   strategy and added RC coverage to CI. No RC promotion occurred.
 - PR #40 merged into `codex/develop`: VoiceOver fixes, tests, and scoped physical
-  iPhone/iPad acceptance. Latest unit suite: 51 tests in seven suites passed;
+  iPhone/iPad acceptance. At that checkpoint, 51 tests in seven suites passed;
   focused error-visibility UI check and signed device builds passed.
 - Listing copy, six screenshots, content rights, privacy disclosures, age ratings,
   review contact, and free/U.S.-only/iPhone-and-iPad/manual-release settings were
@@ -79,7 +81,8 @@ release is authorized merely by approval of this checklist.
 ## Item 3 Decision Record
 
 Ken selected #3 on September 13. Items #1 and #2 remain open, not waived.
-Work branch: `codex/release-security-decisions`, based on merged `codex/develop`.
+Historical implementation branch: `codex/release-security-decisions`, merged
+through PR #41. Later copy/reviewer evidence is recorded separately below.
 
 ### Legacy Development Account
 
@@ -101,7 +104,7 @@ Work branch: `codex/release-security-decisions`, based on merged `codex/develop`
 
 - Approved September 13: Ken confirmed Danny's decision to make sign-in and
   account tools optional. This supersedes the earlier guest-access deferral.
-- Implemented on the work branch: open directly to the daily card without authentication; retain
+- Implemented and merged through PR #41: open directly to the daily card without authentication; retain
   optional account entry in Settings and existing-user deletion/recovery access.
 - Guest use should not create a Firebase anonymous user or invent an account
   benefit. Auth-only controls must reflect actual signed-in state.

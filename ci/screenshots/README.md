@@ -1,5 +1,12 @@
 # Screenshot Previews
 
+**Current tooling; dated approval evidence.** Six September 12 compositions were
+approved and uploaded. That approval applies to those exact exports, not a future
+render. Final RC parity still needs checking because the old archive predates
+VoiceOver/guest-first changes. See the [listing record](../../docs/app-store-listing.md)
+and [release checklist](../../docs/release-checklist.md). Temporary projects and
+ignored capture files may have been cleaned up; verify paths before rerunning.
+
 Owner authorized an isolated capture setup on September 12, 2026. This is not the
 retired performance harness, a shipping target, or an authentication test.
 
@@ -87,6 +94,7 @@ Outputs under `compositions/`:
 - `export-index.json`: captions, dimensions, input/output hashes, renderer hash,
   and pending approval status. Retain it with the exports.
 
-Final composition approval and comparison against the accepted release candidate
-are still required. Re-rendering replaces composition outputs and resets their
-manifest to awaiting approval; do not treat earlier approval as covering edits.
+For new or changed exports, obtain fresh composition approval and compare against
+the accepted release candidate. The September 12 files already have composition
+approval, but not final RC parity. Re-rendering replaces composition outputs and
+resets their manifest to awaiting approval; earlier approval does not cover edits.
