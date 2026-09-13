@@ -28,6 +28,8 @@ final class AuthLayoutTests: XCTestCase {
         app.textFields["Email"].tap()
         let next = app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "next")).firstMatch
         waitForVisibleKey(next)
+        XCTAssertFalse(app.buttons["Hide Keyboard"].exists,
+                       "The extra keyboard toolbar action was removed by product request.")
         next.tap()
         let done = app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "done")).firstMatch
         waitForVisibleKey(done)
@@ -63,17 +65,52 @@ final class AuthLayoutTests: XCTestCase {
         checkScrolling(textSize: .accessibilityExtraExtraExtraLarge)
     }
 
+    func testGuestCanDismissAndReopenOptionalSignIn() {
+        launch(orientation: .portrait, textSize: .large)
+        app.textFields["Email"].tap()
+        app.textFields["Email"].typeText("unfinished@example.com")
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["Email"].exists)
+
+        openOptionalSignIn()
+        XCTAssertEqual(app.textFields["Email"].value as? String, "Email",
+                       "Dismissing optional auth must discard unfinished credentials.")
+        app.buttons["Close"].tap()
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.otherElements["daily-card"].exists)
+        XCTAssertFalse(app.textFields["Email"].exists,
+                       "Relaunching as a guest must not require authentication.")
+    }
+
     private func launch(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory) {
         XCUIDevice.shared.orientation = orientation
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", textSize.rawValue]
         app.launch()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.otherElements["daily-card"].exists)
+        XCTAssertFalse(app.textFields["Email"].exists,
+                       "The daily card must open without a sign-in gate.")
+        openOptionalSignIn()
+    }
+
+    private func openOptionalSignIn() {
+        app.buttons["Settings"].tap()
+        let signIn = app.buttons["Sign In"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10),
+                      "Run on a signed-out QA simulator; this test never signs out a user.")
+        XCTAssertFalse(app.buttons["Log Out"].exists)
+        XCTAssertFalse(app.buttons["Delete Account"].exists)
+        signIn.tap()
         XCTAssertTrue(app.textFields["Email"].waitForExistence(timeout: 10),
-                      "Run this scheme on a signed-out QA simulator. It never signs out a user.")
+                      "Settings must open optional authentication.")
     }
 
     private func checkScrolling(textSize: UIContentSizeCategory) {
         launch(orientation: .landscapeLeft, textSize: textSize)
-        let scroll = app.scrollViews.firstMatch
+        let scroll = app.scrollViews["auth-form"]
         XCTAssertTrue(scroll.exists)
         let password = app.secureTextFields["Password"]
         for _ in 0..<6 where !password.isHittable {

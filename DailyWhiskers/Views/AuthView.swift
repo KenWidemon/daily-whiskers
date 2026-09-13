@@ -16,6 +16,7 @@ struct AuthView: View {
 #endif
 
     @EnvironmentObject private var router: AppRouter
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -67,6 +68,7 @@ struct AuthView: View {
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: geometry.size.height)
                     }
+                    .accessibilityIdentifier("auth-form")
                     .scrollDismissesKeyboard(.interactively)
                     .task(id: resetFocusRequestID) {
                         guard let requestID = resetFocusRequestID else { return }
@@ -96,12 +98,17 @@ struct AuthView: View {
             }
         }
         .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Hide Keyboard") { focusedField = nil }
-                    .frame(minHeight: 44)
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    focusedField = nil
+                    dismiss()
+                }
+                .disabled(isWorking)
+                .accessibilityHint("Returns to your daily card without signing in.")
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .interactiveDismissDisabled(isWorking)
         .preferredColorScheme(.light)
         .alert("Check Your Email", isPresented: Binding(
             get: { request.confirmation != nil },
@@ -140,6 +147,10 @@ struct AuthView: View {
                 Text("A calm cat moment, once per day.")
                     .font(.headline)
                     .foregroundStyle(Color.primary.opacity(0.60))
+
+                Text("Signing in is optional. Your daily card is always available without an account.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)

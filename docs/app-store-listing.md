@@ -7,6 +7,13 @@ Approved metadata is saved and six screenshots are uploaded to the version 1.0
 draft in App Store Connect. No build upload or App Review submission occurred;
 physical-device acceptance remains pending.
 
+September 13 guest-first revision: the description and prepared review notes below
+now reflect approved optional sign-in. These revised passages are local drafts,
+not yet saved in App Store Connect. Historical console records below describe the
+previous mandatory-login candidate. Recheck screenshot parity, public policy/
+support wording, and Sign-In Information before submission; retained account
+features still need a reviewer-access decision.
+
 ## Recommended Positioning
 
 A small daily ritual for people who enjoy cats, imaginative artwork, and a few
@@ -53,7 +60,7 @@ ROOM TO PAWS
 No endless feed. No streak to maintain. Just artwork and a few words, presented in a simple, focused view.
 
 GETTING STARTED
-An email and password account is required. Create an account or sign in to view your card. Internet access is needed for account actions; artwork and quotes are included with the app. Password recovery is available on the sign-in screen, and you can delete your account from Settings.
+Enjoy your daily card without an account. Optional email and password sign-in is available in Settings. Internet access is needed for account actions; artwork and quotes are included with the app. Password recovery is available on the sign-in screen, and signed-in users can delete their account from Settings. Signing out or deleting your account does not remove access to daily cards.
 
 A small ritual, with whiskers.
 ```
@@ -358,16 +365,19 @@ account before submission):
 
 ```text
 Daily Whiskers displays one illustrated cat card and quote for the current local
-day. Sign in using the dedicated review account supplied in Sign-In Information.
-An internet connection is required for authentication. Artwork and quotes are
+day. The app opens directly to the daily card; no account is required to view it.
+Optional email/password sign-in and account creation are available from Settings.
+An internet connection is required for account actions. Artwork and quotes are
 bundled with the app; there are 31 cards and six visual themes. Selection is based
 on the local calendar date, and the app refreshes on foreground if the day changed.
 There is no card picker, purchase, subscription, advertising, or user content feed.
 
-The settings menu contains Sign Out, Delete Account, Privacy Policy, and Support.
+Settings always offers Privacy Policy and Support. Guests see Sign In; signed-in
+users see Log Out and Delete Account. Closing sign-in returns to the daily card.
 Account deletion requires password reauthentication and permanently removes the
-Firebase authentication account. A reviewer-created account can be used to test
-deletion without removing the supplied review account.
+Firebase authentication account. Signing out or deleting an account returns to
+guest access. A reviewer-created account can be used to test deletion without
+removing the supplied review account, if dedicated review credentials are provided.
 ```
 
 ## Existing Public Details

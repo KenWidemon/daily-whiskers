@@ -4,8 +4,9 @@
 
 - Email Next moves focus to Password. Password Done submits sign-in only when
   validation passes and the shared auth request lock is free.
-- A keyboard toolbar provides Hide Keyboard. Starting an auth request dismisses
-  field focus; interactive scroll dismissal remains available.
+- The extra Hide Keyboard toolbar action was removed at Ken's request on
+  September 13. Starting an auth request dismisses field focus; interactive scroll
+  dismissal remains available, and Close dismisses optional auth.
 - The login title is a heading. Error text is an accessibility focus target and
   is scrolled into view when presented. Accepted login/reset operations post an
   announcement before starting backend work, independent of view redraw timing.
@@ -34,7 +35,8 @@
   keychain-error coverage verifies logout failure and successful retry.
 - On a separate iPhone 17e simulator, keyboard Next moved input from email to
   password; Done with invalid credentials did not start an auth request.
-- Software keyboard displayed the Hide Keyboard control, which dismissed it.
+- Historical check: the software keyboard displayed the Hide Keyboard control,
+  which dismissed it. That control was removed September 13 by product request.
 - Accessibility tree exposed the heading, fields, and buttons in visual order,
   with disabled auth actions correctly represented. Decorations were absent.
 - Login displayed dark status-bar content against its light background.
@@ -383,16 +385,17 @@ restored to `large`. The first app launch stalled after first-boot migration;
 one simulator restart recovered it. These checks cover the full-screen login,
 not iPad window resizing/multitasking or signed-in card interaction.
 
-- VoiceOver speech: other operations' loading announcements, backend-error focus,
+- VoiceOver speech: other operations' loading announcements,
   signed-in reading order, and other alerts' dismissal focus on a physical device.
   Login reading order, field/button labels, decorative-sparkle exclusion, initial
   and repeated local-validation error focus/speech, reset loading/confirmation,
-  and reset-dismissal focus passed by owner report on September 13. Repeat against
+  and reset-dismissal focus passed by owner report on September 13. Backend-error
+  announcement/focus also passed in the guest-first follow-up below. Repeat against
   the final distributed candidate.
 - Physical Reduce Motion passed by owner report on September 13 for login/card
   decorative motion, the sign-in transition, and animation resuming when disabled.
-  Repeat against the final distributed candidate; sign-out transition remains
-  separately unverified by this exercise.
+  Repeat against the final distributed candidate. Sign-out with Reduce Motion
+  additionally passed in the guest-first follow-up below.
 - The rapid keyboard-submission exercise passed by owner report on September 13
   with no visible issues. Actual delivery of a second activation was not verified;
   the request-lock unit tests cover in-flight duplicate blocking. Repeat the
@@ -420,3 +423,183 @@ The simulator's Accessibility settings do not expose iOS VoiceOver, so speech an
 focus acceptance need a physical device.
 Accessibility-tree inspection is not a substitute for listening with VoiceOver.
 Performance profiling remains Step 5.
+
+## September 13 Guest-First Follow-Up
+
+Ken confirmed Danny's approval of optional sign-in and account tools. The daily
+card is now the root for guests and signed-in users, including while Firebase
+restores its session. Settings presents optional authentication in a sheet;
+signed-in users retain logout and password-confirmed deletion. Successful auth
+and session-ending transitions dismiss obsolete account sheets without replacing
+the daily card. A different signed-in identity also invalidates an open deletion
+form. No Firebase anonymous account is created.
+
+The auth Close button and interactive sheet dismissal are disabled while an auth
+request is running. Closing auth discards unfinished form state. Settings focus
+is requested after sheet dismissal or sign-out, not on initial guest-session
+restoration. Deletion and logout have separate request/feedback state. Ken also
+requested removal of the extra Hide Keyboard toolbar button; keyboard submission
+and interactive scroll dismissal remain.
+
+Testing notes:
+
+- Five new unit tests cover guest/loading/signed-in account access, auth dismissal,
+  session loss, and invalidating deletion for a changed identity.
+- The UI scheme now enters auth through Settings. A new test verifies the guest
+  card, absence of guest logout/deletion, Close, discarded form state, and guest
+  relaunch. Keyboard navigation asserts Hide Keyboard is absent.
+- Initial keyboard checks could not find an onscreen software keyboard. Ken
+  authorized temporarily disconnecting the simulator's hardware keyboard. This
+  was a test setup issue, not a passing keyboard check.
+- Default-text landscape then exposed an ambiguous test selector: the daily card
+  remains behind auth and both contain scroll views. The test now targets
+  `auth-form`, preserving the keyboard-open-start scenario, visibility assertion,
+  and swipe budget. The targeted landscape rerun passed.
+- The largest-accessibility-text landscape test remains explicitly deferred for
+  V1 and was not rerun or weakened. Shared entry/scroll targeting reflects the new
+  modal hierarchy; its reachability assertion is unchanged.
+- The scoped physical iPhone pass is now complete by owner report, as recorded
+  below. No live account was created, signed in, reset, or deleted by these
+  automated checks. Physical account operations were performed by Ken. Earlier
+  physical results remain historical evidence; final-candidate repeats still apply.
+
+Final regression evidence is recorded in [the release checklist](release-checklist.md).
+
+### Physical Guest Entry and Close
+
+The tested signed Release app was installed over the existing app on iPhone 17
+Pro Max without uninstalling or clearing session data. Signature validation and
+the device launch command succeeded. Ken confirmed the app was signed out and
+VoiceOver was initially disabled. After being asked to enable VoiceOver, open
+Settings > Sign In, inspect Close/field/account labels and the optional-sign-in
+message, then activate Close without entering credentials, Ken reported
+"Everything LGTM." Record this as owner-reported passage of that bounded flow:
+the daily card remains available and VoiceOver focus returns to Settings.
+No independent speech recording or successful authenticated transition is
+established by this result. Binary provenance:
+`/tmp/whiskers-guest-physical-binary-hash.txt`.
+
+### Physical Successful Sign-In
+
+With VoiceOver enabled on the same iPhone build, Ken confirmed that signing in
+with his active test account announced "Signing in," dismissed the auth sheet
+automatically to the daily card, and replaced Sign In in Settings with Log Out
+and Delete Account. Credentials remained on-device. This is owner-reported
+acceptance of the successful sign-in transition and signed-in menu, not an
+independent speech capture, relaunch/persistence check, or logout check.
+
+### Physical Signed-In Persistence
+
+Ken subsequently confirmed that force-closing and reopening the same iPhone app
+with VoiceOver enabled returned to the daily card without a login prompt, with
+Log Out and Delete Account still available in Settings. Record signed-in session
+persistence as passed by owner report. No launch timing was measured, and this
+does not close the separate performance acceptance item.
+
+### Physical Logout to Guest
+
+Ken confirmed all four requested logout behaviors with VoiceOver enabled on the
+same iPhone build: Settings > Log Out left the daily card visible without opening
+auth, VoiceOver focus returned to Settings, and the menu replaced Log Out/Delete
+Account with Sign In. Record the successful logout transition as passed by owner
+report. Guest relaunch persistence and Reduce Motion were not established by
+this check; no independent speech capture or backend/session inspection occurred.
+
+### Physical Guest Persistence
+
+After the successful logout check, Ken confirmed that force-closing and reopening
+the same iPhone app with VoiceOver on returned directly to the daily card without
+a login prompt. Settings still offered Sign In and did not offer Log Out or
+Delete Account. Record guest persistence as passed by owner report. No launch
+timing was measured, and this does not establish post-deletion persistence or
+complete the separate performance acceptance item.
+
+### Physical Failed-Sign-In Accessibility
+
+With VoiceOver on in the optional auth sheet, Ken was asked to submit his active
+test account's email with an intentionally incorrect password once. He reported
+"LGTM" for the error being announced and receiving VoiceOver focus, the sheet
+remaining open, and Close remaining available. Record this bounded backend-error
+accessibility check as passed by owner report. Credentials stayed on-device;
+there was no independent speech capture or repeated failed-login test. Successful
+recovery/retry after an error is not established by this result.
+
+### Physical Reset in Optional Auth
+
+Following the failed-sign-in check, Ken confirmed all requested reset behaviors
+with VoiceOver on: activating Forgot password once announced "Sending reset link,"
+the Check Your Email alert was announced, and activating OK returned focus to
+Forgot password. Record these optional-sheet announcement/confirmation/focus
+behaviors as passed by owner report. The test did not ask him to open the email
+or change his password. The neutral confirmation is not proof of email delivery,
+and successful sign-in retry remains a separate check. No credentials or reset
+link were retrieved or stored by the agent.
+
+### Physical Reduce Motion and Successful Retry
+
+Ken was asked to keep VoiceOver on, enable Reduce Motion, sign in with the correct
+password, and then log out. He reported "LGTM" for both successful actions, static
+decorative sparkles/glow, and logout retaining the daily card with VoiceOver focus
+on Settings. No problematic large sliding/zooming transitions were reported.
+Record these bounded motion/transition checks as passed by owner report on the
+same iPhone build. Successful sign-in followed the earlier failed-sign-in/reset
+checks. This does not measure animation performance or establish all-device
+acceptance. Restoration of Reduce Motion was confirmed in the next check below.
+
+### Physical Account Creation
+
+Ken was asked to restore Reduce Motion to off, keep VoiceOver on, and create a
+new disposable account using an unused email he controls and a unique password.
+He confirmed that "Creating account" was announced, the optional auth sheet
+closed to the daily card, and Settings offered Log Out and Delete Account.
+Record account creation/announcement/dismissal and restoration of Reduce Motion
+as passed by owner report. Credentials remained on-device and were not retrieved
+or recorded by the agent. The new account was left signed in; this confirmation
+does not authorize permanent deletion.
+
+### Physical Deletion Cancellation
+
+With VoiceOver on and the disposable account signed in, Ken confirmed that the
+deletion confirmation warning and buttons were clearly announced. Cancelling
+the confirmation left the deletion form open; cancelling that form returned to
+the daily card with focus on Settings and Log Out/Delete Account still available.
+Record this bounded warning/cancellation/focus check as passed by owner report.
+He was explicitly instructed not to choose Delete Permanently. No irreversible
+deletion was authorized by this check, and no credentials were retrieved by the
+agent.
+
+### Guest-First Deletion Approval
+
+After the cancellation check, Ken explicitly confirmed that he is still signed
+into the disposable test account and approved permanently deleting that account
+for the final lifecycle check, after being told deletion cannot be undone.
+This approval is limited to that disposable account. The owner performs the
+destructive action on-device; no credentials are requested by the agent. Approval
+alone did not establish execution; the result is recorded below.
+
+### Physical Permanent Deletion to Guest
+
+After explicit approval, Ken was asked to keep VoiceOver on, delete only the
+disposable account using its on-device password, and choose Delete Permanently.
+He reported "Confirmed" for hearing "Deleting account," the sheet closing to the
+daily card, VoiceOver focus returning to Settings, and Sign In replacing Log Out
+and Delete Account. Record this bounded deletion/announcement/guest-return flow
+as passed by owner report. The subsequent relaunch result is recorded below.
+The agent did not independently inspect Firebase Console, test rejected deleted-
+account credentials, capture speech, or perform the destructive action itself.
+
+### Physical Post-Deletion Persistence and Pass Closure
+
+Ken confirmed that force-closing and reopening the same iPhone app with VoiceOver
+on returned directly to the daily card without a login prompt. Settings offered
+Sign In, with no Log Out or Delete Account. Record post-deletion guest persistence
+as passed by owner report. This completes the scoped physical iPhone account-
+transition and VoiceOver pass, not all-device acceptance, independent Firebase
+account-absence verification, measured performance, or final-build retesting.
+
+Production/test source hashes still match the tested revision. Only QA/checklist
+documentation changed during physical acceptance. Reduce Motion was restored to
+off by owner confirmation; VoiceOver was initially off and remains on unless the
+owner restores it. No VoiceOver restoration has yet been reported. No commit,
+push, PR, App Store metadata update, upload, submission, or release was performed
+as part of these physical checks.

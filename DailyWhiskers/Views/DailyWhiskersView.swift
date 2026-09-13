@@ -1,12 +1,31 @@
 import SwiftUI
 
+enum AccountSheet: String, Identifiable {
+    case signIn, deletion
+
+    var id: String { rawValue }
+
+    func isAvailable(for state: AppRouter.AuthState) -> Bool {
+        switch (self, state) {
+        case (.signIn, .signedOut), (.deletion, .signedIn): true
+        default: false
+        }
+    }
+
+    func shouldDismiss(from previous: AppRouter.AuthState, to current: AppRouter.AuthState) -> Bool {
+        // A deletion form belongs to the identity that opened it, not a later session.
+        !isAvailable(for: current) || (self == .deletion && previous != current)
+    }
+}
+
 struct DailyWhiskersView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var contentState = DailyContentState()
     @StateObject private var accountRequest = AuthRequestState()
-    @State private var showingDeletion = false
+    @StateObject private var deletionRequest = AuthRequestState()
+    @State private var accountSheet: AccountSheet?
     @AccessibilityFocusState private var settingsFocused: Bool
 
     var body: some View {
@@ -21,6 +40,7 @@ struct DailyWhiskersView: View {
                             vibe: entry.vibe ?? ""
                         )
                     )
+                    .accessibilityIdentifier("daily-card")
                 } else {
                     ZStack {
                         Color(.systemGroupedBackground).ignoresSafeArea()
@@ -41,35 +61,60 @@ struct DailyWhiskersView: View {
                         Link("Privacy Policy", destination: AppLinks.privacyPolicy)
                         Link("Support", destination: AppLinks.support)
                         Divider()
-                        Button("Log Out", role: .destructive) {
-                            logOut()
+                        switch router.authState {
+                        case .loading:
+                            Button("Checking Account...") { }
+                                .disabled(true)
+                        case .signedOut:
+                            Button("Sign In") {
+                                settingsFocused = false
+                                accountSheet = .signIn
+                            }
+                            .accessibilityHint("Optional. Daily cards are available without an account.")
+                        case .signedIn:
+                            Button("Log Out", role: .destructive) { logOut() }
+                                .disabled(accountRequest.isWorking)
+                            Button("Delete Account", role: .destructive) {
+                                deletionRequest.clearFeedback()
+                                settingsFocused = false
+                                accountSheet = .deletion
+                            }
+                            .disabled(accountRequest.isWorking)
                         }
-                        .disabled(accountRequest.isWorking)
-                        Button("Delete Account", role: .destructive) {
-                            accountRequest.clearFeedback()
-                            showingDeletion = true
-                        }
-                        .disabled(accountRequest.isWorking)
                     } label: {
                         Image(systemName: "gearshape")
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Settings")
-                    .accessibilityHint("Opens privacy, support, and account options, including log out and account deletion.")
+                    .accessibilityHint("Opens privacy, support, and optional account tools.")
                     .accessibilityFocused($settingsFocused)
                 }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingDeletion, onDismiss: {
-                accountRequest.clearFeedback()
+            .sheet(item: $accountSheet, onDismiss: {
+                deletionRequest.clearFeedback()
                 settingsFocused = true
-            }) {
-                DeleteAccountView(request: accountRequest)
+            }) { sheet in
+                switch sheet {
+                case .signIn:
+                    NavigationStack { AuthView() }
+                case .deletion:
+                    DeleteAccountView(request: deletionRequest)
+                }
+            }
+            .onChange(of: router.authState) { previous, state in
+                // Successful sign-in/deletion (or an external session change) closes
+                // the obsolete account sheet without replacing the daily card.
+                if let sheet = accountSheet, sheet.shouldDismiss(from: previous, to: state) {
+                    accountSheet = nil
+                } else if case .signedIn = previous, state == .signedOut {
+                    settingsFocused = true
+                }
             }
             .alert("Couldn't Log Out", isPresented: Binding(
-                get: { !showingDeletion && accountRequest.errorMessage != nil },
+                get: { accountSheet == nil && accountRequest.errorMessage != nil },
                 set: { if !$0 { dismissLogoutError() } }
             )) {
                 Button("Try Again") { logOut() }
