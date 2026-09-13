@@ -142,7 +142,9 @@ after the first successful run.
 
 Select the `DailyWhiskersInteraction` scheme to run the UI checks on a dedicated,
 signed-out simulator. They exercise keyboard navigation and landscape form
-scrolling at default and largest accessibility text sizes using empty fields.
+scrolling at default and largest accessibility text sizes using empty fields,
+plus repeated local validation-error visibility. The latter does not verify
+VoiceOver speech or accessibility focus; those require physical acceptance.
 Show the software keyboard in Simulator (I/O > Keyboard > Toggle Software
 Keyboard). Tests require an on-screen, tappable keyboard key and fail clearly
 when only an offscreen keyboard accessibility tree is available.
@@ -161,8 +163,11 @@ The existing `DailyWhiskers` unit-test scheme and CI job are unchanged. The UI
 suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
-Current status: all three UI checks pass on iPad Air 11-inch (M4). The Pro Max
-largest-text landscape scrolling check still fails and is under investigation;
+Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air
+11-inch (M4). The Pro Max largest-text landscape simulator failure remains
+unresolved and was explicitly deferred for V1 after an owner-reported physical
+scrolling pass. Keep that test and its assertions unchanged. The new validation
+check is tracked separately;
 see [interaction QA](../docs/accessibility-interaction-qa.md). This optional scheme
 is not yet a fully green phone acceptance gate.
 

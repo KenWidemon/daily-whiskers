@@ -21,7 +21,14 @@ struct AuthView: View {
 
     @State private var email: String = ""
     @State private var password: String = ""
-    @StateObject private var request = AuthRequestState()
+    @State private var resetFocusRequestID: UUID?
+    @StateObject private var request = AuthRequestState(announce: { operation in
+        let announcement = NSAttributedString(
+            string: operation.announcement,
+            attributes: [.accessibilitySpeechAnnouncementPriority: UIAccessibilityPriority.high]
+        )
+        UIAccessibility.post(notification: .announcement, argument: announcement)
+    })
 
     private var isWorking: Bool { request.isWorking }
 
@@ -54,13 +61,29 @@ struct AuthView: View {
             GeometryReader { geometry in
                 ScrollViewReader { scroll in
                     ScrollView {
-                        loginContent
+                        loginContent(scroll: scroll)
                             .frame(maxWidth: 520)
                             .padding(.vertical, 28)
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: geometry.size.height)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    .task(id: resetFocusRequestID) {
+                        guard let requestID = resetFocusRequestID else { return }
+                        // Native alert dismissal restores focus before our explicit target.
+                        do {
+                            try await Task.sleep(for: .milliseconds(350))
+                        } catch { return }
+                        guard resetFocusRequestID == requestID,
+                              request.confirmation == nil,
+                              request.errorMessage == nil,
+                              !isWorking else { return }
+                        scroll.scrollTo("auth-reset", anchor: .center)
+                        await Task.yield()
+                        guard !Task.isCancelled,
+                              resetFocusRequestID == requestID else { return }
+                        accessibilityTarget = .reset
+                    }
                     .onChange(of: dynamicTypeSize) { _, _ in
                         Task { @MainActor in
                             // Let the resized fields lay out before restoring the editing position.
@@ -68,10 +91,6 @@ struct AuthView: View {
                             guard let field = focusedField else { return }
                             scroll.scrollTo(field, anchor: .center)
                         }
-                    }
-                    .onChange(of: request.errorMessage) { _, message in
-                        guard message != nil else { return }
-                        scroll.scrollTo("auth-error", anchor: .bottom)
                     }
                 }
             }
@@ -93,18 +112,22 @@ struct AuthView: View {
             Text(request.confirmation ?? "")
         }
         .onChange(of: email) { _, _ in
+            resetFocusRequestID = nil
             request.clearFeedback()
         }
         .onChange(of: password) { _, _ in
+            resetFocusRequestID = nil
             request.clearFeedback()
         }
+        .onChange(of: focusedField) { _, field in
+            if field != nil { resetFocusRequestID = nil }
+        }
         .onChange(of: request.operation) { _, operation in
-            guard let message = operation?.announcement else { return }
-            UIAccessibility.post(notification: .announcement, argument: message)
+            if operation != nil { resetFocusRequestID = nil }
         }
     }
 
-    private var loginContent: some View {
+    private func loginContent(scroll: ScrollViewProxy) -> some View {
         VStack(spacing: 18) {
             VStack(spacing: 10) {
                 Text("Daily Whiskers")
@@ -173,6 +196,7 @@ struct AuthView: View {
             .disabled(isWorking)
 
             Button {
+                resetFocusRequestID = nil
                 focusedField = nil
                 Task {
                     await request.resetPassword(email: email) { address in
@@ -196,6 +220,7 @@ struct AuthView: View {
             .disabled(isWorking)
             .accessibilityHint("Sends a password reset link to the email entered above.")
             .accessibilityFocused($accessibilityTarget, equals: .reset)
+            .id("auth-reset")
 
             VStack(spacing: 14) {
                 // Primary: Sign In
@@ -282,7 +307,20 @@ struct AuthView: View {
                     .padding(.horizontal, 26)
                     .id("auth-error")
                     .accessibilityFocused($accessibilityTarget, equals: .error)
-                    .onAppear { accessibilityTarget = .error }
+                    .task(id: request.errorPresentationID) {
+                        let presentationID = request.errorPresentationID
+                        accessibilityTarget = nil
+                        // Wait for insertion, then let scrolling and keyboard dismissal settle.
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        scroll.scrollTo("auth-error", anchor: .bottom)
+                        do {
+                            try await Task.sleep(for: .milliseconds(350))
+                        } catch { return }
+                        guard request.errorPresentationID == presentationID,
+                              request.errorMessage == authError else { return }
+                        accessibilityTarget = .error
+                    }
             }
 
             VStack(spacing: 0) {
@@ -328,8 +366,10 @@ struct AuthView: View {
     }
 
     private func dismissResetConfirmation() {
+        guard request.confirmation != nil else { return }
         request.confirmation = nil
-        accessibilityTarget = .reset
+        accessibilityTarget = nil
+        resetFocusRequestID = UUID()
     }
 
     private func handleEmailSignIn() async {

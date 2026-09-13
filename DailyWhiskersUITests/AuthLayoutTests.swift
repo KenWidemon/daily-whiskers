@@ -42,6 +42,23 @@ final class AuthLayoutTests: XCTestCase {
         checkScrolling(textSize: .large)
     }
 
+    func testRepeatedLocalValidationErrorIsVisible() {
+        launch(orientation: .portrait, textSize: .large)
+        let reset = app.buttons["Forgot password?"]
+        let error = app.staticTexts["Enter a valid email address."]
+
+        for _ in 0..<2 {
+            reset.tap()
+            let visible = NSPredicate { [self] _, _ in isFullyVisible(error) }
+            let ready = XCTNSPredicateExpectation(predicate: visible, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+            XCTAssertFalse(app.alerts["Check Your Email"].exists)
+        }
+        // This checks layout/repeated presentation, not VoiceOver speech or focus.
+        XCTAssertFalse(app.buttons["Sign In"].isEnabled)
+        XCTAssertFalse(app.buttons["Create Account"].isEnabled)
+    }
+
     func testLandscapeAccessibilityKeyboardScrolling() {
         checkScrolling(textSize: .accessibilityExtraExtraExtraLarge)
     }

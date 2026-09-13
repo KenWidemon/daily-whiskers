@@ -21,6 +21,79 @@ struct AuthRecoveryTests {
         #expect(!state.isWorking)
     }
 
+    @Test("Repeated identical validation failures each request a new error presentation")
+    func repeatedValidationPresentation() async {
+        let state = AuthRequestState()
+        var calls = 0
+        let initialID = state.errorPresentationID
+        await state.resetPassword(email: "") { _ in calls += 1 }
+        let firstID = state.errorPresentationID
+        await state.resetPassword(email: "") { _ in calls += 1 }
+        #expect(firstID != initialID)
+        #expect(state.errorPresentationID != firstID)
+        #expect(state.errorMessage == "Enter a valid email address.")
+        #expect(calls == 0)
+
+        let lastID = state.errorPresentationID
+        state.clearFeedback()
+        #expect(state.errorMessage == nil)
+        #expect(state.errorPresentationID == lastID)
+    }
+
+    @Test("Repeated backend failures each request a new error presentation")
+    func repeatedBackendErrorPresentation() async {
+        let state = AuthRequestState()
+        await state.perform(.signIn) { throw error(.networkError) }
+        let firstID = state.errorPresentationID
+        await state.perform(.signIn) { throw error(.networkError) }
+        #expect(state.errorPresentationID != firstID)
+        #expect(state.errorMessage == "Network error. Check your connection and try again.")
+    }
+
+    @Test("Accepted requests announce before even immediately completed work", arguments: [
+        AuthRequestState.Operation.signIn, .createAccount, .testAccount, .passwordReset
+    ])
+    func announcementBeforeAction(_ operation: AuthRequestState.Operation) async {
+        var events: [String] = []
+        let state = AuthRequestState(announce: { events.append($0.announcement) })
+        await state.perform(operation) {
+            #expect(state.isWorking)
+            events.append("action")
+        }
+        #expect(events == [operation.announcement, "action"])
+        #expect(!state.isWorking)
+    }
+
+    @Test("Blocked duplicate requests do not announce")
+    func blockedRequestsStaySilent() async {
+        var announcements: [String] = []
+        let state = AuthRequestState(announce: { announcements.append($0.announcement) })
+        var duplicateCalls = 0
+        await state.perform(.signIn) {
+            for operation in [AuthRequestState.Operation.signIn, .createAccount,
+                              .testAccount, .passwordReset, .logout, .deleteAccount] {
+                await state.perform(operation) { duplicateCalls += 1 }
+            }
+            await state.resetPassword(email: "cat@example.com") { _ in duplicateCalls += 1 }
+        }
+        #expect(duplicateCalls == 0)
+        #expect(announcements == ["Signing in."])
+    }
+
+    @Test("Invalid reset is silent and separate accepted retries each announce")
+    func validationAndRetryAnnouncements() async {
+        var announcements: [String] = []
+        let state = AuthRequestState(announce: { announcements.append($0.announcement) })
+        var calls = 0
+        await state.resetPassword(email: "") { _ in calls += 1 }
+        #expect(calls == 0)
+        #expect(announcements.isEmpty)
+        for _ in 0..<2 {
+            await state.perform(.signIn) { throw error(.networkError) }
+        }
+        #expect(announcements == ["Signing in.", "Signing in."])
+    }
+
     @Test("Reset trims email and does not need a password")
     func validReset() async {
         let state = AuthRequestState()
