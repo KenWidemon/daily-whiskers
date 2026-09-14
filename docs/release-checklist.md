@@ -34,14 +34,22 @@ release is authorized merely by approval of this checklist.
    focus, reset focus, account creation, deletion warning/cancellation/completion,
    and sign-in/logout with Reduce Motion. Preserve the evidence below and repeat
    key checks on the final distributed candidate; this is not all-device coverage.
-2. **Open: finish a bounded performance pass.** Natural cold launch, real local-
-   day/foreground refresh, memory-pressure behavior, and observed animation hitches
-   remain unresolved. Explicitly defer or schedule longer energy/session and
-   lower-memory-device testing. Do not repeat the failed Instruments launch path
-   as though it establishes natural launch timing.
+2. **Open: one real overnight rollover check remains.**
+   On the current Release build, Ken reported three ordinary launches looked good,
+   no visible card freezes/stutter, and completion of five same-day foreground
+   cycles without reporting an issue; the process ID stayed unchanged. These are
+   scoped observations, not startup timing or memory measurements. Ken approved
+   deferring detailed launch/hitch profiling, memory-pressure, battery/long-session,
+   and lower-memory-device testing until after V1; these are unverified risks,
+   not passes. Ken will report natural overnight foreground rollover; distinguish
+   in-process refresh from next-day startup if iOS terminates the app. Repeat on
+   the exact TestFlight candidate before submission under #7.
+   The new Instruments attachment failed despite the app remaining visible; do
+   not repeat failed captures to force closure. See the
+   [bounded follow-up](performance-qa.md#bounded-follow-up-september-13-2026).
 3. **Complete: resolve security/product decisions.** Legacy development account
    disabled in Firebase Console by owner report; independent disabled-state/login
-   verification has not been performed. Ken confirmed Danny's approval of guest-
+   verification has not been performed. Ken confirmed Dani's approval of guest-
    first access and optional account tools. Implementation and automated checks
    pass, as does the scoped physical iPhone transition/VoiceOver pass by owner
    report. Guest-first public privacy/support copy is published and verified;
@@ -74,7 +82,9 @@ release is authorized merely by approval of this checklist.
 7. **Not started: upload to TestFlight and test that exact build.** With upload
    authorization, verify installation, daily content, session persistence,
    account creation/sign-in/reset/deletion if retained, and key accessibility/
-   layout behavior on iPhone and iPad. Include guest behavior if implemented.
+   layout behavior on iPhone and iPad. Include guest behavior and a natural
+   overnight foreground rollover check, distinguishing a fresh app launch from
+   an in-process day change. The approved performance deferrals under #2 remain.
 8. **Not started: submit for App Review.** Select the tested build, verify
    reviewer access/metadata, retain manual release, and submit only with Ken's
    authorization. Address review feedback and retest any resulting changes.
@@ -105,7 +115,7 @@ through PR #41. Later copy/reviewer evidence is recorded separately below.
 
 ### Guest Access
 
-- Approved September 13: Ken confirmed Danny's decision to make sign-in and
+- Approved September 13: Ken confirmed Dani's decision to make sign-in and
   account tools optional. This supersedes the earlier guest-access deferral.
 - Implemented and merged through PR #41: open directly to the daily card without authentication; retain
   optional account entry in Settings and existing-user deletion/recovery access.
