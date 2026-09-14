@@ -1,6 +1,6 @@
 # Step 5: Performance Tuning
 
-> **Performance gate still open.** Step 5 is the old development label, not
+> **Bounded pass complete with approved V1 deferrals.** Step 5 is the old development label, not
 > current release checklist #5. The September 13 bounded follow-up records current
 > guest-first observations; September 5-11 measurements below are historical,
 > pre-guest-first evidence. Use [release checklist](release-checklist.md) #2 for
@@ -12,9 +12,11 @@
 
 ## Bounded Follow-up (September 13, 2026)
 
-In progress on `codex/bounded-performance-acceptance`, from merged PR #44 at
+Performed on `codex/bounded-performance-acceptance`, from merged PR #44 at
 `cc7eff5a0b61ea2a9b33fb579f647520e7d8ebe5`. No shipping code changes or performance
-sign-off are implied by this protocol. Current release checklist #2 remains open.
+benchmark claims are implied by this protocol. The September 14 overnight
+follow-up below closes checklist #2 for this tested build with approved deferrals;
+exact-candidate acceptance remains separate.
 
 ### Preparation
 
@@ -57,10 +59,10 @@ sign-off are implied by this protocol. Current release checklist #2 remains open
   freeze, or crash; no issue was reported. CoreDevice still showed PID 11106
   afterward, consistent with process continuity across this exercise. No memory
   samples were captured; this does not establish stable allocations or RSS.
-- Actual midnight rollover, memory pressure, numeric launch timing, measured
-  hitch severity, energy/session, and lower-memory testing remain unverified in
-  this pass. The approved disposition below distinguishes deferrals from the
-  retained overnight check; none of these measurements is recorded as passing.
+- At the end of the September 13 session, actual midnight rollover remained
+  pending; the September 14 result is recorded below. Memory pressure, numeric
+  launch timing, measured hitch severity, energy/session, and lower-memory testing
+  remain unverified. The approved deferrals are not passing measurements.
 
 ### Approved V1 Disposition
 
@@ -70,15 +72,30 @@ These remain unverified risks, particularly behavior under memory pressure;
 qualitative responsiveness and process continuity do not establish memory safety,
 cache eviction, energy efficiency, or leak freedom.
 
-One real overnight foreground rollover check remains required before release.
-Ken plans to background the installed app across local midnight without force
-quitting, restarting the phone, or installing another build, then report the
-next card and any blank image, freeze, or crash. Compare the app process with
-the last observed PID 11106; a different process establishes next-day startup,
-not in-process rollover. Process-ID agreement alone is corroborating evidence,
-not a complete process-lifetime trace. No automated overnight recording or
-reminder is scheduled. Repeat the behavior on the exact TestFlight candidate
-before submission under checklist #7. Checklist #2 stays open pending the result.
+The retained real overnight foreground rollover check completed September 14
+as recorded below. Repeat the behavior on the exact TestFlight candidate before
+submission under checklist #7. No automated overnight recording or reminder
+was scheduled.
+
+### Overnight Rollover Result (September 14, 2026)
+
+- Ken reported the reopened card looked good after being asked to verify the
+  September 14 quote, no blank image/freeze/crash, and working Settings. This is
+  owner-reported visual acceptance, not an independently captured screenshot.
+- Ken explicitly confirmed no force-quit, phone restart, or new build installation
+  overnight. CoreDevice reported PID 11106 and the same installation path as
+  September 13. Read-only inspection did not relaunch or replace the app.
+- Combined owner confirmation and process continuity support passing natural
+  in-process foreground rollover on the installed development-signed Release
+  build from `cc7eff5a0b61ea2a9b33fb579f647520e7d8ebe5`, iPhone 17 Pro Max /
+  iOS 26.6.2 (23G90). PID agreement alone is not a complete process-lifetime trace.
+- Local evidence: `/tmp/whiskers-rollover-20260914-processes.json`. This contains
+  a device process inventory; only the Daily Whiskers entry was inspected for
+  this check. Do not commit the inventory or unrelated process information.
+- Checklist #2 is complete for this tested build with the approved V1 deferrals.
+  No allocation, pressure, energy, or numerical startup claim is added. No source
+  code changed or tests reran for this documentation update. The exact TestFlight
+  candidate still requires its own rollover check before submission.
 
 ### Scope and Stop Conditions
 
@@ -109,9 +126,10 @@ For a natural overnight check in America/New_York, the bundled selection is:
 - September 13: `cozy_rainy_window_mystic`, "It’s okay to rest in the in-between."
 - September 14: `cozy_fireplace_sage`, "Warmth can be found in the simplest moments."
 
-These are manifest-derived expectations, not observed rollover results. Keep the
-same app process backgrounded across local midnight, reopen it, and compare; a
-new process proves current-day startup selection rather than in-process rollover.
+These are manifest-derived expected values used for the owner check above, not
+text independently extracted from the device. For repeats, keep the same app
+process backgrounded across local midnight, reopen it, and compare; a new process
+proves current-day startup selection rather than in-process rollover.
 
 ## Focused Device Pass (September 10-11, 2026)
 
