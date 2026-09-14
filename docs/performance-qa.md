@@ -1,13 +1,117 @@
 # Step 5: Performance Tuning
 
-> **Historical measurements; performance gate still open.** Step 5 is the old
-> development label, not current release checklist #5. This log records September
-> 5-11 measurements on pre-guest-first source. Use [release checklist](release-checklist.md)
-> #2 for the next bounded pass. Do not reuse historical branch/PID/device state,
+> **Performance gate still open.** Step 5 is the old development label, not
+> current release checklist #5. The September 13 bounded follow-up records current
+> guest-first observations; September 5-11 measurements below are historical,
+> pre-guest-first evidence. Use [release checklist](release-checklist.md) #2 for
+> current disposition. Do not reuse historical branch/PID/device state,
 > test counts, or temporary trace paths as current facts. Later scoped physical
 > accessibility acceptance is recorded separately; it does not establish measured
 > performance. The profiling harness is removed, not a standing test requirement.
 > See the [documentation map](README.md).
+
+## Bounded Follow-up (September 13, 2026)
+
+In progress on `codex/bounded-performance-acceptance`, from merged PR #44 at
+`cc7eff5a0b61ea2a9b33fb579f647520e7d8ebe5`. No shipping code changes or performance
+sign-off are implied by this protocol. Current release checklist #2 remains open.
+
+### Preparation
+
+- Development-signed Release build passed using locked package versions;
+  strict/deep code-signature verification passed. The packaged encryption
+  declaration is Boolean false. This is not an App Store archive or upload.
+- Ken approved installation without deleting app data and confirmed Reduce Motion
+  and Low Power Mode are off. Installed on the connected iPhone successfully.
+  Device: iPhone 17 Pro Max, iOS 26.6.2 (23G90).
+  No app data, device-clock setting, or account credentials were changed.
+- The build logged the expected skipped AppIntents metadata extraction warning.
+  Log: `/tmp/whiskers-performance-current-build.log`; install evidence:
+  `/tmp/whiskers-performance-current-install.json`. No new test run is claimed;
+  the unchanged source's preceding regression result is 57 tests in eight suites.
+- Ken reported all three owner-operated Home Screen launches looked good after
+  being asked to check prompt card display with no blank screen, freeze, or crash.
+  This is qualitative fresh-process launch acceptance, not measured cold-start
+  timing or proof of cold OS/filesystem caches. No debugger controlled launch.
+
+### Current Observations and Recording Limit
+
+- Ken confirmed the card remained visible with no freezes or obvious animation
+  stutter during the attempted capture. This is owner-observed visual acceptance,
+  not a measured frame-rate or zero-hitch claim.
+- CoreDevice reported the installed app running as PID 11106 before the attempted
+  attachment. Instruments rejected the CoreDevice identifier; resolving the
+  Instruments-specific identifier avoided that lookup mismatch. The failed
+  lookup left a trace path, so it was preserved and a fresh path used.
+- The actual attachment attempt then waited for the device to boot and ended
+  with `Cannot find process for provided pid: 11106`. CoreDevice subsequently
+  still reported the same app/PID, and Ken confirmed it was visible. This is an
+  unresolved Instruments attachment failure, not evidence of an app crash.
+  No usable hitch measurement or source-level attribution was obtained. No
+  recording process remains active; further attempts were stopped for this pass.
+- Capture log: `/tmp/whiskers-current-card-hitches-20260913-verified-device.log`.
+  Failed trace artifacts are not performance evidence. No app change was made
+  to bypass attachment or to claim an optimization from this failure.
+- Ken reported completion of five same-day background/foreground cycles after
+  being asked to check stable card content, working Settings, and no blank image,
+  freeze, or crash; no issue was reported. CoreDevice still showed PID 11106
+  afterward, consistent with process continuity across this exercise. No memory
+  samples were captured; this does not establish stable allocations or RSS.
+- Actual midnight rollover, memory pressure, numeric launch timing, measured
+  hitch severity, energy/session, and lower-memory testing remain unverified in
+  this pass. The approved disposition below distinguishes deferrals from the
+  retained overnight check; none of these measurements is recorded as passing.
+
+### Approved V1 Disposition
+
+Ken approved deferring detailed launch/hitch profiling, memory-pressure testing,
+battery/long-session testing, and lower-memory-device testing until after V1.
+These remain unverified risks, particularly behavior under memory pressure;
+qualitative responsiveness and process continuity do not establish memory safety,
+cache eviction, energy efficiency, or leak freedom.
+
+One real overnight foreground rollover check remains required before release.
+Ken plans to background the installed app across local midnight without force
+quitting, restarting the phone, or installing another build, then report the
+next card and any blank image, freeze, or crash. Compare the app process with
+the last observed PID 11106; a different process establishes next-day startup,
+not in-process rollover. Process-ID agreement alone is corroborating evidence,
+not a complete process-lifetime trace. No automated overnight recording or
+reminder is scheduled. Repeat the behavior on the exact TestFlight candidate
+before submission under checklist #7. Checklist #2 stays open pending the result.
+
+### Scope and Stop Conditions
+
+1. Build the current guest-first source in Release. Install without deleting app
+   data after owner confirmation, and record device/OS and motion/power settings.
+2. Check three ordinary fresh-process launches with no debugger or Instruments
+   controlling launch. Owner observations establish visible behavior, not numeric
+   startup timing; report any timing gap rather than reusing failed launch traces.
+3. Attach one bounded Animation Hitches recording to the visible daily card.
+   Compare trace events with owner-observed severity. Only investigate an
+   optimization if current evidence identifies a meaningful problem.
+4. Check same-day foreground recovery separately from actual local-day rollover.
+   Existing injected-date unit tests establish selection logic, not real scene
+   delivery, provider reconstruction cost, or memory behavior across midnight.
+5. Keep simulated memory-warning handling distinct from genuine system pressure,
+   cache eviction, and jetsam recovery. No memory-filling workload, device-clock
+   change, or reinstatement of the removed harness is authorized by this pass.
+6. Obtain an explicit disposition for any unmeasured natural-launch timing,
+   actual rollover, pressure, longer energy/session, or lower-memory-device gap.
+   Deferrals must remain visible and must not be recorded as passing tests.
+
+Stop and reassess after a failed recording instead of repeating the unsuccessful
+Instruments-owned launch path. Do not collect account credentials or profile
+unrelated apps. Final distributed-candidate acceptance remains separate.
+
+For a natural overnight check in America/New_York, the bundled selection is:
+
+- September 13: `cozy_rainy_window_mystic`, "It’s okay to rest in the in-between."
+- September 14: `cozy_fireplace_sage`, "Warmth can be found in the simplest moments."
+
+These are manifest-derived expectations, not observed rollover results. Keep the
+same app process backgrounded across local midnight, reopen it, and compare; a
+new process proves current-day startup selection rather than in-process rollover.
 
 ## Focused Device Pass (September 10-11, 2026)
 

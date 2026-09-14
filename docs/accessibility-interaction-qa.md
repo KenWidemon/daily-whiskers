@@ -450,7 +450,7 @@ performance document's Step 5 title is historical development numbering.
 
 ## September 13 Guest-First Follow-Up
 
-Ken confirmed Danny's approval of optional sign-in and account tools. The daily
+Ken confirmed Dani's approval of optional sign-in and account tools. The daily
 card is now the root for guests and signed-in users, including while Firebase
 restores its session. Settings presents optional authentication in a sheet;
 signed-in users retain logout and password-confirmed deletion. Successful auth
