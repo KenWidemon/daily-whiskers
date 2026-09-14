@@ -34,16 +34,18 @@ release is authorized merely by approval of this checklist.
    focus, reset focus, account creation, deletion warning/cancellation/completion,
    and sign-in/logout with Reduce Motion. Preserve the evidence below and repeat
    key checks on the final distributed candidate; this is not all-device coverage.
-2. **Open: one real overnight rollover check remains.**
+2. **Complete for the tested build, with approved V1 deferrals.**
    On the current Release build, Ken reported three ordinary launches looked good,
    no visible card freezes/stutter, and completion of five same-day foreground
    cycles without reporting an issue; the process ID stayed unchanged. These are
    scoped observations, not startup timing or memory measurements. Ken approved
    deferring detailed launch/hitch profiling, memory-pressure, battery/long-session,
    and lower-memory-device testing until after V1; these are unverified risks,
-   not passes. Ken will report natural overnight foreground rollover; distinguish
-   in-process refresh from next-day startup if iOS terminates the app. Repeat on
-   the exact TestFlight candidate before submission under #7.
+   not passes. September 14: Ken reported the overnight card looked good and
+   confirmed no force-quit, phone restart, or build installation overnight.
+   CoreDevice showed the same PID 11106 and installation path as September 13,
+   supporting in-process foreground rollover on the tested Release build.
+   Repeat on the exact TestFlight candidate before submission under #7.
    The new Instruments attachment failed despite the app remaining visible; do
    not repeat failed captures to force closure. See the
    [bounded follow-up](performance-qa.md#bounded-follow-up-september-13-2026).
@@ -93,7 +95,8 @@ release is authorized merely by approval of this checklist.
 
 ## Item 3 Decision Record
 
-Ken selected #3 on September 13. Items #1 and #2 remain open, not waived.
+Ken selected #3 on September 13. At that checkpoint, items #1 and #2 remained
+open, not waived; their current dispositions are recorded above.
 Historical implementation branch: `codex/release-security-decisions`, merged
 through PR #41. Later copy/reviewer evidence is recorded separately below.
 
