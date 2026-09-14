@@ -7,16 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0F5E1ECEF920643B487D8D9C /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */; };
+		2D805E3223046C50C726377B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */; };
 		30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */; };
 		3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68964F9F5CF6E338D4855489 /* AppRouter.swift */; };
+		34BACE37C29F827F30C2DF5D /* AuthLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D49C6335115DC858536C84 /* AuthLayoutTests.swift */; };
+		3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */; };
+		3C36FC20FC86871557DD7B96 /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA5B6FA8B03B217C1D67EC4 /* AccountDeletionTests.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
 		4AD1999233F7FB7DD753194F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DF0399E6F73432BDB3FDC4 /* RootView.swift */; };
+		50FE26DA6F41C15C7A1DA6FE /* AuthRequestState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */; };
+		561E2DB3B877C881173146F0 /* AppLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
 		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
 		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
+		79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */ = {isa = PBXBuildFile; fileRef = 917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */; };
+		805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */; };
 		8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */ = {isa = PBXBuildFile; fileRef = 6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
+		83B0850A81AE9CBC45AB9BBB /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60951A29666D6A385849E3B9 /* AppLinks.swift */; };
 		89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDA5B8412ED5644FF9CCB41F /* FirebaseCore */; };
+		92D586A23DF660B86659F157 /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6302C5A2119F79DB268403C8 /* AccountDeletion.swift */; };
 		ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */; };
 		C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */ = {isa = PBXBuildFile; fileRef = D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */; };
 		C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */; };
@@ -24,7 +35,9 @@
 		CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FBA1D67F9BBA070EDC581FD /* AuthView.swift */; };
 		CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14427E6E78184E5322A7BE40 /* Assets.xcassets */; };
 		D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */; };
+		D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */; };
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
+		FFF2684C59692E2FEDB6672E /* GuestAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5038272DE90C96D54A69B211 /* GuestAccessTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,23 +48,44 @@
 			remoteGlobalIDString = 2AB9B0B3C585C082AD7E240D;
 			remoteInfo = DailyWhiskers;
 		};
+		F9AE155F2FFD023C34DD0C17 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D3A39E10EE7E092DAFADA9CF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2AB9B0B3C585C082AD7E240D;
+			remoteInfo = DailyWhiskers;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03D49C6335115DC858536C84 /* AuthLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthLayoutTests.swift; sourceTree = "<group>"; };
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
 		2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProvider.swift; sourceTree = "<group>"; };
 		2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
+		2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRecoveryTests.swift; sourceTree = "<group>"; };
 		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
+		5038272DE90C96D54A69B211 /* GuestAccessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestAccessTests.swift; sourceTree = "<group>"; };
+		594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLinksTests.swift; sourceTree = "<group>"; };
+		5CA5B6FA8B03B217C1D67EC4 /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
+		5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		60951A29666D6A385849E3B9 /* AppLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLinks.swift; sourceTree = "<group>"; };
+		6302C5A2119F79DB268403C8 /* AccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletion.swift; sourceTree = "<group>"; };
 		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
+		917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
+		BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRequestState.swift; sourceTree = "<group>"; };
 		CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
 		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
+		E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentCorrectnessTests.swift; sourceTree = "<group>"; };
+		EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistributionConfigurationTests.swift; sourceTree = "<group>"; };
 		F2DF0399E6F73432BDB3FDC4 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FAEBF90CA567AEF2C4445900 /* DailyContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -81,7 +115,13 @@
 		79A038FFD12432178B834B4F /* DailyWhiskersTests */ = {
 			isa = PBXGroup;
 			children = (
+				5CA5B6FA8B03B217C1D67EC4 /* AccountDeletionTests.swift */,
+				594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */,
+				2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */,
+				E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */,
 				A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */,
+				EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */,
+				5038272DE90C96D54A69B211 /* GuestAccessTests.swift */,
 			);
 			path = DailyWhiskersTests;
 			sourceTree = "<group>";
@@ -92,15 +132,27 @@
 				0FBA1D67F9BBA070EDC581FD /* AuthView.swift */,
 				30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */,
 				2A0132BD83383C6288582604 /* DailyWhiskersView.swift */,
+				2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */,
 				F2DF0399E6F73432BDB3FDC4 /* RootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
+		A8E6564DFB0B5946BC6D9882 /* DailyWhiskersUITests */ = {
+			isa = PBXGroup;
+			children = (
+				03D49C6335115DC858536C84 /* AuthLayoutTests.swift */,
+			);
+			path = DailyWhiskersUITests;
+			sourceTree = "<group>";
+		};
 		B8E545F01C8523CF52683A93 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				6302C5A2119F79DB268403C8 /* AccountDeletion.swift */,
+				60951A29666D6A385849E3B9 /* AppLinks.swift */,
 				CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */,
+				BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */,
 				2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */,
 			);
 			path = Services;
@@ -110,8 +162,10 @@
 			isa = PBXGroup;
 			children = (
 				6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */,
+				917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */,
 				D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */,
 				2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */,
+				9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */,
 			);
 			name = Resources;
 			path = DailyWhiskers/Resources;
@@ -130,6 +184,7 @@
 			children = (
 				FB93A48E3F6CB53E768018CD /* DailyWhiskers */,
 				79A038FFD12432178B834B4F /* DailyWhiskersTests */,
+				A8E6564DFB0B5946BC6D9882 /* DailyWhiskersUITests */,
 				BEA3400425A717CE50367DA1 /* Resources */,
 				FDAFDF466C071B497103475E /* Products */,
 			);
@@ -153,6 +208,7 @@
 			children = (
 				72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */,
 				9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */,
+				5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -180,6 +236,24 @@
 			productName = DailyWhiskers;
 			productReference = 72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */;
 			productType = "com.apple.product-type.application";
+		};
+		89A545EE19A8CC480521F425 /* DailyWhiskersUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BFBFC9D97C02113023221E87 /* Build configuration list for PBXNativeTarget "DailyWhiskersUITests" */;
+			buildPhases = (
+				9948D4D33EB6383D61369C74 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AC1E6539153CA2E2A602F36D /* PBXTargetDependency */,
+			);
+			name = DailyWhiskersUITests;
+			packageProductDependencies = (
+			);
+			productName = DailyWhiskersUITests;
+			productReference = 5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		C6AA38FDF8A0D5761E7A1EC3 /* DailyWhiskersTests */ = {
 			isa = PBXNativeTarget;
@@ -210,6 +284,15 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2AB9B0B3C585C082AD7E240D = {
+						DevelopmentTeam = HYU33CNQ69;
+						ProvisioningStyle = Automatic;
+					};
+					89A545EE19A8CC480521F425 = {
+						TestTargetID = 2AB9B0B3C585C082AD7E240D;
+					};
+				};
 			};
 			buildConfigurationList = C1BC387146486851D6C2BE8E /* Build configuration list for PBXProject "DailyWhiskers" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -230,6 +313,7 @@
 			targets = (
 				2AB9B0B3C585C082AD7E240D /* DailyWhiskers */,
 				C6AA38FDF8A0D5761E7A1EC3 /* DailyWhiskersTests */,
+				89A545EE19A8CC480521F425 /* DailyWhiskersUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -241,7 +325,9 @@
 			files = (
 				CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */,
 				8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */,
+				79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */,
 				30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */,
+				2D805E3223046C50C726377B /* PrivacyInfo.xcprivacy in Resources */,
 				C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -249,11 +335,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		9948D4D33EB6383D61369C74 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34BACE37C29F827F30C2DF5D /* AuthLayoutTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BCB01E95C8858701DBCCE6DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3C36FC20FC86871557DD7B96 /* AccountDeletionTests.swift in Sources */,
+				561E2DB3B877C881173146F0 /* AppLinksTests.swift in Sources */,
+				3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */,
+				D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */,
 				7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */,
+				805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */,
+				FFF2684C59692E2FEDB6672E /* GuestAccessTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,14 +361,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				92D586A23DF660B86659F157 /* AccountDeletion.swift in Sources */,
+				83B0850A81AE9CBC45AB9BBB /* AppLinks.swift in Sources */,
 				3134DE32432F5C52246BD507 /* AppRouter.swift in Sources */,
 				C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */,
+				50FE26DA6F41C15C7A1DA6FE /* AuthRequestState.swift in Sources */,
 				CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */,
 				476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */,
 				D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */,
 				ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */,
 				FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */,
 				82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */,
+				0F5E1ECEF920643B487D8D9C /* DeleteAccountView.swift in Sources */,
 				4AD1999233F7FB7DD753194F /* RootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -281,6 +385,11 @@
 			target = 2AB9B0B3C585C082AD7E240D /* DailyWhiskers */;
 			targetProxy = CA133B30276BB0A3D89BB0A6 /* PBXContainerItemProxy */;
 		};
+		AC1E6539153CA2E2A602F36D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2AB9B0B3C585C082AD7E240D /* DailyWhiskers */;
+			targetProxy = F9AE155F2FFD023C34DD0C17 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -289,15 +398,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HYU33CNQ69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Daily Whiskers";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.kenwidemon.dailywhiskers;
 				PRODUCT_NAME = DailyWhiskers;
 				SDKROOT = iphoneos;
@@ -311,15 +427,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HYU33CNQ69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Daily Whiskers";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.kenwidemon.dailywhiskers;
 				PRODUCT_NAME = DailyWhiskers;
 				SDKROOT = iphoneos;
@@ -391,6 +514,24 @@
 			};
 			name = Debug;
 		};
+		6FACF606A682157294A052E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.DailyWhiskersUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DailyWhiskers;
+			};
+			name = Debug;
+		};
 		746784E7DAB4256A6ED350EF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -406,6 +547,24 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyWhiskers.app/DailyWhiskers";
+			};
+			name = Release;
+		};
+		DDFB48F8DD080F4210E39A1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.DailyWhiskersUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DailyWhiskers;
 			};
 			name = Release;
 		};
@@ -500,6 +659,15 @@
 			buildConfigurations = (
 				E91EBDBE64CE288026D5C098 /* Debug */,
 				746784E7DAB4256A6ED350EF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BFBFC9D97C02113023221E87 /* Build configuration list for PBXNativeTarget "DailyWhiskersUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FACF606A682157294A052E5 /* Debug */,
+				DDFB48F8DD080F4210E39A1B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

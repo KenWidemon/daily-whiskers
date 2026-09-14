@@ -1,18 +1,37 @@
 import SwiftUI
+import UIKit
 
 struct AuthView: View {
+    private enum Field: Hashable { case email, password }
+    private enum AccessibilityTarget: Hashable { case error, reset }
+    @FocusState private var focusedField: Field?
+    @AccessibilityFocusState private var accessibilityTarget: AccessibilityTarget?
+#if DEBUG
     private enum TestAccount {
-        static let email = "test@dailywhiskers.app"
-        static let password = "WhiskersTest123!"
+        static let email = ProcessInfo.processInfo.environment["DAILY_WHISKERS_TEST_EMAIL"] ?? ""
+        static let password = ProcessInfo.processInfo.environment["DAILY_WHISKERS_TEST_PASSWORD"] ?? ""
+        static var isConfigured: Bool { !email.isEmpty && !password.isEmpty }
     }
 
+#endif
+
     @EnvironmentObject private var router: AppRouter
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var email: String = ""
     @State private var password: String = ""
-    @State private var authError: String?
-    @State private var isWorking = false
+    @State private var resetFocusRequestID: UUID?
+    @StateObject private var request = AuthRequestState(announce: { operation in
+        let announcement = NSAttributedString(
+            string: operation.announcement,
+            attributes: [.accessibilitySpeechAnnouncementPriority: UIAccessibilityPriority.high]
+        )
+        UIAccessibility.post(notification: .announcement, argument: announcement)
+    })
+
+    private var isWorking: Bool { request.isWorking }
 
     var body: some View {
         ZStack {
@@ -29,6 +48,7 @@ struct AuthView: View {
 
             GlowOverlay(reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
+                .allowsHitTesting(false)
                 .ignoresSafeArea()
 
             SparkleOverlay(reduceMotion: reduceMotion)
@@ -39,112 +59,237 @@ struct AuthView: View {
                 .accessibilityHidden(true)
 
             // MARK: - Content
-            VStack(spacing: 18) {
-                Spacer()
-                    .frame(height: 140)
-
-                VStack(spacing: 10) {
-                    Text("Daily Whiskers")
-                        .font(.system(.largeTitle, design: .rounded).weight(.semibold))
-                        .tracking(0.5)
-                        .foregroundStyle(.primary)
-                        .minimumScaleFactor(0.8)
-
-                    Text("A calm cat moment, once per day.")
-                        .font(.headline)
-                        .foregroundStyle(Color.primary.opacity(0.60))
+            GeometryReader { geometry in
+                ScrollViewReader { scroll in
+                    ScrollView {
+                        loginContent(scroll: scroll)
+                            .frame(maxWidth: 520)
+                            .padding(.vertical, 28)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: geometry.size.height)
+                    }
+                    .accessibilityIdentifier("auth-form")
+                    .scrollDismissesKeyboard(.interactively)
+                    .task(id: resetFocusRequestID) {
+                        guard let requestID = resetFocusRequestID else { return }
+                        // Native alert dismissal restores focus before our explicit target.
+                        do {
+                            try await Task.sleep(for: .milliseconds(350))
+                        } catch { return }
+                        guard resetFocusRequestID == requestID,
+                              request.confirmation == nil,
+                              request.errorMessage == nil,
+                              !isWorking else { return }
+                        scroll.scrollTo("auth-reset", anchor: .center)
+                        await Task.yield()
+                        guard !Task.isCancelled,
+                              resetFocusRequestID == requestID else { return }
+                        accessibilityTarget = .reset
+                    }
+                    .onChange(of: dynamicTypeSize) { _, _ in
+                        Task { @MainActor in
+                            // Let the resized fields lay out before restoring the editing position.
+                            await Task.yield()
+                            guard let field = focusedField else { return }
+                            scroll.scrollTo(field, anchor: .center)
+                        }
+                    }
                 }
-                .padding(.bottom, 10)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    focusedField = nil
+                    dismiss()
+                }
+                .disabled(isWorking)
+                .accessibilityHint("Returns to your daily card without signing in.")
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .interactiveDismissDisabled(isWorking)
+        .preferredColorScheme(.light)
+        .alert("Check Your Email", isPresented: Binding(
+            get: { request.confirmation != nil },
+            set: { if !$0 { dismissResetConfirmation() } }
+        )) {
+            Button("OK", role: .cancel) { dismissResetConfirmation() }
+        } message: {
+            Text(request.confirmation ?? "")
+        }
+        .onChange(of: email) { _, _ in
+            resetFocusRequestID = nil
+            request.clearFeedback()
+        }
+        .onChange(of: password) { _, _ in
+            resetFocusRequestID = nil
+            request.clearFeedback()
+        }
+        .onChange(of: focusedField) { _, field in
+            if field != nil { resetFocusRequestID = nil }
+        }
+        .onChange(of: request.operation) { _, operation in
+            if operation != nil { resetFocusRequestID = nil }
+        }
+    }
 
-                VStack(spacing: 14) {
-                    // Email
-                    TextField("Email", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textContentType(.emailAddress)
-                        .submitLabel(.next)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .font(.body)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 54)
-                        .background(fieldBackground)
-                        .overlay(fieldBorder)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
-                        .accessibilityLabel("Email")
-                        .accessibilityHint("Enter the email for your account.")
-                    
-                    // Password
-                    SecureField("Password", text: $password)
-                        .textContentType(.password)
-                        .submitLabel(.done)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .font(.body)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 54)
-                        .background(fieldBackground)
-                        .overlay(fieldBorder)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
-                        .accessibilityLabel("Password")
-                        .accessibilityHint("Enter your password.")
+    private func loginContent(scroll: ScrollViewProxy) -> some View {
+        VStack(spacing: 18) {
+            VStack(spacing: 10) {
+                Text("Daily Whiskers")
+                    .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text("A calm cat moment, once per day.")
+                    .font(.headline)
+                    .foregroundStyle(Color.primary.opacity(0.60))
+
+                Text("Signing in is optional. Your daily card is always available without an account.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 26)
+            .padding(.bottom, 10)
+
+            VStack(spacing: 14) {
+                // Email
+                TextField("Email", text: $email, prompt: Text("Email").foregroundStyle(Color(white: 0.38)))
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .submitLabel(.next)
+                    .focused($focusedField, equals: .email)
+                    .onSubmit { if !isWorking { focusedField = .password } }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 54)
+                    .background(fieldBackground)
+                    .overlay(fieldBorder)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+                    .accessibilityLabel("Email")
+                    .accessibilityHint("Enter the email for your account.")
+                    .id(Field.email)
+
+                // Password
+                SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(Color(white: 0.38)))
+                    .textContentType(.password)
+                    .submitLabel(.done)
+                    .focused($focusedField, equals: .password)
+                    .onSubmit {
+                        guard canSubmit else { return }
+                        Task { await handleEmailSignIn() }
+                    }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 54)
+                    .background(fieldBackground)
+                    .overlay(fieldBorder)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+                    .accessibilityLabel("Password")
+                    .accessibilityHint("Enter your password.")
+                    .id(Field.password)
+            }
+            .padding(.horizontal, 26)
+            .padding(.top, 6)
+            .disabled(isWorking)
+
+            Button {
+                resetFocusRequestID = nil
+                focusedField = nil
+                Task {
+                    await request.resetPassword(email: email) { address in
+                        try await router.sendPasswordReset(email: address)
+                    }
+                }
+            } label: {
+                HStack {
+                    if request.operation == .passwordReset {
+                        ProgressView()
+                    }
+                    Text(request.operation == .passwordReset ? "Sending Reset Link..." : "Forgot password?")
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.subheadline)
+                .frame(minHeight: 44)
+            }
+            .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
+            .padding(.horizontal, 26)
+            .disabled(isWorking)
+            .accessibilityHint("Sends a password reset link to the email entered above.")
+            .accessibilityFocused($accessibilityTarget, equals: .reset)
+            .id("auth-reset")
+
+            VStack(spacing: 14) {
+                // Primary: Sign In
+                Button {
+                    Task { await handleEmailSignIn() }
+                } label: {
+                    Group {
+                        if request.operation == .signIn || request.operation == .testAccount {
+                            ProgressView()
+                                .tint(Color(red: 0.24, green: 0.12, blue: 0.04))
+                                .accessibilityLabel("Signing in")
+                        } else {
+                            Text("Sign In")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundStyle(Color(red: 0.24, green: 0.12, blue: 0.04))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 54)
+                    .background(primaryGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
                 }
                 .padding(.horizontal, 26)
-                .padding(.top, 6)
+                .saturation(canSubmit || isWorking ? 1 : 0.25)
+                .disabled(!canSubmit)
+                .accessibilityHint("Signs into your account.")
 
-                VStack(spacing: 14) {
-                    // Primary: Sign In
-                    Button {
-                        Task { await handleEmailSignIn() }
-                    } label: {
-                        Group {
-                            if isWorking {
-                                ProgressView()
-                                    .tint(.white)
-                                    .accessibilityLabel("Signing in")
-                            } else {
-                                Text("Sign In")
-                            }
-                        }
+                // Secondary: Create Account (outline)
+                Button {
+                    Task { await handleEmailCreateAccount() }
+                } label: {
+                    Text(request.operation == .createAccount ? "Creating Account..." : "Create Account")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(red: 0.55, green: 0.29, blue: 0.08))
                         .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
                         .frame(minHeight: 54)
-                        .background(primaryGradient)
+                        .background(Color.white.opacity(0.25))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color(red: 0.55, green: 0.29, blue: 0.08).opacity(0.45), lineWidth: 1)
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .shadow(color: Color.orange.opacity(0.22), radius: 10, y: 6)
-                    }
-                    .padding(.horizontal, 26)
-                    .opacity(canSubmit || isWorking ? 1 : 0.45)
-                    .disabled(!canSubmit)
-                    .accessibilityHint("Signs into your account.")
-                    
-                    // Secondary: Create Account (outline)
-                    Button {
-                        Task { await handleEmailCreateAccount() }
-                    } label: {
-                        Text("Create Account")
-                            .font(.headline)
-                            .foregroundStyle(Color(red: 0.74, green: 0.44, blue: 0.16))
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 54)
-                            .background(Color.white.opacity(0.25))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(Color(red: 0.74, green: 0.44, blue: 0.16).opacity(0.45), lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    }
-                    .padding(.horizontal, 26)
-                    .opacity(canSubmit ? 1 : 0.45)
-                    .disabled(!canSubmit)
-                    .accessibilityHint("Creates a new account with your email and password.")
                 }
-                .padding(.top, 10)
+                .padding(.horizontal, 26)
+                .saturation(canSubmit ? 1 : 0.25)
+                .disabled(!canSubmit)
+                .accessibilityHint("Creates a new account with your email and password.")
+            }
+            .padding(.top, 10)
 
-                // Dev-only helper
+            // Dev-only helper
 #if DEBUG
+            if TestAccount.isConfigured {
                 Button {
                     email = TestAccount.email
                     password = TestAccount.password
@@ -154,31 +299,55 @@ struct AuthView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.primary.opacity(0.55))
                         .padding(.top, 2)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .opacity(isWorking ? 0.45 : 1)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 26)
                 .disabled(isWorking)
-                .accessibilityHint("Uses the built-in debug account.")
+                .accessibilityHint("Uses the locally configured debug account.")
+            }
 #endif
 
-                if let authError {
-                    Text(authError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 26)
-                }
-
-                Spacer()
+            if let authError = request.errorMessage {
+                Text(authError)
+                    .font(.footnote)
+                    .foregroundStyle(Color(red: 0.65, green: 0.12, blue: 0.12))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 26)
+                    .id("auth-error")
+                    .accessibilityFocused($accessibilityTarget, equals: .error)
+                    .task(id: request.errorPresentationID) {
+                        let presentationID = request.errorPresentationID
+                        accessibilityTarget = nil
+                        // Wait for insertion, then let scrolling and keyboard dismissal settle.
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        scroll.scrollTo("auth-error", anchor: .bottom)
+                        do {
+                            try await Task.sleep(for: .milliseconds(350))
+                        } catch { return }
+                        guard request.errorPresentationID == presentationID,
+                              request.errorMessage == authError else { return }
+                        accessibilityTarget = .error
+                    }
             }
-        }
-        .onChange(of: email) { _, _ in
-            authError = nil
-        }
-        .onChange(of: password) { _, _ in
-            authError = nil
+
+            VStack(spacing: 0) {
+                Link("Privacy Policy", destination: AppLinks.privacyPolicy)
+                    .frame(minHeight: 44)
+                Link("Support", destination: AppLinks.support)
+                    .frame(minHeight: 44)
+            }
+            .font(.footnote)
+            .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 26)
         }
     }
-    
+
     // MARK: - Subviews
 
     private var primaryGradient: LinearGradient {
@@ -204,95 +373,78 @@ struct AuthView: View {
     }
 
     private var canSubmit: Bool {
-        isValidEmail(email) &&
-        password.count >= 6 &&
-        !isWorking
+        AuthRequestState.isValidEmail(email) && password.count >= 6 && !isWorking
     }
 
-    private func isValidEmail(_ value: String) -> Bool {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-
-        let pattern = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
-        return trimmed.range(of: pattern, options: .regularExpression) != nil
+    private func dismissResetConfirmation() {
+        guard request.confirmation != nil else { return }
+        request.confirmation = nil
+        accessibilityTarget = nil
+        resetFocusRequestID = UUID()
     }
 
     private func handleEmailSignIn() async {
-        guard !isWorking else { return }
         guard canSubmit else { return }
-        isWorking = true
-        authError = nil
-        defer { isWorking = false }
-
-        do {
+        focusedField = nil
+        await request.perform(.signIn) {
             try await router.signInWithEmail(
-                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
-                password: password
+                email: AuthRequestState.normalizedEmail(email), password: password
             )
-        } catch {
-            authError = AuthErrorMapper.message(for: error)
         }
     }
 
     private func handleEmailCreateAccount() async {
-        guard !isWorking else { return }
         guard canSubmit else { return }
-        isWorking = true
-        authError = nil
-        defer { isWorking = false }
-
-        do {
+        focusedField = nil
+        await request.perform(.createAccount) {
             try await router.createEmailAccount(
-                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
-                password: password
+                email: AuthRequestState.normalizedEmail(email), password: password
             )
-        } catch {
-            authError = AuthErrorMapper.message(for: error)
         }
     }
 
+#if DEBUG
     private func handleTestAccountSignInOrCreate() async {
-        guard !isWorking else { return }
-        isWorking = true
-        authError = nil
-        defer { isWorking = false }
-
-        do {
-            try await router.signInOrCreateEmail(
-                email: TestAccount.email,
-                password: TestAccount.password
-            )
-        } catch {
-            authError = AuthErrorMapper.message(for: error)
+        focusedField = nil
+        await request.perform(.testAccount) {
+            try await router.signInOrCreateEmail(email: TestAccount.email, password: TestAccount.password)
         }
     }
+#endif
+
 }
 
 private struct GlowOverlay: View {
+    @Environment(\.scenePhase) private var scenePhase
     let reduceMotion: Bool
-    @State private var pulse = false
 
     var body: some View {
-        // A subtle animated glow that draws attention to the title area
+        if reduceMotion {
+            glow(pulse: 0)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
+                let pulse = (sin(timeline.date.timeIntervalSinceReferenceDate * .pi / 3) + 1) / 2
+                glow(pulse: pulse)
+            }
+        }
+    }
+
+    private func glow(pulse: Double) -> some View {
         RadialGradient(
             colors: [
-                Color.orange.opacity(pulse ? 0.20 : 0.12),
+                Color.orange.opacity(0.12 + 0.08 * pulse),
                 Color.clear
             ],
             center: UnitPoint(x: 0.5, y: 0.18),
-            startRadius: pulse ? 20 : 8,
+            startRadius: 8 + 12 * pulse,
             endRadius: 420
         )
-        .scaleEffect(pulse ? 1.03 : 0.98)
-        .animation(
-            reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
-            value: pulse
-        )
-        .onAppear { pulse = !reduceMotion }
+        .scaleEffect(0.98 + 0.05 * pulse)
     }
 }
 
 private struct SparkleOverlay: View {
+    @Environment(\.scenePhase) private var scenePhase
     let reduceMotion: Bool
 
     var body: some View {
@@ -301,8 +453,8 @@ private struct SparkleOverlay: View {
                 drawSparkles(context: context, size: size, time: 0, animated: false)
             }
         } else {
-            TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
 
                 Canvas { context, size in
                     drawSparkles(context: context, size: size, time: t, animated: true)
