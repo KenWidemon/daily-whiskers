@@ -1,6 +1,6 @@
 # Documentation Map
 
-Reviewed September 13, 2026. Start with the document matching the question below.
+Updated September 14, 2026. Start with the document matching the question below.
 
 ## Current Guidance
 
@@ -21,7 +21,7 @@ Reviewed September 13, 2026. Start with the document matching the question below
 | Document | Status and limits |
 | --- | --- |
 | [Accessibility and interaction QA](accessibility-interaction-qa.md) | Historical runs plus scoped September 13 guest-first iPhone acceptance; final-candidate repeats remain |
-| [Performance QA](performance-qa.md) | Historical measurements, removed harness provenance, and unresolved measurement gaps; checklist #2 controls next work |
+| [Performance QA](performance-qa.md) | Bounded acceptance and overnight rollover passed on the tested build, approved V1 measurement deferrals, and historical harness evidence; exact-candidate repeat remains |
 | [Visual readability QA](visual-readability-qa.md) | Historical Step 4A layout evidence, superseded for readiness by later interaction QA |
 
 Every existing document has useful evidence or operational guidance, so none was

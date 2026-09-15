@@ -184,6 +184,16 @@ screenshots to show the actual app experience; see
   upload, now complete. Physical acceptance remains open. No app source changes,
   simulator launches, or App Review submission were needed.
 
+### RC-Source Visual Comparison (September 14)
+
+All six approved raw captures were compared with fresh Release previews built
+from `v1.0.0-rc.1` source on matching iPhone/iPad simulators. Layout and content
+parity passed; differences were animated sparkles and simulator status-bar
+indicators. Approved raw images and compositions remain hash-identical and were
+not replaced or uploaded again. This does not establish exact-TestFlight-build
+physical acceptance or iOS 27 compatibility. See the
+[scoped RC comparison](distribution-readiness.md#rc-source-screenshot-comparison-september-14-2026).
+
 ### Historical Candidate Comparison (September 12)
 
 **Superseded as current-candidate parity:** the September 9 archive predates the

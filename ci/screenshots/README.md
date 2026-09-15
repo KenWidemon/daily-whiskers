@@ -2,8 +2,10 @@
 
 **Current tooling; dated approval evidence.** Six September 12 compositions were
 approved and uploaded. That approval applies to those exact exports, not a future
-render. Final RC parity still needs checking because the old archive predates
-VoiceOver/guest-first changes. See the [listing record](../../docs/app-store-listing.md)
+render. September 14 RC-source simulator comparison passed for all six captures;
+exact shipping-build device acceptance remains open. See the
+[RC comparison](../../docs/distribution-readiness.md#rc-source-screenshot-comparison-september-14-2026),
+[listing record](../../docs/app-store-listing.md)
 and [release checklist](../../docs/release-checklist.md). Temporary projects and
 ignored capture files may have been cleaned up; verify paths before rerunning.
 
@@ -96,5 +98,6 @@ Outputs under `compositions/`:
 
 For new or changed exports, obtain fresh composition approval and compare against
 the accepted release candidate. The September 12 files already have composition
-approval, but not final RC parity. Re-rendering replaces composition outputs and
+approval and a scoped RC-source simulator comparison, not exact-build device
+acceptance. Re-rendering replaces composition outputs and
 resets their manifest to awaiting approval; earlier approval does not cover edits.

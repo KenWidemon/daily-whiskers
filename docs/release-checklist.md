@@ -13,7 +13,8 @@ release is authorized merely by approval of this checklist.
 - PR #41 merged into `codex/develop`: guest-first access, optional account tools,
   56 passing unit tests, four focused UI checks, signed Release build, and scoped
   owner-reported iPhone account-transition/VoiceOver acceptance. RC promotion has
-  not occurred; `release/rc` was created from the stable `main` baseline.
+  not occurred at that checkpoint; `release/rc` was created from the stable `main`
+  baseline. PR #46 subsequently promoted it as recorded under #6.
 - PR #42 merged into `codex/develop`: documented the main-based `release/rc`
   strategy and added RC coverage to CI. No RC promotion occurred.
 - PR #40 merged into `codex/develop`: VoiceOver fixes, tests, and scoped physical
@@ -74,17 +75,23 @@ release is authorized merely by approval of this checklist.
    Boolean check. Release build settings also resolve the declaration to NO.
    See the dated evidence in [distribution readiness](distribution-readiness.md#account-and-metadata-audit-september-13-2026).
    Final-candidate parity and reviewer access must still be rechecked before submission.
-6. **Open: prepare the final release candidate.** `release/rc` starts from `main`;
-   promote the approved `codex/develop` snapshot into RC through a PR, then freeze
-   and identify the candidate commit/tag. Rerun regression tests; archive, export,
-   and validate that exact RC candidate. Promote the accepted RC to `main` through
-   a release PR, preserving its tested source tree and artifact provenance. Verify
-   production Firebase configuration if retained, version/build availability,
-   and screenshot parity. The September 9 archive predates the VoiceOver fixes.
+6. **In progress: RC1 frozen, tested, archived, exported, and validated.** PR #46 promoted
+   develop to `release/rc` with merge ancestry preserved. Published tag
+   `v1.0.0-rc.1` identifies `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`.
+   RC CI and 57 fresh local unit tests passed; signed archive, App Store export,
+   packaged configuration, symbol checks, and Xcode server validation passed.
+   All six RC-source simulator screenshot comparisons passed; approved exports
+   remain unchanged. Exact TestFlight-build device acceptance remains pending
+   under #7; isolated previews do not satisfy it. See the
+   [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
+   Recheck build-number availability before upload. Promote the accepted RC to
+   `main` through a merge-commit PR, preserving tested source/artifact provenance;
+   `main` has not been advanced. Older September 9 artifacts are not this candidate.
 7. **Not started: upload to TestFlight and test that exact build.** With upload
    authorization, verify installation, daily content, session persistence,
    account creation/sign-in/reset/deletion if retained, and key accessibility/
-   layout behavior on iPhone and iPad. Include guest behavior and a natural
+   layout behavior on iPhone and iPad, including an iOS 27 compatibility pass
+   while retaining an iOS 26 baseline where available. Include guest behavior and a natural
    overnight foreground rollover check, distinguishing a fresh app launch from
    an in-process day change. The approved performance deferrals under #2 remain.
 8. **Not started: submit for App Review.** Select the tested build, verify
