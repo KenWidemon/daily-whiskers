@@ -1,6 +1,7 @@
 # Distribution Readiness
 
-> **Historical artifacts, current procedure.** Reviewed September 13, 2026.
+> **RC1 archived, exported, and validated; final acceptance pending.** Updated September 14, 2026.
+> The current candidate record below supersedes old artifacts for release preparation.
 > The September 9 archive/export/validation and September 12 screenshot comparison
 > predate VoiceOver and guest-first changes. They are not acceptance of the current
 > RC and must not be used to skip checklist #6. Dated sections below describe their
@@ -45,6 +46,114 @@ No full-screen requirement was added. This preserves UIKit's default orientation
 sets and iPad multitasking eligibility rather than suppressing the warning with
 a full-screen restriction. It does not resolve the known landscape scrolling bug
 or prove visual rotation/multitasking acceptance.
+
+## RC1 Artifact Record (September 14, 2026)
+
+- PR #46 promoted development into `release/rc` with a merge commit. Its source
+  tree exactly matches reviewed develop revision
+  `00f246689d876a8ff28718960b606cb40843c037`.
+- Frozen commit: `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`.
+  Source tree: `6391e24d23c0bb7c5026809ea4da3c77b521ef99`.
+  Owner-authorized annotated tag `v1.0.0-rc.1` is published; do not move it.
+  This evidence update is on a separate branch and is not part of the tagged source.
+- Xcode 26.6 (17F113), iPhoneOS SDK 26.5, locked dependencies. XcodeGen reproduced
+  the committed project with no diff. No toolchain/dependency migration was made
+  in response to iOS 27; candidate compatibility testing remains required.
+- [RC push CI](https://github.com/KenWidemon/daily-whiskers/actions/runs/34880276739)
+  passed. Fresh local regression passed 57 tests in eight suites on iPhone 17e /
+  iOS 26.5 simulator, signing disabled. The simulator is shut down. No full UI
+  suite or new physical-device acceptance is claimed; existing deferrals remain.
+- Authenticated App Store Connect inspection showed version 1.0 in Prepare for
+  Submission and TestFlight's "Submit a build to start testing" empty state.
+  Build 1 is currently unused by that visible inventory, not reserved; recheck
+  immediately before upload. Manual release remains selected. No listing changes
+  or reviewer-credential retrieval were performed.
+
+### Local Artifacts and Verification
+
+All paths below are relative to the repository root and are ignored by Git:
+
+- `build/releases/v1.0.0-rc.1/DailyWhiskers.xcarchive`: signed Release archive passed.
+- `build/releases/v1.0.0-rc.1/export/DailyWhiskers.ipa`: App Store export passed with
+  `destination=export`, automatic signing, and no automatic version/build update.
+  Size: 75,122,882 bytes, not an App Store download-size estimate.
+- IPA SHA-256: `32a4bba9f7fcf63a639c558e6f800effad7a30b16ed0f19c9e8ffe5f0af2bbb4`.
+- `archive-file-sha256.txt` lists archive file hashes. Its SHA-256 is
+  `0e33661bed4479b032d2ecd42696eb938caa2b3058f9b54df9865781a848fe3f`.
+  This identifies the recorded file-content manifest, not a hash of a directory.
+- Archive and extracted IPA pass strict/deep signature verification. The export
+  uses the matching iOS Team Store Provisioning Profile, expiring September 10,
+  2027 UTC, with `get-task-allow=false` and no development-device list.
+- Identity is `com.example.kenwidemon.dailywhiskers`, version `1.0 (1)`, minimum
+  iOS 17, iPhone/iPad support, and the expected orientations. Packaged
+  `ITSAppUsesNonExemptEncryption` is Boolean false, including after export.
+- Packaged Firebase configuration matches the local production config semantically
+  and differs from the CI fixture. Plist encoding changes during packaging; raw
+  byte inequality is not a configuration mismatch. No configuration values are
+  copied into these docs. App privacy declaration matches source; dependency
+  privacy manifests are bundled.
+- Daily JSON matches source; exported JSON and Assets.car match the archive.
+  Targeted executable inspection found no test-account environment/button markers
+  or screenshot/profiling-harness markers. This is not an exhaustive security audit.
+- Archive executable, dSYM, and exported executable share UUID
+  `9B7663E9-70C8-3AF5-A140-5EA567CD5A6D` (arm64).
+- Only archive warning: skipped App Intents metadata extraction, with no App
+  Intents dependency. Local unit build also reported the existing Firebase
+  umbrella/module-map warning; tests passed without weakening assertions.
+- Evidence in the same folder: `provenance.json`, `UnitTests.xcresult`,
+  `unit-tests.log`, `archive.log`, `export.log`, and `archive-info.json`.
+  Preserve these local artifacts; do not commit the IPA, profiles, or raw logs.
+
+### App Store Validation
+
+- After the archive-open handoff, the selected September 14, 8:38 PM archive
+  showed version `1.0 (1)` and the expected bundle ID. Used **Validate App** with
+  recommended App Store Connect settings, not Distribute App.
+- Xcode reported **App validation complete** and **DailyWhiskers 1.0 (1)
+  validated**, with "Your app successfully passed all validation checks."
+  After Done, the selected archive showed Validation succeeded and the September
+  14, 8:47 PM validation time. This is server validation, not App Review approval.
+- Validation logs are preserved locally under
+  `build/releases/v1.0.0-rc.1/validation.xcdistributionlogs`; the original log
+  bundle ends in `DailyWhiskers_2026-09-14_20-45-53.644.xcdistributionlogs`.
+  Original archive file-content hashes and exported IPA hash remain unchanged.
+- No TestFlight build upload, distribution, or App Review submission occurred.
+
+### RC-Source Screenshot Comparison (September 14, 2026)
+
+- Rebuilt the existing isolated screenshot preview in Release from frozen RC
+  source `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`, using locked dependencies.
+  All three card builds passed; copied production Swift hashes match the RC.
+  The separate entry/router and single-card manifest are preview-only: no
+  Firebase configuration, live account, or shipping source was changed.
+- Compared fresh Celestial, Forest, and Cozy captures against all six approved
+  September 12 raw images on iPhone 17 Pro Max and iPad Pro 13-inch (M5), both
+  simulator OS 26.5 at default text size. Native dimensions remain 1320 x 2868
+  and 2064 x 2752 respectively.
+- Scoped visual comparison passed: image crops, quote text/wrapping, vibe pills,
+  frames/glow, Settings placement, and safe areas match with no visible clipping.
+  Sparkle animation phase and simulator status-bar date, signal, and battery
+  indicators differ. This is not a pixel-equality claim or new owner approval.
+- All six approved raw images and six compositions still match saved hashes;
+  none were replaced or re-uploaded. New captures, per-card provenance, and
+  `comparison.json` are local under `build/releases/v1.0.0-rc.1/visual-parity/`.
+- This closes the RC-source simulator screenshot comparison only, not shipping
+  IPA execution, account behavior, physical acceptance, or iOS 27 compatibility.
+  Status-bar overrides were cleared and both capture simulators shut down.
+
+### Outstanding Candidate Checks
+
+- All six approved screenshot compositions match their saved hashes; manifest,
+  provider, model, and DailyRitualCardView match capture provenance. Five other
+  captured auth/navigation sources differ. This static comparison does not prove
+  full candidate visual parity on its own; the scoped simulator comparison above
+  adds rendered evidence. Static evidence: `screenshot-source-comparison.json`.
+- Exact-build device acceptance, including iOS 27 compatibility and the retained
+  exact-TestFlight-candidate overnight repeat, remains open. No phone/iPad app
+  was replaced during this artifact pass.
+- No TestFlight upload, App Review submission, or release occurred. `main` remains
+  unchanged. Accepted RC promotion to main must preserve ancestry and artifact
+  provenance; this tag is not a claim that every acceptance gate has passed.
 
 ## Local Archive Evidence (September 9, 2026)
 
