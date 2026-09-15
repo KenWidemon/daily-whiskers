@@ -1,12 +1,15 @@
 # Release Configuration and Security
 
-## Current Status (September 13, 2026)
+## Current Status (September 14, 2026)
 
 Current remaining work lives in the [release checklist](release-checklist.md).
 This document retains configuration guidance and historical signing evidence.
 September 9 archive/export/validation passed for that source only; those artifacts
 predate the merged VoiceOver and guest-first changes and are **not the current RC**.
-A newly frozen RC needs fresh archive/export/validation and candidate acceptance.
+RC1 is now frozen at tag `v1.0.0-rc.1`, with fresh passing CI/local unit tests,
+archive, App Store export, and Xcode server validation. All six RC-source simulator
+screenshot comparisons passed without replacing approved exports. Exact-build
+device acceptance is pending; see the [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
 No build upload or review submission is recorded. Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;

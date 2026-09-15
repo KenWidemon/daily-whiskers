@@ -87,7 +87,7 @@ commits. Workflow filters alone do not enforce branch protection; no protection
 rules were changed by this documentation/CI update. Ensure CI is actually running
 on the first RC promotion before treating it as a gate.
 
-## Initial RC Record
+## Initial RC Record (Historical)
 
 - `release/rc` was created locally and published from `origin/main` at
   `db25664e0b8423d80f23e93bab7fd4bfb4531d0c`, without promoting trunk work.
@@ -98,3 +98,17 @@ on the first RC promotion before treating it as a gate.
   The first approved development-to-RC promotion must include it.
 - No candidate/release tag, RC promotion, App Store upload, submission, or manual
   release is authorized merely by creating this branch.
+
+## First Promotion and Freeze (September 14, 2026)
+
+- PR #46 merged into `release/rc` at
+  `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`, with parents
+  `db25664e0b8423d80f23e93bab7fd4bfb4531d0c` and
+  `00f246689d876a8ff28718960b606cb40843c037`. The resulting tree exactly matches
+  the reviewed develop head, including guest-first, strategy/CI, and QA evidence.
+- Ken authorized candidate preparation; annotated tag `v1.0.0-rc.1` was created
+  and published at that merge. Do not move it for later fixes or documentation.
+- RC push CI passed. Fresh regression/archive/export/validation evidence and
+  pending final acceptance are tracked in the
+  [RC1 record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
+- `main` is unchanged. No upload, submission, or release has occurred.
