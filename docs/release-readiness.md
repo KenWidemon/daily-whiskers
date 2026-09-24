@@ -10,7 +10,14 @@ RC1 is now frozen at tag `v1.0.0-rc.1`, with fresh passing CI/local unit tests,
 archive, App Store export, and Xcode server validation. All six RC-source simulator
 screenshot comparisons passed without replacing approved exports. Exact-build
 device acceptance is pending; see the [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
-No build upload or review submission is recorded. Privacy/support and App Store
+Ken authorized the first TestFlight upload: Xcode reported success for `1.0 (1)`
+on September 14 at 9:41 PM EDT. TestFlight now shows upload Complete and build
+Ready to Submit at the upload checkpoint. September 15: `V1 Internal Testing`
+was created with automatic distribution off and `1.0 (1)` assigned, Ready to Test.
+Ken's authorized internal invitation is sent and shows Invited. Invitation
+acceptance, installation, and exact-build acceptance remain pending.
+No App Review submission or public release occurred.
+Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;
 final-candidate checks remain required. See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)

@@ -84,21 +84,39 @@ release is authorized merely by approval of this checklist.
    remain unchanged. Exact TestFlight-build device acceptance remains pending
    under #7; isolated previews do not satisfy it. See the
    [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
-   Recheck build-number availability before upload. Promote the accepted RC to
+   Build-number availability was rechecked before the authorized #7 upload.
+   Promote the accepted RC to
    `main` through a merge-commit PR, preserving tested source/artifact provenance;
    `main` has not been advanced. Older September 9 artifacts are not this candidate.
-7. **Not started: upload to TestFlight and test that exact build.** With upload
-   authorization, verify installation, daily content, session persistence,
+7. **In progress: 1.0 (1) uploaded and processed; tester setup and acceptance pending.**
+   Ken explicitly authorized upload on September 14. Xcode reported upload success
+   at 9:41 PM EDT using the validated RC1 archive, without automatic build-number
+   changes. See the [upload record](distribution-readiness.md#testflight-upload-september-14-2026).
+   September 15: created `V1 Internal Testing` with automatic distribution off;
+   assigned `1.0 (1)`, shown as Ready to Test. Ken authorized the internal invitation;
+   the group now shows 1 Tester, 1 Build, and his existing account as Invited.
+   Invitation acceptance and installation are pending. Verify daily content, session persistence,
    account creation/sign-in/reset/deletion if retained, and key accessibility/
    layout behavior on iPhone and iPad, including an iOS 27 compatibility pass
    while retaining an iOS 26 baseline where available. Include guest behavior and a natural
    overnight foreground rollover check, distinguishing a fresh app launch from
    an in-process day change. The approved performance deferrals under #2 remain.
+   External beta preparation: Ken created `Family & Friends`; beta description,
+   privacy URL, and build testing instructions are saved. Beta-review contact
+   details/review notes, external build assignment/review, and individual tester
+   invitations remain pending. No external distribution is claimed.
 8. **Not started: submit for App Review.** Select the tested build, verify
    reviewer access/metadata, retain manual release, and submit only with Ken's
    authorization. Address review feedback and retest any resulting changes.
 9. **Not started: manually release after approval.** At Pending Developer Release,
    perform the final go/no-go check. Release only with Ken's explicit approval.
+
+## Deferred Workspace Cleanup
+
+- September 15: Ken asked to leave the unexpected untracked
+  `DailyWhiskers.xcodeproj/xcshareddata/xcodecloud/` folder untouched and clean it
+  up later. Do not stage, delete, or infer a new Xcode Cloud workflow from it as
+  part of the TestFlight setup. Review its purpose separately before cleanup.
 
 ## Item 3 Decision Record
 
