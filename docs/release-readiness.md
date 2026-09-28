@@ -15,8 +15,9 @@ on September 14 at 9:41 PM EDT. The September 28 live audit shows build Testing
 with both internal and external groups. Ken confirmed the requested exact-build
 guest/account, accessibility, and natural overnight checks as passed; device-level
 details and limits are in the [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026).
-App Store version 1.0 remains Prepare for Submission without an attached build;
-manual release is selected. No App Review submission or public release occurred.
+App Store version 1.0 with existing build 1.0 (1) was submitted with Ken's explicit
+approval on September 28 and is Waiting for Review. Manual release is retained;
+no public release occurred.
 Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;
@@ -24,8 +25,9 @@ Ken also confirmed dedicated-reviewer sign-in on TestFlight 1.0 (1) on September
 Ken subsequently confirmed iOS 26 testing, closing the baseline under checklist
 #7 by owner report, with device/patch-level details unspecified. PR #66 completed
 RC-to-main promotion at `090a4c9d6bbe29f488410f2ea32b0d83dad437c4`, with the
-promoted tree and frozen app-source parity verified. Development documentation
-sync, build attachment, and final submission preflight remain.
+promoted tree and frozen app-source parity verified. PR #67 completed the development
+documentation sync. Submission preflight and Apple's submission validation are
+complete; Apple's review decision remains pending under checklist #8.
 See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
 and the [documentation map](README.md).
 
@@ -163,8 +165,9 @@ performance deferrals remain, not new mandatory profiling work.
 
 Checklist #7 is complete by owner report, including Ken's subsequent iOS 26
 confirmation; evidence limits remain recorded there. RC-to-main promotion is
-complete under #6. Attach existing build `1.0 (1)` to the App Store draft and complete final submission
-preflight. Submission and manual release still require separate owner authorization.
+complete under #6, and the development sync merged through PR #67. Existing build
+`1.0 (1)` is submitted and Waiting for Review under #8. Address any review feedback;
+after approval, manual release still requires Ken's separate go/no-go authorization.
 Do not upload this unchanged candidate again or treat build 1 as unused. If a code
 change requires a replacement candidate, follow the branching strategy, choose a
 new unused build number, and repeat the relevant artifact/acceptance checks.
