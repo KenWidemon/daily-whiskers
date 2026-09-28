@@ -21,7 +21,9 @@ Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;
 Ken also confirmed dedicated-reviewer sign-in on TestFlight 1.0 (1) on September 28.
-RC-to-main promotion, build attachment, and final submission preflight remain.
+The iOS 26 baseline remains open under checklist #7 pending exact-TestFlight
+acceptance or an explicit owner waiver. RC-to-main promotion, build attachment,
+and final submission preflight also remain.
 See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
 and the [documentation map](README.md).
 
@@ -147,12 +149,20 @@ September 7 verification:
 - Local logs: `/tmp/whiskers-release-signed.log`,
   `/tmp/whiskers-release-unsigned.log`, and `/tmp/whiskers-release-unit.log`.
 
-## Release Handoff
+## Release Handoff (September 28, 2026)
 
 Use the [canonical release checklist](release-checklist.md), not the historical
 setup failures above. Initial signing, orientation configuration, metadata entry,
 legacy-account retirement by owner report, reviewer preparation, and the pre-upload
-account/metadata audit are no longer pending setup tasks. Final-candidate validation,
-performance, account/compliance rechecks, and authorized distribution remain
-separate gates. Recheck build-number
-availability before uploading; the configured `1.0 (1)` is not a reserved build.
+account/metadata audit are no longer pending setup tasks. RC1 archive/export/server
+validation and upload are complete, and dedicated-reviewer sign-in is owner-confirmed
+on TestFlight `1.0 (1)`. Scoped physical checks passed by owner report; approved
+performance deferrals remain, not new mandatory profiling work.
+
+Checklist #7 remains open for exact-TestFlight iOS 26 baseline acceptance or an
+explicit owner waiver. After that gate closes, promote the accepted RC to main,
+attach existing build `1.0 (1)` to the App Store draft, and complete final submission
+preflight. Submission and manual release still require separate owner authorization.
+Do not upload this unchanged candidate again or treat build 1 as unused. If a code
+change requires a replacement candidate, follow the branching strategy, choose a
+new unused build number, and repeat the relevant artifact/acceptance checks.

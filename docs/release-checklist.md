@@ -31,7 +31,7 @@ release is authorized merely by approval of this checklist.
 
 ## Remaining Steps
 
-1. **Complete by owner report on TestFlight 1.0 (1).** On September 28, Ken
+1. **Scoped checks complete by owner report on TestFlight 1.0 (1).** On September 28, Ken
    confirmed completion of iPhone/iPad guest and account flows, VoiceOver/larger
    text, and natural overnight foreground rollover without force-quitting or
    updating. Reported iPhone coverage: iPhone 13, iPhone 17 Pro Max, and iPhone
@@ -44,7 +44,7 @@ release is authorized merely by approval of this checklist.
    deletion warning/cancellation/completion,
    and sign-in/logout with Reduce Motion. That evidence below is historical;
    the September 28 report closes the requested final candidate repeat,
-   not all-device coverage.
+   not all-device coverage. The iOS 26 baseline requirement remains open under #7.
 2. **Complete for the tested build, with approved V1 deferrals.**
    On the September 13 local Release build, Ken reported three ordinary launches
    looked good,
@@ -97,14 +97,15 @@ release is authorized merely by approval of this checklist.
    RC CI and 57 fresh local unit tests passed; signed archive, App Store export,
    packaged configuration, symbol checks, and Xcode server validation passed.
    All six RC-source simulator screenshot comparisons passed; approved exports
-   remain unchanged. Exact TestFlight-build acceptance is now owner-reported
-   under #7; isolated previews are not the acceptance evidence. See the
+   remain unchanged. Scoped exact TestFlight-build acceptance is owner-reported;
+   the iOS 26 baseline remains open under #7. Isolated previews are not the
+   acceptance evidence. See the
    [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
    Build-number availability was rechecked before the authorized #7 upload.
    Promote the accepted RC to
    `main` through a merge-commit PR, preserving tested source/artifact provenance;
    `main` has not been advanced. Older September 9 artifacts are not this candidate.
-7. **Complete by owner report: TestFlight distribution and requested final checks.**
+7. **In progress: TestFlight distribution complete; iOS 26 baseline acceptance open.**
    Ken explicitly authorized upload on September 14. Xcode reported upload success
    at 9:41 PM EDT using the validated RC1 archive, without automatic build-number
    changes. See the [upload record](distribution-readiness.md#testflight-upload-september-14-2026).
@@ -114,8 +115,14 @@ release is authorized merely by approval of this checklist.
    checkpoint. That setup-pending status is superseded: on September 28, the live
    build is Testing with both `V1 Internal Testing` and `Family & Friends`, eight
    invitations, and six installations. External beta testing is active.
-   Ken confirmed all requested final TestFlight checks; see #1 for the scope and
-   missing device-level details. The approved performance deferrals under #2
+   Ken confirmed the scoped final TestFlight checks described in #1. The question
+   did not explicitly request the retained iOS 26 baseline, and his OS follow-up
+   named only iOS 27.0. Exact-build feedback from iOS 26 devices establishes beta
+   usage, not acceptance of the required flows. Record acceptance of TestFlight
+   1.0 (1) on an available iOS 26 device, with model/OS and check results, or an
+   explicit owner waiver before closing #7. No such waiver is recorded; do not
+   infer one from general approval or silently drop the platform requirement.
+   The approved performance deferrals under #2
    remain. No new blocker was established from the three visible feedback reports;
    the password-visibility and widget requests remain follow-up backlog items.
    Crash Feedback shows no reports; this is not proof of zero crashes.

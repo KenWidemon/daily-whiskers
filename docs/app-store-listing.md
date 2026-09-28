@@ -5,7 +5,8 @@ by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
 Approved metadata is saved and six screenshots are uploaded to the version 1.0
 draft in App Store Connect. Updated September 28: TestFlight `1.0 (1)` is Testing
-and requested final physical checks passed by owner report. The App Store draft
+and scoped final physical checks passed by owner report. The iOS 26 baseline
+remains open under checklist #7; no owner waiver is recorded. The App Store draft
 still has no attached build and remains Prepare for Submission with manual
 release selected. No App Review submission occurred. See the
 [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026)
@@ -463,7 +464,7 @@ It does not claim reminders, streaks, favorites, sharing, browsing, personalized
 recommendations, newly published art each day, universal offline access,
 accessibility certification, or an absence of all SDK data collection.
 
-## Approval and Next Steps
+## Approval and Next Steps (September 28, 2026)
 
 - Owner approved September 12, 2026: name/subtitle, overall tone,
   Entertainment/Lifestyle categories, English (U.S.) locale, and screenshot
@@ -471,10 +472,16 @@ accessibility certification, or an absence of all SDK data collection.
 - Guest-first access was approved September 13. The revised description and
   review notes are saved and reload-verified. Dedicated reviewer preparation is
   complete, with account verification and saved credentials confirmed by Ken.
-- Pricing, availability, reviewer access,
-  and distribution are separate tasks. No values were invented or submitted.
+- Free/U.S.-only availability and manual release were verified in the dated
+  pre-upload audit. September 28 reviewer sign-in on TestFlight `1.0 (1)` is
+  owner-confirmed; do not repeat it merely because older entries requested it.
 - Approved listing entry, screenshot uploads, and owner-confirmed content
   rights/copyright entries, privacy publication, and age ratings are complete.
   The content-rights discrepancy was resolved by re-entry and reload verification.
-  Recheck final-candidate reviewer access and finish distribution decisions.
-  Physical acceptance and outstanding release checks remain open.
+  Scoped physical acceptance is owner-reported; the iOS 26 baseline remains open
+  under checklist #7 pending exact-build acceptance or an explicit owner waiver.
+- Follow the [canonical release checklist](release-checklist.md) for remaining
+  gates: resolve #7, promote the accepted RC to main, attach existing build
+  `1.0 (1)`, complete submission preflight, and obtain submission/manual-release
+  approvals. No new build upload or blanket repeat of completed checks is required
+  for this unchanged candidate.
