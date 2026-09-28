@@ -4,9 +4,12 @@ Status: name/subtitle, tone, categories, locale, and screenshot direction approv
 by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
 Approved metadata is saved and six screenshots are uploaded to the version 1.0
-draft in App Store Connect. No build upload or App Review submission occurred;
-final-candidate physical acceptance remains pending. Earlier scoped physical
-passes are preserved in the release checklist; they are not erased by this gate.
+draft in App Store Connect. Updated September 28: TestFlight `1.0 (1)` is Testing
+and requested final physical checks passed by owner report. The App Store draft
+still has no attached build and remains Prepare for Submission with manual
+release selected. No App Review submission occurred. See the
+[current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026)
+for acceptance scope, evidence limits, and remaining submission actions.
 
 This document contains current copy followed by dated entry history. Historical
 "blank," "pending," and "automatic release" observations describe those earlier
@@ -22,7 +25,8 @@ dedicated-account sign-out/sign-in and saved credentials visible in App Store
 Connect. Credential persistence is owner-verified; an agent presence-only check
 did not match his UI. Final review instructions below are saved and reload-verified.
 Sign-in required remains checked for optional account-tool access, not daily-card
-access. Recheck reviewer access on the final candidate before submission.
+access. September 28: Ken confirmed dedicated-reviewer sign-in on TestFlight
+`1.0 (1)`; this is owner-reported verification, not an agent-observed login.
 
 ## Recommended Positioning
 

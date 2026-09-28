@@ -22,7 +22,8 @@ release is authorized merely by approval of this checklist.
   focused error-visibility UI check and signed device builds passed.
 - Listing copy, six screenshots, content rights, privacy disclosures, age ratings,
   review contact, and free/U.S.-only/iPhone-and-iPad/manual-release settings were
-  entered and verified. Recheck before submission; no uploaded build is recorded.
+  entered and verified at that checkpoint. Later upload and audit evidence appears
+  under #7 and in the September 28 readiness record.
 - Temporary logout QA app/project/build files were removed after acceptance.
 - Largest-text landscape simulator diagnosis is explicitly deferred until after
   V1 by Ken. Keep the test/assertions intact; do not treat the suite as green or
@@ -30,13 +31,23 @@ release is authorized merely by approval of this checklist.
 
 ## Remaining Steps
 
-1. **Passed on the tested iPhone; final-candidate repeats remain.** The scoped
-   guest-first VoiceOver checks passed by owner report, including backend-error
-   focus, reset focus, account creation, deletion warning/cancellation/completion,
-   and sign-in/logout with Reduce Motion. Preserve the evidence below and repeat
-   key checks on the final distributed candidate; this is not all-device coverage.
+1. **Complete by owner report on TestFlight 1.0 (1).** On September 28, Ken
+   confirmed completion of iPhone/iPad guest and account flows, VoiceOver/larger
+   text, and natural overnight foreground rollover without force-quitting or
+   updating. Reported iPhone coverage: iPhone 13, iPhone 17 Pro Max, and iPhone
+   18 Pro Max; iOS 27.0 was reported. The iPad model/OS, per-device test matrix,
+   and overnight test date/device were not supplied. Do not infer them or claim
+   independent observation. See the
+   [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026).
+   The earlier scoped guest-first VoiceOver checks passed by owner report,
+   including backend-error focus, reset focus, account creation,
+   deletion warning/cancellation/completion,
+   and sign-in/logout with Reduce Motion. That evidence below is historical;
+   the September 28 report closes the requested final candidate repeat,
+   not all-device coverage.
 2. **Complete for the tested build, with approved V1 deferrals.**
-   On the current Release build, Ken reported three ordinary launches looked good,
+   On the September 13 local Release build, Ken reported three ordinary launches
+   looked good,
    no visible card freezes/stutter, and completion of five same-day foreground
    cycles without reporting an issue; the process ID stayed unchanged. These are
    scoped observations, not startup timing or memory measurements. Ken approved
@@ -46,7 +57,9 @@ release is authorized merely by approval of this checklist.
    confirmed no force-quit, phone restart, or build installation overnight.
    CoreDevice showed the same PID 11106 and installation path as September 13,
    supporting in-process foreground rollover on the tested Release build.
-   Repeat on the exact TestFlight candidate before submission under #7.
+   September 28: Ken also confirmed the requested natural overnight foreground
+   rollover on exact TestFlight 1.0 (1); this is owner-reported, without a new
+   process-ID observation or supplied overnight date/device. See #1 and #7.
    The new Instruments attachment failed despite the app remaining visible; do
    not repeat failed captures to force closure. See the
    [bounded follow-up](performance-qa.md#bounded-follow-up-september-13-2026).
@@ -59,13 +72,15 @@ release is authorized merely by approval of this checklist.
    App Store description and review notes are saved and reload-verified.
    Reviewer access is tracked separately under #4; final-candidate retesting
    is tracked separately under #1 and #7.
-4. **Complete: reviewer access prepared.** Ken resumed this item September 13.
+4. **Complete: reviewer access prepared and final-candidate sign-in confirmed.** Ken resumed this item September 13.
    Ken confirmed creation and successful sign-out/sign-in verification of the
    dedicated review account (owner-reported, not independently observed).
    Ken confirmed credentials are saved and visible in App Store Connect; treat
    persistence as owner-verified, not independently verified by the agent.
    Final review notes are saved and reload-verified. Account features remain
-   optional; retain the reviewer account and retest it on the final candidate.
+   optional; retain the reviewer account. On September 28, Ken confirmed that
+   the dedicated App Review account signs in on TestFlight 1.0 (1). This is
+   owner-reported final-candidate verification, not an agent-observed login.
    No credentials were copied into the repository or chat.
 5. **Complete: pre-upload account/metadata readiness audit.** Free Apps Agreement is Active;
    the owner-approved no-EU-distribution DSA declaration is saved and Active.
@@ -74,40 +89,43 @@ release is authorized merely by approval of this checklist.
    exempt-encryption declaration; all 57 unit tests passed, including the packaged
    Boolean check. Release build settings also resolve the declaration to NO.
    See the dated evidence in [distribution readiness](distribution-readiness.md#account-and-metadata-audit-september-13-2026).
-   Final-candidate parity and reviewer access must still be rechecked before submission.
+   September 28 candidate evidence and reviewer-access confirmation are recorded
+   under #4 and #7; complete the final submission preflight under #8.
 6. **In progress: RC1 frozen, tested, archived, exported, and validated.** PR #46 promoted
    develop to `release/rc` with merge ancestry preserved. Published tag
    `v1.0.0-rc.1` identifies `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`.
    RC CI and 57 fresh local unit tests passed; signed archive, App Store export,
    packaged configuration, symbol checks, and Xcode server validation passed.
    All six RC-source simulator screenshot comparisons passed; approved exports
-   remain unchanged. Exact TestFlight-build device acceptance remains pending
-   under #7; isolated previews do not satisfy it. See the
+   remain unchanged. Exact TestFlight-build acceptance is now owner-reported
+   under #7; isolated previews are not the acceptance evidence. See the
    [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
    Build-number availability was rechecked before the authorized #7 upload.
    Promote the accepted RC to
    `main` through a merge-commit PR, preserving tested source/artifact provenance;
    `main` has not been advanced. Older September 9 artifacts are not this candidate.
-7. **In progress: 1.0 (1) uploaded and processed; tester setup and acceptance pending.**
+7. **Complete by owner report: TestFlight distribution and requested final checks.**
    Ken explicitly authorized upload on September 14. Xcode reported upload success
    at 9:41 PM EDT using the validated RC1 archive, without automatic build-number
    changes. See the [upload record](distribution-readiness.md#testflight-upload-september-14-2026).
    September 15: created `V1 Internal Testing` with automatic distribution off;
    assigned `1.0 (1)`, shown as Ready to Test. Ken authorized the internal invitation;
-   the group now shows 1 Tester, 1 Build, and his existing account as Invited.
-   Invitation acceptance and installation are pending. Verify daily content, session persistence,
-   account creation/sign-in/reset/deletion if retained, and key accessibility/
-   layout behavior on iPhone and iPad, including an iOS 27 compatibility pass
-   while retaining an iOS 26 baseline where available. Include guest behavior and a natural
-   overnight foreground rollover check, distinguishing a fresh app launch from
-   an in-process day change. The approved performance deferrals under #2 remain.
-   External beta preparation: Ken created `Family & Friends`; beta description,
-   privacy URL, and build testing instructions are saved. Beta-review contact
-   details/review notes, external build assignment/review, and individual tester
-   invitations remain pending. No external distribution is claimed.
+   the group showed 1 Tester, 1 Build, and his existing account as Invited at that
+   checkpoint. That setup-pending status is superseded: on September 28, the live
+   build is Testing with both `V1 Internal Testing` and `Family & Friends`, eight
+   invitations, and six installations. External beta testing is active.
+   Ken confirmed all requested final TestFlight checks; see #1 for the scope and
+   missing device-level details. The approved performance deferrals under #2
+   remain. No new blocker was established from the three visible feedback reports;
+   the password-visibility and widget requests remain follow-up backlog items.
+   Crash Feedback shows no reports; this is not proof of zero crashes.
 8. **Not started: submit for App Review.** Select the tested build, verify
    reviewer access/metadata, retain manual release, and submit only with Ken's
    authorization. Address review feedback and retest any resulting changes.
+   September 28 audit: version 1.0 is still Prepare for Submission, no build is
+   attached, and manual release is selected. Attach the accepted 1.0 (1) before
+   submission; do not substitute a V1.1 development build. Reviewer credentials
+   appear populated; fresh account functionality is owner-confirmed under #4.
 9. **Not started: manually release after approval.** At Pending Developer Release,
    perform the final go/no-go check. Release only with Ken's explicit approval.
 

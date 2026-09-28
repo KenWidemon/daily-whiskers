@@ -1,6 +1,6 @@
 # Release Configuration and Security
 
-## Current Status (September 14, 2026)
+## Current Status (September 28, 2026)
 
 Current remaining work lives in the [release checklist](release-checklist.md).
 This document retains configuration guidance and historical signing evidence.
@@ -8,19 +8,21 @@ September 9 archive/export/validation passed for that source only; those artifac
 predate the merged VoiceOver and guest-first changes and are **not the current RC**.
 RC1 is now frozen at tag `v1.0.0-rc.1`, with fresh passing CI/local unit tests,
 archive, App Store export, and Xcode server validation. All six RC-source simulator
-screenshot comparisons passed without replacing approved exports. Exact-build
-device acceptance is pending; see the [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
+screenshot comparisons passed without replacing approved exports. These are
+September 14 results, not freshly rerun tests; see the [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
 Ken authorized the first TestFlight upload: Xcode reported success for `1.0 (1)`
-on September 14 at 9:41 PM EDT. TestFlight now shows upload Complete and build
-Ready to Submit at the upload checkpoint. September 15: `V1 Internal Testing`
-was created with automatic distribution off and `1.0 (1)` assigned, Ready to Test.
-Ken's authorized internal invitation is sent and shows Invited. Invitation
-acceptance, installation, and exact-build acceptance remain pending.
-No App Review submission or public release occurred.
+on September 14 at 9:41 PM EDT. The September 28 live audit shows build Testing
+with both internal and external groups. Ken confirmed the requested exact-build
+guest/account, accessibility, and natural overnight checks as passed; device-level
+details and limits are in the [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026).
+App Store version 1.0 remains Prepare for Submission without an attached build;
+manual release is selected. No App Review submission or public release occurred.
 Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;
-final-candidate checks remain required. See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
+Ken also confirmed dedicated-reviewer sign-in on TestFlight 1.0 (1) on September 28.
+RC-to-main promotion, build attachment, and final submission preflight remain.
+See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
 and the [documentation map](README.md).
 
 ## Configuration
