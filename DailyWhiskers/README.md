@@ -14,7 +14,7 @@ dated QA reports preserve evidence rather than separate roadmaps.
   signed-in users. Privacy and Support are always available.
 - Optional auth UI supports:
   - Sign In (email/password)
-  - Create Account (email/password)
+  - Dedicated Create Account form (email/password/confirmation)
   - Forgot password (uses the entered email; no password required)
   - Debug-only "Use Test Account"
 - Daily content is selected deterministically from local date:
@@ -25,6 +25,123 @@ dated QA reports preserve evidence rather than separate roadmaps.
   Close/swipe dismissal is disabled while an auth request is running. Successful
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
+
+## Dedicated Registration
+
+Create Account opens its own form without submitting Sign In credentials. Only
+trimmed email is prefilled. Sign In's password is cleared on entry; registration
+passwords are cleared when leaving that form or dismissing auth. Registration
+keeps its input for correction after a failed request, without persisting or
+logging credentials. Password fields support AutoFill and independent visibility
+controls, and mask again when the app becomes inactive. Sign In visibility remains
+separate DW-006 work.
+
+Registration validates email, password length and character types, and exact confirmation
+before calling Firebase. Passwords are never trimmed. Empty/invalid submissions
+show accessible feedback; navigation is available with empty Sign In fields.
+Both forms retain one request lock and existing progress/error announcements.
+Close and Back are disabled while a request runs; success closes auth through the
+existing session listener and leaves the daily card in place.
+
+Ken selected an Apple Account-style baseline for new accounts on September 28,
+2026: at least eight characters, with an uppercase ASCII letter (A–Z), a lowercase
+ASCII letter (a–z), and a number (0–9). Symbols and other Unicode characters are
+allowed but not required. The existing maximum of 4096 remains. Registration
+validation, visible guidance, and native [Password AutoFill rules](https://developer.apple.com/documentation/security/customizing-password-autofill-rules) use this baseline.
+This is the selected length/character baseline, not a claim to reproduce Apple's
+complete account security system or its common-password screening.
+
+Length uses UTF-16 units to match [Firebase's reference policy validator](https://github.com/firebase/firebase-js-sdk/blob/main/packages/auth/src/core/auth/password_policy_impl.ts),
+and confirmation compares exact UTF-8 input without Unicode normalization.
+Sign In retains its existing validation so older accounts remain usable.
+
+**Backend alignment remains pending.** The live Firebase `getPasswordPolicy`
+response was rechecked September 28, 2026: minimum 6, maximum 4096, no required
+character classes, enforcement `ENFORCE`. The new baseline is enforced by this
+registration form, not yet by Firebase. Before shipping it as a service-wide
+policy, configure Firebase's new-password requirements to minimum 8, uppercase,
+lowercase, and numeric required; retain maximum 4096 and optional symbols.
+Review existing-release/password-reset compatibility and preserve existing-user
+sign-in before applying that live change. No Firebase settings were changed.
+
+Registration tests use injected operations and synthetic credentials, not live
+account creation. The interaction suite covers navigation, credential isolation,
+local validation, visibility/background masking, and large-text reachability.
+Physical VoiceOver and password-manager/AutoFill checks remain necessary; UI
+hierarchy assertions do not prove speech, focus, or password-manager integration.
+
+### DW-005 Verification (September 28, 2026)
+
+The following runs preceded the eight-character policy revision; policy-specific
+verification is recorded separately below.
+
+- Xcode 27.0: all 65 unit tests in nine suites passed on iPhone 17 Pro / iOS 26.5.
+- All eight interaction tests passed on iPad Air 11-inch (M4) / iOS 26.5,
+  including both Sign In landscape checks and registration at largest text size.
+- iPhone 17 Pro / iOS 26.5: guest dismissal, registration navigation/clearing,
+  registration validation/visibility/background masking, and repeated reset
+  validation passed. Three keyboard-dependent tests failed their software-keyboard
+  precondition: the hierarchy placed the keyboard outside the screen. Temporarily
+  disabling the host hardware-keyboard preference did not resolve this; the
+  original preference was restored. This run is not a full phone acceptance pass.
+- iPhone 17 / iOS 27.0: four targeted checks passed on a separate simulator:
+  portrait keyboard navigation, landscape keyboard scrolling, registration
+  largest-text scrolling, and registration validation/visibility/background masking.
+- The previously deferred phone largest-text landscape test was not run or weakened.
+- The first registration UI run found that UIKit replaced an existing secure entry
+  when editing resumed after reveal/hide. Reinserting through the native input API
+  resolved it; validation/visibility tests subsequently passed on iPad and iPhone.
+- Physical VoiceOver speech/focus and password-manager/AutoFill acceptance remain
+  unverified. No live account was created, no reset email was sent, and no backend
+  policy, release configuration, or Xcode Cloud configuration was changed.
+
+Local evidence (temporary artifacts, not release acceptance):
+`/tmp/dw005-unit-final.log`, `/tmp/dw005-ipad-final.xcresult`,
+`/tmp/dw005-iphone-final.xcresult`, `/tmp/dw005-iphone27-keyboard.xcresult`,
+`/tmp/dw005-iphone27-interaction.xcresult`.
+The registration screenshot is at `build/dw005/create-account-ipad.png` locally.
+
+### Eight-Character Policy Verification (September 28, 2026)
+
+After the policy revision, all 68 unit tests in nine suites passed on iPhone 17 /
+iOS 27.0. Two focused interaction tests passed on iPad Air 11-inch (M4) / iOS 26.5:
+registration validation/visibility/background masking and largest-text scrolling.
+These checks cover the new minimum, each required character class, exact Unicode
+confirmation, whitespace preservation, backend policy-error mapping, and retries.
+Evidence: `/tmp/dw005-password-policy-unit-final.log` and
+`/tmp/dw005-password-policy-ui.xcresult`. The earlier screenshots show the previous
+six-character copy. Backend policy alignment and physical AutoFill/VoiceOver
+acceptance remain pending.
+
+### Physical Registration Check — Owner Report (September 28, 2026)
+
+Ken reported that the first guided physical-device round passed, using the
+iPhone 17 Pro Max selected for testing from branch `codex/dw-005-create-account`
+at `a7b37a3`. The round covered opening the dedicated form, its three fields and
+eight-character guidance, continuing password entry after reveal/hide without
+losing text, and masking a revealed password after switching apps and returning.
+Ken subsequently confirmed iOS 27 for these physical checks and approved the
+guided AutoFill/password-manager round. The specific password manager and its
+individual fill behavior were not reported. Ken also reported the guided
+VoiceOver round passed: field/action labels and navigation, empty-form and
+repeated validation-error focus/announcements, visibility-control labels,
+password privacy on focus, and Back/Close accessibility. This round did not
+exercise live-request progress announcements or backend failures.
+
+Ken also reported the guided largest-text and keyboard-layout round passed in
+portrait and landscape: each registration field could be focused, Create Account
+and Back to Sign In remained reachable by scrolling with the keyboard open, and
+labels and controls had no clipping or overlap at the largest accessibility text
+size. This covers the dedicated registration form on this device; it does not
+resolve the separately deferred Sign In largest-text landscape check.
+
+These are owner-reported results on iPhone 17 Pro Max / iOS 27; the installed
+binary was not independently verified. App code is unchanged from `a7b37a3`.
+iPad physical coverage and live-request VoiceOver progress/error checks remain pending.
+Ken deferred Firebase policy alignment. PR #69 is now ready for code review;
+review readiness does not complete the issue's acceptance criteria. These scoped
+results supersede the earlier pending status for the checks exercised, without
+closing untested acceptance criteria.
 
 ## Account and Privacy Readiness
 
