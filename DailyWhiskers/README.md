@@ -113,6 +113,18 @@ Evidence: `/tmp/dw005-password-policy-unit-final.log` and
 six-character copy. Backend policy alignment and physical AutoFill/VoiceOver
 acceptance remain pending.
 
+### Physical Registration Check — Owner Report (September 28, 2026)
+
+Ken reported that the first guided physical-device round passed, using the
+iPhone 17 Pro Max selected for testing from branch `codex/dw-005-create-account`
+at `a7b37a3`. The round covered opening the dedicated form, its three fields and
+eight-character guidance, continuing password entry after reveal/hide without
+losing text, and masking a revealed password after switching apps and returning.
+This is owner-reported evidence; the installed build and iOS version were not
+independently verified. AutoFill/password-manager, VoiceOver, and larger-text
+physical acceptance remain pending. Ken deferred Firebase policy alignment;
+the PR remains a draft.
+
 ## Account and Privacy Readiness
 
 See [account/privacy audit](../docs/account-privacy-readiness.md) for deletion
