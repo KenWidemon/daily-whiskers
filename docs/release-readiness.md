@@ -1,6 +1,6 @@
 # Release Configuration and Security
 
-## Current Status (September 14, 2026)
+## Current Status (September 28, 2026)
 
 Current remaining work lives in the [release checklist](release-checklist.md).
 This document retains configuration guidance and historical signing evidence.
@@ -8,12 +8,25 @@ September 9 archive/export/validation passed for that source only; those artifac
 predate the merged VoiceOver and guest-first changes and are **not the current RC**.
 RC1 is now frozen at tag `v1.0.0-rc.1`, with fresh passing CI/local unit tests,
 archive, App Store export, and Xcode server validation. All six RC-source simulator
-screenshot comparisons passed without replacing approved exports. Exact-build
-device acceptance is pending; see the [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
-No build upload or review submission is recorded. Privacy/support and App Store
+screenshot comparisons passed without replacing approved exports. These are
+September 14 results, not freshly rerun tests; see the [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
+Ken authorized the first TestFlight upload: Xcode reported success for `1.0 (1)`
+on September 14 at 9:41 PM EDT. The September 28 live audit shows build Testing
+with both internal and external groups. Ken confirmed the requested exact-build
+guest/account, accessibility, and natural overnight checks as passed; device-level
+details and limits are in the [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026).
+App Store version 1.0 remains Prepare for Submission without an attached build;
+manual release is selected. No App Review submission or public release occurred.
+Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;
-final-candidate checks remain required. See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
+Ken also confirmed dedicated-reviewer sign-in on TestFlight 1.0 (1) on September 28.
+Ken subsequently confirmed iOS 26 testing, closing the baseline under checklist
+#7 by owner report, with device/patch-level details unspecified. PR #66 completed
+RC-to-main promotion at `090a4c9d6bbe29f488410f2ea32b0d83dad437c4`, with the
+promoted tree and frozen app-source parity verified. Development documentation
+sync, build attachment, and final submission preflight remain.
+See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
 and the [documentation map](README.md).
 
 ## Configuration
@@ -138,12 +151,20 @@ September 7 verification:
 - Local logs: `/tmp/whiskers-release-signed.log`,
   `/tmp/whiskers-release-unsigned.log`, and `/tmp/whiskers-release-unit.log`.
 
-## Release Handoff
+## Release Handoff (September 28, 2026)
 
 Use the [canonical release checklist](release-checklist.md), not the historical
 setup failures above. Initial signing, orientation configuration, metadata entry,
 legacy-account retirement by owner report, reviewer preparation, and the pre-upload
-account/metadata audit are no longer pending setup tasks. Final-candidate validation,
-performance, account/compliance rechecks, and authorized distribution remain
-separate gates. Recheck build-number
-availability before uploading; the configured `1.0 (1)` is not a reserved build.
+account/metadata audit are no longer pending setup tasks. RC1 archive/export/server
+validation and upload are complete, and dedicated-reviewer sign-in is owner-confirmed
+on TestFlight `1.0 (1)`. Scoped physical checks passed by owner report; approved
+performance deferrals remain, not new mandatory profiling work.
+
+Checklist #7 is complete by owner report, including Ken's subsequent iOS 26
+confirmation; evidence limits remain recorded there. RC-to-main promotion is
+complete under #6. Attach existing build `1.0 (1)` to the App Store draft and complete final submission
+preflight. Submission and manual release still require separate owner authorization.
+Do not upload this unchanged candidate again or treat build 1 as unused. If a code
+change requires a replacement candidate, follow the branching strategy, choose a
+new unused build number, and repeat the relevant artifact/acceptance checks.

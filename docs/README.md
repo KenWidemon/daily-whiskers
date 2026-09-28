@@ -12,7 +12,7 @@ Updated September 28, 2026. Start with the document matching the question below.
 | [Branching strategy](branching-strategy.md) | Development, RC promotion, fixes, and release PR mechanics |
 | [App Store listing](app-store-listing.md) | Saved customer/reviewer copy and dated App Store entry evidence |
 | [Release configuration](release-readiness.md) | Identity, Firebase configuration, debug credentials, and historical signing evidence |
-| [Distribution readiness](distribution-readiness.md) | Archive/export procedure and dated artifact evidence, not an accepted current candidate |
+| [Distribution readiness](distribution-readiness.md) | Current submission-preparation audit, owner-reported TestFlight acceptance, and dated artifact evidence |
 | [Account/privacy audit](account-privacy-readiness.md) | Account lifecycle, data inventory, published policy, and decision provenance |
 | [Image import guide](../DailyWhiskers/Resources/CAT_IMAGE_IMPORT.md) | Current asset layout and historical first-import mapping |
 | [Screenshot tooling](../ci/screenshots/README.md) | Reproduce isolated previews; no live auth or distribution acceptance |
@@ -21,8 +21,8 @@ Updated September 28, 2026. Start with the document matching the question below.
 
 | Document | Status and limits |
 | --- | --- |
-| [Accessibility and interaction QA](accessibility-interaction-qa.md) | Historical runs plus scoped September 13 guest-first iPhone acceptance; final-candidate repeats remain |
-| [Performance QA](performance-qa.md) | Bounded acceptance and overnight rollover passed on the tested build, approved V1 measurement deferrals, and historical harness evidence; exact-candidate repeat remains |
+| [Accessibility and interaction QA](accessibility-interaction-qa.md) | Historical runs plus scoped September 13 guest-first iPhone acceptance; September 28 final-candidate owner report is in the release checklist |
+| [Performance QA](performance-qa.md) | Historical bounded acceptance, approved V1 measurement deferrals, and harness evidence; exact-TestFlight overnight owner report is in the release checklist |
 | [Visual readability QA](visual-readability-qa.md) | Historical Step 4A layout evidence, superseded for readiness by later interaction QA |
 
 Every existing document has useful evidence or operational guidance, so none was
