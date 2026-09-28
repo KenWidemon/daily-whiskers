@@ -120,10 +120,20 @@ iPhone 17 Pro Max selected for testing from branch `codex/dw-005-create-account`
 at `a7b37a3`. The round covered opening the dedicated form, its three fields and
 eight-character guidance, continuing password entry after reveal/hide without
 losing text, and masking a revealed password after switching apps and returning.
-This is owner-reported evidence; the installed build and iOS version were not
-independently verified. AutoFill/password-manager, VoiceOver, and larger-text
-physical acceptance remain pending. Ken deferred Firebase policy alignment;
-the PR remains a draft.
+Ken subsequently confirmed iOS 27 for these physical checks and approved the
+guided AutoFill/password-manager round. The specific password manager and its
+individual fill behavior were not reported. Ken also reported the guided
+VoiceOver round passed: field/action labels and navigation, empty-form and
+repeated validation-error focus/announcements, visibility-control labels,
+password privacy on focus, and Back/Close accessibility. This round did not
+exercise live-request progress announcements or backend failures.
+
+These are owner-reported results on iPhone 17 Pro Max / iOS 27; the installed
+binary was not independently verified. App code is unchanged from `a7b37a3`.
+Larger-text physical acceptance and iPad physical coverage remain pending.
+Ken deferred Firebase policy alignment; the PR remains a draft. These scoped
+results supersede the earlier pending status for the checks exercised, without
+closing untested acceptance criteria.
 
 ## Account and Privacy Readiness
 
