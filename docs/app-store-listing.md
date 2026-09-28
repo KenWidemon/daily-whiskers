@@ -4,9 +4,13 @@ Status: name/subtitle, tone, categories, locale, and screenshot direction approv
 by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
 Approved metadata is saved and six screenshots are uploaded to the version 1.0
-draft in App Store Connect. No build upload or App Review submission occurred;
-final-candidate physical acceptance remains pending. Earlier scoped physical
-passes are preserved in the release checklist; they are not erased by this gate.
+draft in App Store Connect. Updated September 28: TestFlight `1.0 (1)` is Testing
+and scoped final physical checks, including the subsequently confirmed iOS 26
+baseline, passed by owner report under checklist #7. The App Store draft
+still has no attached build and remains Prepare for Submission with manual
+release selected. No App Review submission occurred. See the
+[current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026)
+for acceptance scope, evidence limits, and remaining submission actions.
 
 This document contains current copy followed by dated entry history. Historical
 "blank," "pending," and "automatic release" observations describe those earlier
@@ -22,7 +26,8 @@ dedicated-account sign-out/sign-in and saved credentials visible in App Store
 Connect. Credential persistence is owner-verified; an agent presence-only check
 did not match his UI. Final review instructions below are saved and reload-verified.
 Sign-in required remains checked for optional account-tool access, not daily-card
-access. Recheck reviewer access on the final candidate before submission.
+access. September 28: Ken confirmed dedicated-reviewer sign-in on TestFlight
+`1.0 (1)`; this is owner-reported verification, not an agent-observed login.
 
 ## Recommended Positioning
 
@@ -459,7 +464,7 @@ It does not claim reminders, streaks, favorites, sharing, browsing, personalized
 recommendations, newly published art each day, universal offline access,
 accessibility certification, or an absence of all SDK data collection.
 
-## Approval and Next Steps
+## Approval and Next Steps (September 28, 2026)
 
 - Owner approved September 12, 2026: name/subtitle, overall tone,
   Entertainment/Lifestyle categories, English (U.S.) locale, and screenshot
@@ -467,10 +472,16 @@ accessibility certification, or an absence of all SDK data collection.
 - Guest-first access was approved September 13. The revised description and
   review notes are saved and reload-verified. Dedicated reviewer preparation is
   complete, with account verification and saved credentials confirmed by Ken.
-- Pricing, availability, reviewer access,
-  and distribution are separate tasks. No values were invented or submitted.
+- Free/U.S.-only availability and manual release were verified in the dated
+  pre-upload audit. September 28 reviewer sign-in on TestFlight `1.0 (1)` is
+  owner-confirmed; do not repeat it merely because older entries requested it.
 - Approved listing entry, screenshot uploads, and owner-confirmed content
   rights/copyright entries, privacy publication, and age ratings are complete.
   The content-rights discrepancy was resolved by re-entry and reload verification.
-  Recheck final-candidate reviewer access and finish distribution decisions.
-  Physical acceptance and outstanding release checks remain open.
+  Scoped physical acceptance, including the subsequently confirmed iOS 26
+  baseline, is owner-reported under checklist #7 with device-level evidence limits.
+- Follow the [canonical release checklist](release-checklist.md) for remaining
+  gates: promote the accepted RC to main, attach existing build
+  `1.0 (1)`, complete submission preflight, and obtain submission/manual-release
+  approvals. No new build upload or blanket repeat of completed checks is required
+  for this unchanged candidate.
