@@ -26,6 +26,58 @@ dated QA reports preserve evidence rather than separate roadmaps.
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
 
+## Sign In Password Visibility
+
+Sign In starts masked. Its trailing Show/Hide Password control retains the native
+field, typed value, selection and editing focus without submitting a request.
+It exposes the current action and Hidden/Visible state to accessibility; password
+fields expose only Empty/Password entered on focus, including while revealed.
+The password masks on inactivity, auth requests and navigation; dismissing auth
+clears the draft. Returning-user validation remains a six-character minimum, with
+no new-account character rules. Both forms share the native fields and visibility
+control, with explicit existing/new-password AutoFill traits.
+
+The [combined physical acceptance procedure](../docs/dw005-dw006-acceptance.md)
+keeps DW-005 and DW-006 results separate and retains outstanding/deferred checks.
+
+### DW-006 Automated Verification (September 28, 2026)
+
+Xcode 27.0, Debug, task branch `codex/dw-006-sign-in-password`, based on
+`f465059a68cccf07eb9199972ddc871b4ce54da7`, with local implementation changes:
+
+- All 72 unit tests in ten suites passed on iPhone 17 / iOS 27.0. New native-input
+  checks cover exact Unicode/whitespace retention, selection through repeated
+  visibility changes, focus and subsequent replacement input, distinct AutoFill
+  traits, accessibility-value privacy, and non-submission.
+- All ten interaction tests passed on iPhone 17 / iOS 27.0 and iPad Air 11-inch
+  (M4) / iOS 26.5. These include Sign In visibility/editing/lifecycle and its
+  44-point control at largest text, the existing keyboard/landscape checks, guest
+  dismissal, reset validation, and all registration regression checks.
+- The unchanged largest-text landscape Sign In test passed on both destinations.
+  This provides current evidence for these devices, not a rerun or resolution of
+  the historical Pro Max simulator result or physical acceptance on either device.
+
+The lifecycle test was then strengthened to dismiss a revealed, nonempty password
+before reopening. It passed on iPhone in `/tmp/dw006-lifecycle-final.xcresult`.
+That multi-destination run had an iPad runner-launch failure (missing bundle path),
+not an assertion failure. The separate iPad rerun passed in
+`/tmp/dw006-ipad-lifecycle-final.xcresult`. App code did not change after the full
+suite runs. Final source/test/project hashes are in local
+`build/dw006/source-sha256.txt` (manifest SHA-256
+`6e871e91769cedeadace30628fa6b8881c82175a29bcf584abf36d105ddaa6c8`).
+Ken authorized committing, pushing and opening the implementation PR on September
+28, 2026, with the combined physical acceptance pass to follow. This postpones
+physical testing; it does not waive or mark its outstanding criteria passed.
+
+Local evidence: `/tmp/dw006-unit.log`, `/tmp/dw006-unit.xcresult`,
+`/tmp/dw006-iphone-ui.xcresult`, and `/tmp/dw006-ipad-ui.xcresult`. These are temporary
+artifacts, not release evidence. The build emitted dependency/App Intents warnings,
+with no app compilation or assertion failures in the full suites. No live account
+was created, no reset email was sent, and Firebase policy and the deferred Xcode Cloud manifest were
+untouched. Physical AutoFill, VoiceOver, live-request progress/errors and the
+combined acceptance session remain outstanding. No new CI run or release build
+is claimed by these local Debug checks.
+
 ## Dedicated Registration
 
 Create Account opens its own form without submitting Sign In credentials. Only
@@ -33,8 +85,9 @@ trimmed email is prefilled. Sign In's password is cleared on entry; registration
 passwords are cleared when leaving that form or dismissing auth. Registration
 keeps its input for correction after a failed request, without persisting or
 logging credentials. Password fields support AutoFill and independent visibility
-controls, and mask again when the app becomes inactive. Sign In visibility remains
-separate DW-006 work.
+controls, and mask again when the app becomes inactive. Sign In uses the same
+visibility control with existing-password AutoFill, while registration keeps
+new-password AutoFill and its generation rules.
 
 Registration validates email, password length and character types, and exact confirmation
 before calling Firebase. Passwords are never trimmed. Empty/invalid submissions

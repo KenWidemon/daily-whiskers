@@ -9,7 +9,9 @@ struct AuthTextField: UIViewRepresentable {
     @Binding var isFocused: Bool
     var isSecure = false
     var isEnabled = true
-    var contentType: UITextContentType = .newPassword
+    let contentType: UITextContentType
+    let identifier: String
+    var accessibilityHint: String?
     var returnKey: UIReturnKeyType = .next
     var passwordRules: String?
     var onSubmit: () -> Void
@@ -28,11 +30,25 @@ struct AuthTextField: UIViewRepresentable {
 
     func updateUIView(_ field: UITextField, context: Context) {
         context.coordinator.parent = self
+        configure(field)
+        if isFocused && !field.isFirstResponder && isEnabled {
+            DispatchQueue.main.async { [weak field, weak coordinator = context.coordinator] in
+                guard let parent = coordinator?.parent, parent.isFocused, parent.isEnabled else { return }
+                field?.becomeFirstResponder()
+            }
+        } else if !isFocused && field.isFirstResponder {
+            field.resignFirstResponder()
+        }
+    }
+
+    /// Apply traits and visibility to the same native input, preserving its edit.
+    func configure(_ field: UITextField) {
         field.font = .preferredFont(forTextStyle: .body)
         field.textColor = .label
         field.attributedPlaceholder = NSAttributedString(string: label, attributes: [.foregroundColor: UIColor(white: 0.38, alpha: 1)])
         field.accessibilityLabel = label
-        field.accessibilityIdentifier = "registration-" + (contentType == .emailAddress ? "email" : label == "Password" ? "password" : "confirmation")
+        field.accessibilityIdentifier = identifier
+        field.accessibilityHint = accessibilityHint
         field.textContentType = contentType
         field.passwordRules = passwordRules.map { UITextInputPasswordRules(descriptor: $0) }
         field.keyboardType = contentType == .emailAddress ? .emailAddress : .default
@@ -58,15 +74,8 @@ struct AuthTextField: UIViewRepresentable {
             }
         }
         // Do not read a revealed password aloud when VoiceOver focuses the field.
-        field.accessibilityValue = contentType == .newPassword ? (text.isEmpty ? "Empty" : "Password entered") : nil
-        if isFocused && !field.isFirstResponder && isEnabled {
-            DispatchQueue.main.async { [weak field, weak coordinator = context.coordinator] in
-                guard coordinator?.parent.isFocused == true else { return }
-                field?.becomeFirstResponder()
-            }
-        } else if !isFocused && field.isFirstResponder {
-            field.resignFirstResponder()
-        }
+        let isPassword = contentType == .password || contentType == .newPassword
+        field.accessibilityValue = isPassword ? (text.isEmpty ? "Empty" : "Password entered") : nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
@@ -113,5 +122,25 @@ struct AuthFieldStyle: ViewModifier {
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.black.opacity(0.06), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
+    }
+}
+
+/// Shared action/state wording and touch target for both account forms.
+struct PasswordVisibilityButton: View {
+    @Binding var isVisible: Bool
+    var label = "Password"
+    var isEnabled = true
+
+    var body: some View {
+        Button {
+            isVisible.toggle()
+        } label: {
+            Image(systemName: isVisible ? "eye.slash" : "eye")
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .tint(Color(red: 0.60, green: 0.34, blue: 0.12))
+        .accessibilityLabel("\(isVisible ? "Hide" : "Show") \(label)")
+        .accessibilityValue(isVisible ? "Visible" : "Hidden")
+        .disabled(!isEnabled)
     }
 }

@@ -35,7 +35,8 @@ struct CreateAccountView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Email").font(.subheadline.weight(.semibold))
                 AuthTextField(label: "Email", text: $form.email, isFocused: focus(.email),
-                              isEnabled: !request.isWorking, contentType: .emailAddress) {
+                              isEnabled: !request.isWorking, contentType: .emailAddress,
+                              identifier: "registration-email") {
                     focusedField = .password
                 }
                 .modifier(AuthFieldStyle())
@@ -149,20 +150,14 @@ struct CreateAccountView: View {
         HStack(spacing: 8) {
             AuthTextField(label: label, text: text, isFocused: focus(field),
                           isSecure: !visible.wrappedValue, isEnabled: !request.isWorking,
+                          contentType: .newPassword,
+                          identifier: field == .password ? "registration-password" : "registration-confirmation",
                           returnKey: field == .confirmation ? .done : .next,
                           passwordRules: RegistrationForm.passwordRules) {
                 if field == .password { focusedField = .confirmation }
                 else { submit() }
             }
-            Button {
-                visible.wrappedValue.toggle()
-            } label: {
-                Image(systemName: visible.wrappedValue ? "eye.slash" : "eye")
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .accessibilityLabel("\(visible.wrappedValue ? "Hide" : "Show") \(label)")
-            .accessibilityValue(visible.wrappedValue ? "Visible" : "Hidden")
-            .disabled(request.isWorking)
+            PasswordVisibilityButton(isVisible: visible, label: label, isEnabled: !request.isWorking)
         }
         .modifier(AuthFieldStyle())
         .id(field)

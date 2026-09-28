@@ -4,7 +4,7 @@ import UIKit
 struct AuthView: View {
     private enum Field: Hashable { case email, password }
     private enum AccessibilityTarget: Hashable { case error, reset, createAccount }
-    @FocusState private var focusedField: Field?
+    @State private var focusedField: Field?
     @AccessibilityFocusState private var accessibilityTarget: AccessibilityTarget?
 #if DEBUG
     private enum TestAccount {
@@ -16,12 +16,14 @@ struct AuthView: View {
 #endif
 
     @EnvironmentObject private var router: AppRouter
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var email: String = ""
     @State private var password: String = ""
+    @State private var passwordVisible = false
     @State private var resetFocusRequestID: UUID?
     @State private var showingRegistration = false
     @State private var signInFocusRequestID: UUID?
@@ -120,6 +122,7 @@ struct AuthView: View {
                 Button("Close") {
                     focusedField = nil
                     password = ""
+                    passwordVisible = false
                     dismiss()
                 }
                 .disabled(isWorking)
@@ -149,7 +152,19 @@ struct AuthView: View {
             if field != nil { resetFocusRequestID = nil }
         }
         .onChange(of: request.operation) { _, operation in
-            if operation != nil { resetFocusRequestID = nil }
+            if operation != nil {
+                resetFocusRequestID = nil
+                passwordVisible = false
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { passwordVisible = false }
+        }
+        .onDisappear {
+            focusedField = nil
+            email = ""
+            password = ""
+            passwordVisible = false
         }
     }
 
@@ -177,37 +192,26 @@ struct AuthView: View {
             .padding(.bottom, 10)
 
             VStack(spacing: 14) {
-                // Email
-                TextField("Email", text: $email, prompt: Text("Email").foregroundStyle(Color(white: 0.38)))
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .submitLabel(.next)
-                    .focused($focusedField, equals: .email)
-                    .onSubmit { if !isWorking { focusedField = .password } }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .font(.body)
-                    .modifier(AuthFieldStyle())
-                    .accessibilityLabel("Email")
-                    .accessibilityHint("Enter the email for your account.")
-                    .id(Field.email)
+                AuthTextField(label: "Email", text: $email, isFocused: focus(.email),
+                              isEnabled: !isWorking, contentType: .emailAddress,
+                              identifier: "sign-in-email", accessibilityHint: "Enter the email for your account.") {
+                    if !isWorking { focusedField = .password }
+                }
+                .modifier(AuthFieldStyle())
+                .id(Field.email)
 
-                // Password
-                SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(Color(white: 0.38)))
-                    .textContentType(.password)
-                    .submitLabel(.done)
-                    .focused($focusedField, equals: .password)
-                    .onSubmit {
+                HStack(spacing: 8) {
+                    AuthTextField(label: "Password", text: $password, isFocused: focus(.password),
+                                  isSecure: !passwordVisible, isEnabled: !isWorking,
+                                  contentType: .password, identifier: "sign-in-password",
+                                  accessibilityHint: "Enter your password.", returnKey: .done) {
                         guard canSubmit else { return }
                         Task { await handleEmailSignIn() }
                     }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .font(.body)
-                    .modifier(AuthFieldStyle())
-                    .accessibilityLabel("Password")
-                    .accessibilityHint("Enter your password.")
-                    .id(Field.password)
+                    PasswordVisibilityButton(isVisible: $passwordVisible, isEnabled: !isWorking)
+                }
+                .modifier(AuthFieldStyle())
+                .id(Field.password)
             }
             .padding(.horizontal, 26)
             .padding(.top, 6)
@@ -274,6 +278,7 @@ struct AuthView: View {
                     focusedField = nil
                     resetFocusRequestID = nil
                     password = ""
+                    passwordVisible = false
                     request.clearFeedback()
                     showingRegistration = true
                 } label: {
@@ -372,6 +377,13 @@ struct AuthView: View {
             startPoint: .leading,
             endPoint: .trailing
         )
+    }
+
+    private func focus(_ field: Field) -> Binding<Bool> {
+        Binding(get: { focusedField == field }, set: { focused in
+            if focused { focusedField = field }
+            else if focusedField == field { focusedField = nil }
+        })
     }
 
     private var canSubmit: Bool {

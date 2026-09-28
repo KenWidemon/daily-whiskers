@@ -40,6 +40,7 @@
 		CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14427E6E78184E5322A7BE40 /* Assets.xcassets */; };
 		D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */; };
 		D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */; };
+		DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */; };
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
 		FFF2684C59692E2FEDB6672E /* GuestAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5038272DE90C96D54A69B211 /* GuestAccessTests.swift */; };
 /* End PBXBuildFile section */
@@ -63,6 +64,7 @@
 
 /* Begin PBXFileReference section */
 		03D49C6335115DC858536C84 /* AuthLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthLayoutTests.swift; sourceTree = "<group>"; };
+		0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTextFieldTests.swift; sourceTree = "<group>"; };
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 				5CA5B6FA8B03B217C1D67EC4 /* AccountDeletionTests.swift */,
 				594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */,
 				2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */,
+				0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */,
 				E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */,
 				A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */,
 				EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */,
@@ -362,6 +365,7 @@
 				3C36FC20FC86871557DD7B96 /* AccountDeletionTests.swift in Sources */,
 				561E2DB3B877C881173146F0 /* AppLinksTests.swift in Sources */,
 				3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */,
+				DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */,
 				D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */,
 				7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */,
 				805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */,
