@@ -1,12 +1,13 @@
 # Documentation Map
 
-Updated September 14, 2026. Start with the document matching the question below.
+Updated September 28, 2026. Start with the document matching the question below.
 
 ## Current Guidance
 
 | Document | Use it for |
 | --- | --- |
 | [Release checklist](release-checklist.md) | **Canonical remaining work**, stable item numbers, owner decisions, and release gates |
+| [GitHub roadmap](https://github.com/users/KenWidemon/projects/1) | Canonical product backlog: workflow status, release groupings, and linked issues with scope and acceptance criteria; [migration links](backlog.md) |
 | [App README](../DailyWhiskers/README.md) | Current behavior, local setup, content, and test commands |
 | [Branching strategy](branching-strategy.md) | Development, RC promotion, fixes, and release PR mechanics |
 | [App Store listing](app-store-listing.md) | Saved customer/reviewer copy and dated App Store entry evidence |
@@ -31,6 +32,9 @@ they are **not** the current numbered release checklist. In particular, historic
 
 ## Status Rules
 
+- Maintain product backlog status, release groupings, and working priority in
+  GitHub Projects, and feature requirements in linked issues. Keep `backlog.md`
+  as navigation only.
 - Update the release checklist first when work closes or the owner defers it.
   Link detailed evidence rather than copying a second numbered release roadmap.
 - Read dated results against their recorded source/build/device. A passing old
