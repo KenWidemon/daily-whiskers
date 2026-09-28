@@ -101,14 +101,31 @@ archive, uploaded binary, listing fields, or tester assignments were changed.
 - No fresh build, unit/UI run, device installation, or signing/server validation
   was performed. Prior results remain dated September 14 evidence.
 
+### Main Promotion and Development Handoff (September 28, 2026)
+
+- [PR #65](https://github.com/KenWidemon/daily-whiskers/pull/65) merged the final
+  acceptance evidence into RC. [PR #66](https://github.com/KenWidemon/daily-whiskers/pull/66)
+  subsequently merged `release/rc` into `main` at
+  `090a4c9d6bbe29f488410f2ea32b0d83dad437c4`; both listed CI checks passed.
+- The main merge tree exactly matches promoted RC head
+  `61531ecfb42e9f83f445772dc75aec2fbd48b998`. Only seven Markdown files differ
+  from frozen tag `v1.0.0-rc.1`. App sources/assets, Xcode project, unit/UI tests,
+  `project.yml`, and the iOS workflow have exact Git-object parity with the tag.
+  No V1.1 app work entered the promotion; the archive was not rebuilt or retagged.
+- A merge-preserving sync of main into development is prepared on
+  `codex/v1-release-handoff`, retaining development's GitHub backlog guidance.
+  Its review/merge is pending at this checkpoint. The shared V1.1 checkout was
+  not modified. No new release tag, App Review submission, or public release
+  is implied by this source promotion.
+
 ### Remaining Submission Actions
 
 Reviewer sign-in is now owner-confirmed. Supplement the device-level acceptance
 record if details are available; do not invent missing iPad or overnight details.
 
-1. Review/merge these RC evidence updates, then promote the accepted `release/rc`
-   to `main` using a merge-commit PR and verify app-source parity with the frozen
-   tag. Sync release documentation back to development without importing V1.1 into RC.
+1. Review/merge the development handoff PR using a merge commit to preserve the
+   accepted main ancestry and updated release documentation. Do not import V1.1
+   development work into the frozen RC.
 2. Attach existing build `1.0 (1)` to App Store version 1.0 and complete the final
    submission preflight, retaining manual release. Do not upload a replacement
    or select an unrelated development build.

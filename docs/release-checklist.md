@@ -92,7 +92,7 @@ release is authorized merely by approval of this checklist.
    See the dated evidence in [distribution readiness](distribution-readiness.md#account-and-metadata-audit-september-13-2026).
    September 28 candidate evidence and reviewer-access confirmation are recorded
    under #4 and #7; complete the final submission preflight under #8.
-6. **In progress: RC1 frozen, tested, archived, exported, and validated.** PR #46 promoted
+6. **Complete: accepted RC1 promoted to main.** PR #46 promoted
    develop to `release/rc` with merge ancestry preserved. Published tag
    `v1.0.0-rc.1` identifies `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`.
    RC CI and 57 fresh local unit tests passed; signed archive, App Store export,
@@ -103,9 +103,12 @@ release is authorized merely by approval of this checklist.
    acceptance evidence. See the
    [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
    Build-number availability was rechecked before the authorized #7 upload.
-   Promote the accepted RC to
-   `main` through a merge-commit PR, preserving tested source/artifact provenance;
-   `main` has not been advanced. Older September 9 artifacts are not this candidate.
+   PR #66 merged `release/rc` into `main` on September 28 at
+   `090a4c9d6bbe29f488410f2ea32b0d83dad437c4`, preserving merge ancestry.
+   Both listed CI checks passed. The main tree exactly matches promoted RC head
+   `61531ecfb42e9f83f445772dc75aec2fbd48b998`; only seven Markdown files differ
+   from frozen RC1. The archive remains built from the RC1 tag, not the later
+   main merge commit. Older September 9 artifacts are not this candidate.
 7. **Complete by owner report: TestFlight distribution and scoped final acceptance.**
    Ken explicitly authorized upload on September 14. Xcode reported upload success
    at 9:41 PM EDT using the validated RC1 archive, without automatic build-number

@@ -481,7 +481,10 @@ accessibility certification, or an absence of all SDK data collection.
   Scoped physical acceptance, including the subsequently confirmed iOS 26
   baseline, is owner-reported under checklist #7 with device-level evidence limits.
 - Follow the [canonical release checklist](release-checklist.md) for remaining
-  gates: promote the accepted RC to main, attach existing build
+  gates: attach existing build
   `1.0 (1)`, complete submission preflight, and obtain submission/manual-release
   approvals. No new build upload or blanket repeat of completed checks is required
   for this unchanged candidate.
+- PR #66 completed the accepted RC-to-main source promotion on September 28;
+  see checklist #6 for merge and frozen-artifact provenance. This did not attach
+  the build to the App Store draft, submit it for review, or release it publicly.
