@@ -128,9 +128,16 @@ repeated validation-error focus/announcements, visibility-control labels,
 password privacy on focus, and Back/Close accessibility. This round did not
 exercise live-request progress announcements or backend failures.
 
+Ken also reported the guided largest-text and keyboard-layout round passed in
+portrait and landscape: each registration field could be focused, Create Account
+and Back to Sign In remained reachable by scrolling with the keyboard open, and
+labels and controls had no clipping or overlap at the largest accessibility text
+size. This covers the dedicated registration form on this device; it does not
+resolve the separately deferred Sign In largest-text landscape check.
+
 These are owner-reported results on iPhone 17 Pro Max / iOS 27; the installed
 binary was not independently verified. App code is unchanged from `a7b37a3`.
-Larger-text physical acceptance and iPad physical coverage remain pending.
+iPad physical coverage and live-request VoiceOver progress/error checks remain pending.
 Ken deferred Firebase policy alignment; the PR remains a draft. These scoped
 results supersede the earlier pending status for the checks exercised, without
 closing untested acceptance criteria.
