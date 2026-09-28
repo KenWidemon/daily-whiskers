@@ -1,6 +1,6 @@
 # Distribution Readiness
 
-> **RC1 archived, exported, and validated; final acceptance pending.** Updated September 14, 2026.
+> **RC1 is testing; scoped acceptance including iOS 26 is owner-confirmed. Submission preparation remains.** Updated September 28, 2026.
 > The current candidate record below supersedes old artifacts for release preparation.
 > The September 9 archive/export/validation and September 12 screenshot comparison
 > predate VoiceOver and guest-first changes. They are not acceptance of the current
@@ -16,12 +16,104 @@ TestFlight upload or App Store submission. `project.yml` is the configuration so
 
 - Bundle ID: `com.example.kenwidemon.dailywhiskers`, matching packaged Firebase config.
 - Team: `HYU33CNQ69` (Kenneth Widemon).
-- Version/build: `1.0 (1)`, unchanged. Owner reports no existing TestFlight builds.
+- Version/build: `1.0 (1)`, unchanged; uploaded September 14 and now testing.
 - iOS 17 minimum; iPhone and iPad supported.
 - Owner confirmed the existing record and bundle ID on September 9, 2026:
   [Daily Whiskers, app ID 6809050612](https://appstoreconnect.apple.com/apps/6809050612/distribution/ios/version/inflight).
   That initial confirmation was owner-reported; later authenticated listing
   sessions used this same record. Do not create a duplicate or rename the bundle ID.
+
+## V1 Submission Preparation (September 28, 2026)
+
+This is a read-only App Store Connect audit and documentation update, not an
+App Review submission or release authorization. No app code, candidate tag,
+archive, uploaded binary, listing fields, or tester assignments were changed.
+
+### Owner-Reported Final Acceptance
+
+- Ken answered "All of them" when asked which final TestFlight `1.0 (1)` checks
+  were complete: iPhone/iPad guest and account flows, VoiceOver/larger text, and
+  natural overnight foreground rollover without force-quitting or updating.
+  Record these as owner-reported passes, not independent agent observations.
+- Ken subsequently named iPhone 13, iPhone 17 Pro Max, iPhone 18 Pro Max, and
+  iOS 27.0. He did not provide the iPad model/OS, a per-device test matrix, or
+  the overnight date/device. Do not infer a new iOS 26 acceptance pass from older
+  beta feedback or historical local Release tests. Review correctly kept #7 open
+  because that response did not establish the iOS 26 baseline.
+- Ken then clarified on September 28, in response to that specific remaining
+  TestFlight acceptance gate, "iOS 26 was tested as well." Combined with his
+  earlier scoped acceptance, this closes #7 by owner report. No waiver is needed
+  or recorded. The iOS 26 device, patch version, and per-check matrix remain
+  unspecified; no independent test or device-to-OS mapping is claimed. This is
+  new owner confirmation, not an inference from beta usage or historical tests.
+- Approved performance and largest-text landscape simulator deferrals remain
+  unverified risks, not passes. This acceptance does not erase them.
+- Ken separately confirmed that the dedicated App Review account signs in on
+  the accepted TestFlight `1.0 (1)` candidate. This closes the reviewer-access
+  check by owner report, not independent observation. No credentials were requested
+  or copied into chat or the repository.
+
+### Live App Store Connect Audit
+
+- TestFlight build `1.0 (1)` is Testing, assigned to `V1 Internal Testing` and
+  `Family & Friends`; eight invitations and six installations are displayed.
+  The upload record is Complete and identifies the September 14 upload. This
+  supersedes older tester-setup/external-review-pending notes below.
+- Three feedback reports remain visible: a password-visibility request on
+  iPhone 18 Pro Max / iOS 27.0, a screenshot-only report on iPhone 13 / iOS 26.6.1,
+  and a widget request on iPhone 13 Pro Max / iOS 26.6. No new report or actionable
+  release blocker was identified. Existing follow-ups are
+  [DW-006](https://github.com/KenWidemon/daily-whiskers/issues/55) and
+  [DW-001](https://github.com/KenWidemon/daily-whiskers/issues/50); no duplicate
+  issues or tester communications were created. A screenshot-only report is
+  neither a defect nor acceptance evidence.
+- Crash Feedback displays "No Crash Feedback"; the build table shows a dash
+  for crashes. Neither is proof of zero crashes or complete telemetry.
+- App Store version 1.0 remains Prepare for Submission with **no attached build**.
+  Manual release is selected. Description/review notes still describe guest-first
+  access and optional account tools. Reviewer credentials/contact fields appear
+  populated; values were not retrieved or recorded. The existing Sign-in required
+  checkbox remains selected for optional account-tool review, with that distinction
+  explained in the notes. No checkbox or credential changes were made.
+- Screenshot inventory is three iPhone 6.9-inch images (inherited in the 6.5-inch
+  view) and three iPad 13-inch images: celestial, forest, cozy. This inventory
+  check is not a new pixel comparison or screenshot approval.
+- App Privacy remains published: Email Address and User ID linked to identity
+  for App Functionality; Other Diagnostic Data not linked, used for Analytics.
+  The expected public privacy-policy URL remains configured. No disclosure was
+  edited. The September 13 agreement, DSA, price, and territory audit remains
+  historical evidence, not a fresh recheck of those settings in this pass.
+
+### Retained Artifact Verification
+
+- Both retained IPA SHA-256 values and the archive-manifest SHA-256 still match
+  the recorded artifact/upload sections below. The uploaded-package hash remains
+  `ed8f46d7c57177cac6449677a47e851570e5542214daefdec7f8ab05cd33d75f`;
+  it is intentionally distinct from the earlier local export.
+- Retained upload-package metadata is bundle `com.example.kenwidemon.dailywhiskers`,
+  version/build `1.0 (1)`, minimum iOS 17.0, and Boolean false for
+  `ITSAppUsesNonExemptEncryption`. Archive executable, dSYM, and retained uploaded
+  executable still share UUID `9B7663E9-70C8-3AF5-A140-5EA567CD5A6D` (arm64).
+- `origin/release/rc` differs from `v1.0.0-rc.1` only in documentation; the
+  source tag remains immutable. This audit uses an isolated RC documentation
+  branch and preserves the earlier local TestFlight evidence commit. Ongoing
+  V1.1 work on the development trunk/shared checkout is excluded.
+- No fresh build, unit/UI run, device installation, or signing/server validation
+  was performed. Prior results remain dated September 14 evidence.
+
+### Remaining Submission Actions
+
+Reviewer sign-in is now owner-confirmed. Supplement the device-level acceptance
+record if details are available; do not invent missing iPad or overnight details.
+
+1. Review/merge these RC evidence updates, then promote the accepted `release/rc`
+   to `main` using a merge-commit PR and verify app-source parity with the frozen
+   tag. Sync release documentation back to development without importing V1.1 into RC.
+2. Attach existing build `1.0 (1)` to App Store version 1.0 and complete the final
+   submission preflight, retaining manual release. Do not upload a replacement
+   or select an unrelated development build.
+3. Submit for App Review only after Ken explicitly authorizes it. After approval,
+   perform the final go/no-go and manually release only with separate approval.
 
 ## Release Branch Workflow
 
@@ -141,7 +233,10 @@ All paths below are relative to the repository root and are ignored by Git:
   IPA execution, account behavior, physical acceptance, or iOS 27 compatibility.
   Status-bar overrides were cleared and both capture simulators shut down.
 
-### Outstanding Candidate Checks
+### Outstanding Candidate Checks at the September 14 Checkpoint
+
+The September 28 audit above supersedes the pending acceptance status here.
+The following records the artifact-validation checkpoint, not current next steps.
 
 - All six approved screenshot compositions match their saved hashes; manifest,
   provider, model, and DailyRitualCardView match capture provenance. Five other
@@ -151,9 +246,87 @@ All paths below are relative to the repository root and are ignored by Git:
 - Exact-build device acceptance, including iOS 27 compatibility and the retained
   exact-TestFlight-candidate overnight repeat, remains open. No phone/iPad app
   was replaced during this artifact pass.
-- No TestFlight upload, App Review submission, or release occurred. `main` remains
+- At the validation checkpoint, no upload had occurred; the subsequent authorized
+  TestFlight upload is recorded below. No App Review submission or release occurred. `main` remains
   unchanged. Accepted RC promotion to main must preserve ancestry and artifact
   provenance; this tag is not a claim that every acceptance gate has passed.
+
+### TestFlight Upload (September 14, 2026)
+
+- Ken explicitly authorized uploading validated version `1.0 (1)` to TestFlight,
+  not App Review submission or public release. Immediately before upload, the
+  authenticated TestFlight page still showed no builds. All archive file hashes
+  and the earlier exported IPA matched the preserved RC1 provenance.
+- Uploaded from the same `DailyWhiskers.xcarchive` with `xcodebuild -exportArchive`,
+  using an ignored copy of the export options with `destination=upload` and
+  `manageAppVersionAndBuildNumber=false`. No app rebuild or tag movement occurred.
+- Xcode reported "Upload succeeded", "Uploaded DailyWhiskers", and
+  `EXPORT SUCCEEDED` at September 14, 9:41:36 PM EDT. Apple initially reported the
+  package was processing. The authenticated TestFlight UI subsequently showed
+  upload **Complete**, version `1.0`, build `1`, status **Ready to Submit**, and
+  expiration in 90 days. No invitations or installations were shown. This is not
+  App Review submission or device acceptance.
+- App Store Connect build ID: `544c2ff8-c06c-4e03-84db-6bb8dc46b920`, matching the
+  distribution identifier Xcode added to the archive metadata.
+- Preserved the actual upload package separately at
+  `build/releases/v1.0.0-rc.1/upload-package/DailyWhiskers.ipa`.
+  SHA-256: `ed8f46d7c57177cac6449677a47e851570e5542214daefdec7f8ab05cd33d75f`.
+  This is a new distribution package from the same validated archive, not the
+  byte-identical earlier local export; retain both hashes rather than conflating them.
+- Uploaded package signature passed strict/deep verification with system trust
+  access. Executable UUID matches the validated archive/dSYM; Assets.car and daily
+  JSON match the prior artifact/source. Packaged version/build remain `1.0 (1)`
+  and the exempt-encryption declaration remains Boolean false.
+- After upload, only the archive's outer `Info.plist` differs from the original
+  file-hash manifest: Xcode added the successful distribution/upload record.
+  Every archived app and dSYM file still matches, as does the earlier exported
+  IPA. Preserve the original manifest and separate post-upload metadata evidence;
+  do not present the archive container as wholly byte-identical after upload.
+- Local ignored evidence: `upload.log`, `upload.xcdistributionlogs`,
+  `UploadOptions-AppStore.plist`, `upload-package/`, and updated `provenance.json`.
+  No credentials, signing profiles, raw logs, or app packages belong in Git.
+- At the upload checkpoint, no tester group or invitations were created, and no build was submitted for
+  App Review or released publicly. Exact-build iPhone/iPad acceptance, iOS 27
+  compatibility, and natural overnight rollover remain under checklist #7.
+
+### Internal Group Setup (September 15, 2026)
+
+- Created `V1 Internal Testing`, group ID
+  `5b6ed76f-3926-4ae1-a2d2-005b44b6e2b7`, with automatic distribution disabled.
+  Future builds require explicit addition rather than automatic delivery.
+- Assigned the existing `1.0 (1)` build. The initial group UI confirmed 0 Testers, 1 Build,
+  and Ready to Test. No new build upload or App Review submission occurred.
+- The invitation picker lists only Ken's existing Account Holder/Admin user.
+  Ken subsequently authorized sending the internal invitation. After Add, the UI
+  confirmed 1 tester added, 1 Tester, 1 Build, and Kenneth Widemon as Invited.
+  No App Store Connect user was added and no account permissions were changed.
+- No external testers were invited or external beta review requested in this pass.
+  Invitation delivery to the inbox, acceptance, installation, and physical QA
+  remain unverified; the observed Invited status is not proof of those steps.
+
+### External Beta Preparation (September 15, 2026)
+
+- Ken created the external group `Family & Friends`, ID
+  `12c27a93-850f-4e50-a29e-c1a39568c694`. The group was observed with 0 Testers
+  and 0 Builds; no public link, invitations, or beta-review submission was
+  created by the agent in this pass.
+- Saved and independently reloaded the English (U.S.) guest-first beta description
+  and existing public privacy URL. Entered the public support address as Feedback
+  Email; field persistence is not independently confirmed because text snapshots
+  omit its value. Keep optional sign-in accurately described.
+- Saved build `1.0 (1)` What to Test; Apple showed Saved. Instructions cover daily
+  content, same-day consistency, natural overnight refresh, offline cards,
+  optional account flows, readability/accessibility, and privacy-safe feedback.
+  This build-level text is shared with all groups that can access this build.
+- App-level Save reported partial success: Review Notes could not be saved because
+  another field was invalid. A fresh load confirmed those notes remained empty.
+  The beta-review contact section is incomplete; known name/email and review notes
+  remain draft entries in the original browser tab. Ken needs to complete/verify
+  the contact section directly, including the phone number, before saving again.
+- External tester emails have not been supplied. Add named recipients individually
+  only after confirmation; no App Store Connect roles are needed for friends.
+  External beta-review submission is separate from public App Review/release and
+  remains unperformed. This preparation does not change physical acceptance gates.
 
 ## Local Archive Evidence (September 9, 2026)
 
