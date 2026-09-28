@@ -35,6 +35,18 @@ they are **not** the current numbered release checklist. In particular, historic
 - Maintain product backlog status, release groupings, and working priority in
   GitHub Projects, and feature requirements in linked issues. Keep `backlog.md`
   as navigation only.
+- Update the linked issue's project status as part of making progress, without
+  waiting for Ken to move it manually. Verify live status/options and preserve
+  owner edits before each transition: **In Progress** when implementation starts;
+  **In Review** when the change is ready for review; **Done** only when the agreed
+  scope is completed, required acceptance is satisfied or explicitly waived, and
+  applicable implementation PRs are merged. A draft PR or partial test pass alone
+  does not complete an item. Keep unfinished draft work In Progress and record
+  completed work, remaining checks, and deferrals in the issue with its PR link.
+  Recheck status at implementation start, PR readiness, material acceptance
+  updates, and merge/completion; leave it unchanged when the phase has not changed.
+  Read back updates, report access failures, and label stale migration-era status
+  in issue bodies as historical rather than maintaining duplicate live status.
 - Update the release checklist first when work closes or the owner defers it.
   Link detailed evidence rather than copying a second numbered release roadmap.
 - Read dated results against their recorded source/build/device. A passing old

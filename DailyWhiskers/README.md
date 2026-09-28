@@ -138,7 +138,8 @@ resolve the separately deferred Sign In largest-text landscape check.
 These are owner-reported results on iPhone 17 Pro Max / iOS 27; the installed
 binary was not independently verified. App code is unchanged from `a7b37a3`.
 iPad physical coverage and live-request VoiceOver progress/error checks remain pending.
-Ken deferred Firebase policy alignment; the PR remains a draft. These scoped
+Ken deferred Firebase policy alignment. PR #69 is now ready for code review;
+review readiness does not complete the issue's acceptance criteria. These scoped
 results supersede the earlier pending status for the checks exercised, without
 closing untested acceptance criteria.
 
