@@ -1,6 +1,6 @@
 # Distribution Readiness
 
-> **RC1 is testing; scoped acceptance including iOS 26 is owner-confirmed. Submission preparation remains.** Updated September 28, 2026.
+> **Version 1.0 (1) is submitted and Waiting for Review; manual release is retained.** Updated September 28, 2026.
 > The current candidate record below supersedes old artifacts for release preparation.
 > The September 9 archive/export/validation and September 12 screenshot comparison
 > predate VoiceOver and guest-first changes. They are not acceptance of the current
@@ -11,12 +11,14 @@
 
 ## Scope and Identity
 
-This guide covers local distribution preparation, not authorization for a
-TestFlight upload or App Store submission. `project.yml` is the configuration source.
+This guide records distribution preparation and separately authorized external
+actions; it does not itself authorize upload, submission, or release.
+`project.yml` is the configuration source.
 
 - Bundle ID: `com.example.kenwidemon.dailywhiskers`, matching packaged Firebase config.
 - Team: `HYU33CNQ69` (Kenneth Widemon).
-- Version/build: `1.0 (1)`, unchanged; uploaded September 14 and now testing.
+- Version/build: `1.0 (1)`, unchanged; uploaded September 14, testing in TestFlight,
+  and submitted for App Review September 28.
 - iOS 17 minimum; iPhone and iPad supported.
 - Owner confirmed the existing record and bundle ID on September 9, 2026:
   [Daily Whiskers, app ID 6809050612](https://appstoreconnect.apple.com/apps/6809050612/distribution/ios/version/inflight).
@@ -25,9 +27,11 @@ TestFlight upload or App Store submission. `project.yml` is the configuration so
 
 ## V1 Submission Preparation (September 28, 2026)
 
-This is a read-only App Store Connect audit and documentation update, not an
-App Review submission or release authorization. No app code, candidate tag,
-archive, uploaded binary, listing fields, or tester assignments were changed.
+The initial checkpoint was a read-only App Store Connect audit and documentation
+update. The subsequent saved build attachment and explicitly authorized App Review
+submission are recorded separately below. The audit and attachment alone did not
+authorize submission or public release. No app code,
+candidate tag, archive, uploaded binary, or tester assignments were changed.
 
 ### Owner-Reported Final Acceptance
 
@@ -53,7 +57,9 @@ archive, uploaded binary, listing fields, or tester assignments were changed.
   check by owner report, not independent observation. No credentials were requested
   or copied into chat or the repository.
 
-### Live App Store Connect Audit
+### Initial Live App Store Connect Audit
+
+This checkpoint preceded the build attachment recorded below.
 
 - TestFlight build `1.0 (1)` is Testing, assigned to `V1 Internal Testing` and
   `Family & Friends`; eight invitations and six installations are displayed.
@@ -112,25 +118,69 @@ archive, uploaded binary, listing fields, or tester assignments were changed.
   from frozen tag `v1.0.0-rc.1`. App sources/assets, Xcode project, unit/UI tests,
   `project.yml`, and the iOS workflow have exact Git-object parity with the tag.
   No V1.1 app work entered the promotion; the archive was not rebuilt or retagged.
-- A merge-preserving sync of main into development is prepared on
+- A merge-preserving sync of main into development was prepared on
   `codex/v1-release-handoff`, retaining development's GitHub backlog guidance.
-  Its review/merge is pending at this checkpoint. The shared V1.1 checkout was
-  not modified. No new release tag, App Review submission, or public release
-  is implied by this source promotion.
+  [PR #67](https://github.com/KenWidemon/daily-whiskers/pull/67) merged this handoff
+  into `codex/develop` at `ba181db5c180f199fcee17f90b48680917c0f2ad` with passing
+  CI. The shared V1.1 checkout was not modified. No new release tag, App Review
+  submission, or public release is implied by this source promotion.
 
-### Remaining Submission Actions
+### Build Attachment and Submission Preflight (September 28, 2026)
+
+This checkpoint preceded the separately authorized submission recorded below.
+
+- Selected existing version/build `1.0 (1)` in App Store version 1.0's Add Build
+  picker. Its ID is `544c2ff8-c06c-4e03-84db-6bb8dc46b920`, matching the recorded
+  TestFlight upload. Saved and reloaded: the build remains attached, Save is
+  disabled, Add for Review is available, and status remains Prepare for Submission.
+  Manual release remains selected. No new binary was uploaded.
+- Rechecked free pricing ($0.00), United States as the only available territory,
+  public App Store distribution, and Mac/Apple Vision Pro distribution opt-outs.
+  No pricing or availability settings were changed.
+- App Information retains the expected name/subtitle, bundle ID, English (U.S.),
+  Entertainment/Lifestyle categories, owner-approved content-rights answer, and
+  Apple's standard license. The approved 9+ rating in 172 territories and older-
+  than-iOS-26 global 4+ rating with regional exceptions remain displayed.
+- Business shows Free Apps Agreement and Digital Services Act status Active;
+  app information retains the non-trader declaration. No agreement or legal
+  declaration was accepted or changed in this pass.
+- Public support and privacy pages both load and describe guest-first access,
+  optional Firebase email/password accounts, recovery, and deletion. The saved
+  version description/review notes match that scope. Reviewer fields remain
+  populated; account functionality is the owner-confirmed evidence under #4.
+- At this preflight checkpoint, Add for Review had not been clicked and Apple's
+  final submission validation had not run. No submission, release, credential
+  edit, or change to published disclosures occurred during the preflight itself.
+- Credential-free local proof: `/tmp/daily-whiskers-build-attached.png`.
+  The screenshot is not a tracked artifact and may not persist indefinitely.
+
+### App Review Submission (September 28, 2026)
+
+- Ken explicitly approved submitting existing `1.0 (1)` for App Review while
+  retaining manual release. This authorization did not include public release.
+- Add for Review completed validation and advanced the version to Ready for
+  Review. Submit for Review then returned **1 Item Submitted**. The submission
+  detail independently showed **Waiting for Review** for iOS App 1.0, build
+  `1.0 (1)`, at September 28, 2026, 1:58 PM EDT.
+- Submission ID: `c7648ecf-cc4a-4d87-b014-d7c5e1a8b9e4`; build ID:
+  `544c2ff8-c06c-4e03-84db-6bb8dc46b920`, matching the accepted TestFlight build.
+  [App Review submission](https://appstoreconnect.apple.com/apps/6809050612/distribution/reviewsubmissions/details/c7648ecf-cc4a-4d87-b014-d7c5e1a8b9e4).
+- Manual release remained selected; no release setting, binary, reviewer
+  credential, or published disclosure was changed. No new legal agreement was
+  presented or accepted. Submission success is not App Review approval.
+- Credential-free local proof: `/tmp/daily-whiskers-app-review-submitted.png`.
+  The screenshot is not tracked and may not persist indefinitely.
+
+### Remaining Review and Release Actions
 
 Reviewer sign-in is now owner-confirmed. Supplement the device-level acceptance
 record if details are available; do not invent missing iPad or overnight details.
 
-1. Review/merge the development handoff PR using a merge commit to preserve the
-   accepted main ancestry and updated release documentation. Do not import V1.1
-   development work into the frozen RC.
-2. Attach existing build `1.0 (1)` to App Store version 1.0 and complete the final
-   submission preflight, retaining manual release. Do not upload a replacement
-   or select an unrelated development build.
-3. Submit for App Review only after Ken explicitly authorizes it. After approval,
-   perform the final go/no-go and manually release only with separate approval.
+1. Await Apple's decision on the submitted `1.0 (1)` build. Address App Review
+   feedback and retest any resulting app changes; do not substitute a development
+   build or resubmit the unchanged candidate while it is queued.
+2. After approval and Pending Developer Release, perform the final go/no-go and
+   manually release only with Ken's separate authorization.
 
 ## Release Branch Workflow
 

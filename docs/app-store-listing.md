@@ -3,12 +3,12 @@
 Status: name/subtitle, tone, categories, locale, and screenshot direction approved
 by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
-Approved metadata is saved and six screenshots are uploaded to the version 1.0
-draft in App Store Connect. Updated September 28: TestFlight `1.0 (1)` is Testing
+Approved metadata and six screenshots are saved on version 1.0
+in App Store Connect. Updated September 28: TestFlight `1.0 (1)` is Testing
 and scoped final physical checks, including the subsequently confirmed iOS 26
-baseline, passed by owner report under checklist #7. The App Store draft
-still has no attached build and remains Prepare for Submission with manual
-release selected. No App Review submission occurred. See the
+baseline, passed by owner report under checklist #7. App Store version 1.0 with
+existing build 1.0 (1) was submitted with Ken's explicit approval and is now
+Waiting for Review. Manual release is retained; no public release occurred. See the
 [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026)
 for acceptance scope, evidence limits, and remaining submission actions.
 
@@ -481,10 +481,12 @@ accessibility certification, or an absence of all SDK data collection.
   Scoped physical acceptance, including the subsequently confirmed iOS 26
   baseline, is owner-reported under checklist #7 with device-level evidence limits.
 - Follow the [canonical release checklist](release-checklist.md) for remaining
-  gates: attach existing build
-  `1.0 (1)`, complete submission preflight, and obtain submission/manual-release
-  approvals. No new build upload or blanket repeat of completed checks is required
-  for this unchanged candidate.
+  gates: await Apple's decision, address review feedback, and obtain manual-release
+  approval after acceptance. Existing build `1.0 (1)` passed submission validation
+  and is Waiting for Review following Ken's explicit submission approval.
+  No new build upload or blanket repeat of completed
+  checks is required for this unchanged candidate.
 - PR #66 completed the accepted RC-to-main source promotion on September 28;
-  see checklist #6 for merge and frozen-artifact provenance. This did not attach
-  the build to the App Store draft, submit it for review, or release it publicly.
+  see checklist #6 for merge and frozen-artifact provenance. The subsequent build
+  attachment and separately authorized App Review submission are recorded under #8.
+  Source promotion did not itself authorize submission or public release.

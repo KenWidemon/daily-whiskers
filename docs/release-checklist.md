@@ -91,7 +91,7 @@ release is authorized merely by approval of this checklist.
    Boolean check. Release build settings also resolve the declaration to NO.
    See the dated evidence in [distribution readiness](distribution-readiness.md#account-and-metadata-audit-september-13-2026).
    September 28 candidate evidence and reviewer-access confirmation are recorded
-   under #4 and #7; complete the final submission preflight under #8.
+   under #4 and #7; the completed submission preflight is recorded under #8.
 6. **Complete: accepted RC1 promoted to main.** PR #46 promoted
    develop to `release/rc` with merge ancestry preserved. Published tag
    `v1.0.0-rc.1` identifies `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`.
@@ -131,13 +131,20 @@ release is authorized merely by approval of this checklist.
    remain. No new blocker was established from the three visible feedback reports;
    the password-visibility and widget requests remain follow-up backlog items.
    Crash Feedback shows no reports; this is not proof of zero crashes.
-8. **Not started: submit for App Review.** Select the tested build, verify
-   reviewer access/metadata, retain manual release, and submit only with Ken's
-   authorization. Address review feedback and retest any resulting changes.
-   September 28 audit: version 1.0 is still Prepare for Submission, no build is
-   attached, and manual release is selected. Attach the accepted 1.0 (1) before
-   submission; do not substitute a V1.1 development build. Reviewer credentials
-   appear populated; fresh account functionality is owner-confirmed under #4.
+8. **Submitted: Waiting for Review; Apple's decision remains pending.**
+   September 28: selected existing build 1.0 (1), saved, and reload-verified its
+   build ID `544c2ff8-c06c-4e03-84db-6bb8dc46b920` on the version 1.0 draft.
+   Manual release remained selected throughout preflight and submission.
+   Free/U.S.-only availability, Mac/Vision Pro opt-outs, approved metadata/rating,
+   active Free Apps Agreement/DSA status, and public support/privacy pages were
+   checked. Reviewer sign-in is owner-confirmed under #4; credentials/contact
+   fields remain populated without their values being copied into the record.
+   With Ken's explicit approval, Add for Review passed submission validation,
+   then Submit for Review completed September 28 at 1:58 PM EDT. The submission
+   detail shows version/build 1.0 (1) as Waiting for Review, submission ID
+   `c7648ecf-cc4a-4d87-b014-d7c5e1a8b9e4`. This is not App Review approval or
+   public release. Address review feedback and retest any resulting app changes.
+   No replacement upload or V1.1 development build is needed for this candidate.
 9. **Not started: manually release after approval.** At Pending Developer Release,
    perform the final go/no-go check. Release only with Ken's explicit approval.
 
