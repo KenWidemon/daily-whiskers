@@ -5,8 +5,8 @@ by the owner September 12, 2026. Prepared against merged revision `00d720d`.
 English (U.S.) is verified as the existing primary language and listing locale.
 Approved metadata is saved and six screenshots are uploaded to the version 1.0
 draft in App Store Connect. Updated September 28: TestFlight `1.0 (1)` is Testing
-and scoped final physical checks passed by owner report. The iOS 26 baseline
-remains open under checklist #7; no owner waiver is recorded. The App Store draft
+and scoped final physical checks, including the subsequently confirmed iOS 26
+baseline, passed by owner report under checklist #7. The App Store draft
 still has no attached build and remains Prepare for Submission with manual
 release selected. No App Review submission occurred. See the
 [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026)
@@ -478,10 +478,10 @@ accessibility certification, or an absence of all SDK data collection.
 - Approved listing entry, screenshot uploads, and owner-confirmed content
   rights/copyright entries, privacy publication, and age ratings are complete.
   The content-rights discrepancy was resolved by re-entry and reload verification.
-  Scoped physical acceptance is owner-reported; the iOS 26 baseline remains open
-  under checklist #7 pending exact-build acceptance or an explicit owner waiver.
+  Scoped physical acceptance, including the subsequently confirmed iOS 26
+  baseline, is owner-reported under checklist #7 with device-level evidence limits.
 - Follow the [canonical release checklist](release-checklist.md) for remaining
-  gates: resolve #7, promote the accepted RC to main, attach existing build
+  gates: promote the accepted RC to main, attach existing build
   `1.0 (1)`, complete submission preflight, and obtain submission/manual-release
   approvals. No new build upload or blanket repeat of completed checks is required
   for this unchanged candidate.

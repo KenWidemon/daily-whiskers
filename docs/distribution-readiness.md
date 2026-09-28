@@ -1,6 +1,6 @@
 # Distribution Readiness
 
-> **RC1 is testing; scoped checks passed by owner report. iOS 26 baseline acceptance remains open.** Updated September 28, 2026.
+> **RC1 is testing; scoped acceptance including iOS 26 is owner-confirmed. Submission preparation remains.** Updated September 28, 2026.
 > The current candidate record below supersedes old artifacts for release preparation.
 > The September 9 archive/export/validation and September 12 screenshot comparison
 > predate VoiceOver and guest-first changes. They are not acceptance of the current
@@ -38,11 +38,14 @@ archive, uploaded binary, listing fields, or tester assignments were changed.
 - Ken subsequently named iPhone 13, iPhone 17 Pro Max, iPhone 18 Pro Max, and
   iOS 27.0. He did not provide the iPad model/OS, a per-device test matrix, or
   the overnight date/device. Do not infer a new iOS 26 acceptance pass from older
-  beta feedback or historical local Release tests. The acceptance question did
-  not explicitly cover the existing iOS 26 baseline requirement. Checklist #7
-  therefore stays open until exact-TestFlight iOS 26 acceptance is recorded or
-  Ken explicitly waives that requirement. Neither is recorded; beta usage on
-  iOS 26 devices is not sufficient acceptance evidence.
+  beta feedback or historical local Release tests. Review correctly kept #7 open
+  because that response did not establish the iOS 26 baseline.
+- Ken then clarified on September 28, in response to that specific remaining
+  TestFlight acceptance gate, "iOS 26 was tested as well." Combined with his
+  earlier scoped acceptance, this closes #7 by owner report. No waiver is needed
+  or recorded. The iOS 26 device, patch version, and per-check matrix remain
+  unspecified; no independent test or device-to-OS mapping is claimed. This is
+  new owner confirmation, not an inference from beta usage or historical tests.
 - Approved performance and largest-text landscape simulator deferrals remain
   unverified risks, not passes. This acceptance does not erase them.
 - Ken separately confirmed that the dedicated App Review account signs in on
@@ -103,16 +106,13 @@ archive, uploaded binary, listing fields, or tester assignments were changed.
 Reviewer sign-in is now owner-confirmed. Supplement the device-level acceptance
 record if details are available; do not invent missing iPad or overnight details.
 
-1. Close checklist #7 with exact-TestFlight `1.0 (1)` acceptance on an available
-   iOS 26 device (model/OS and check results), or an explicit owner waiver. Preserve
-   the already reported iOS 27/scoped checks; they do not need blanket repetition.
-2. Review/merge these RC evidence updates, then promote the accepted `release/rc`
+1. Review/merge these RC evidence updates, then promote the accepted `release/rc`
    to `main` using a merge-commit PR and verify app-source parity with the frozen
    tag. Sync release documentation back to development without importing V1.1 into RC.
-3. Attach existing build `1.0 (1)` to App Store version 1.0 and complete the final
+2. Attach existing build `1.0 (1)` to App Store version 1.0 and complete the final
    submission preflight, retaining manual release. Do not upload a replacement
    or select an unrelated development build.
-4. Submit for App Review only after Ken explicitly authorizes it. After approval,
+3. Submit for App Review only after Ken explicitly authorizes it. After approval,
    perform the final go/no-go and manually release only with separate approval.
 
 ## Release Branch Workflow

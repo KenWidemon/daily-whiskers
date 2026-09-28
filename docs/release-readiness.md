@@ -21,9 +21,9 @@ Privacy/support and App Store
 copy are reconciled, and dedicated reviewer preparation is complete with
 owner-verified credentials. The pre-upload account/metadata audit is complete;
 Ken also confirmed dedicated-reviewer sign-in on TestFlight 1.0 (1) on September 28.
-The iOS 26 baseline remains open under checklist #7 pending exact-TestFlight
-acceptance or an explicit owner waiver. RC-to-main promotion, build attachment,
-and final submission preflight also remain.
+Ken subsequently confirmed iOS 26 testing, closing the baseline under checklist
+#7 by owner report, with device/patch-level details unspecified. RC-to-main
+promotion, build attachment, and final submission preflight remain.
 See [distribution evidence](distribution-readiness.md#account-and-metadata-audit-september-13-2026)
 and the [documentation map](README.md).
 
@@ -159,8 +159,8 @@ validation and upload are complete, and dedicated-reviewer sign-in is owner-conf
 on TestFlight `1.0 (1)`. Scoped physical checks passed by owner report; approved
 performance deferrals remain, not new mandatory profiling work.
 
-Checklist #7 remains open for exact-TestFlight iOS 26 baseline acceptance or an
-explicit owner waiver. After that gate closes, promote the accepted RC to main,
+Checklist #7 is complete by owner report, including Ken's subsequent iOS 26
+confirmation; evidence limits remain recorded there. Promote the accepted RC to main,
 attach existing build `1.0 (1)` to the App Store draft, and complete final submission
 preflight. Submission and manual release still require separate owner authorization.
 Do not upload this unchanged candidate again or treat build 1 as unused. If a code
