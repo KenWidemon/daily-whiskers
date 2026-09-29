@@ -1,99 +1,29 @@
-# Account Lifecycle and Privacy Audit
+# Account Lifecycle and Privacy
 
-## Status
+Durable behavior and disclosure facts. The [release checklist](release-checklist.md)
+records acceptance and release decisions; this document is not a legal certification.
+Reassess after app, SDK, backend or business-scope changes.
 
-Current as of September 13: deletion, the app privacy manifest, and guest-first
-access are implemented and merged. Public privacy/support copy is published and
-App Store copy is reconciled. Reviewer preparation is complete with owner-verified
-credentials. Scoped guest-first iPhone acceptance passed by owner report.
-Use the [release checklist](release-checklist.md) for remaining gates, not the
-dated verification history below. This is not overall release approval, App Store
-submission, or a certification of legal compliance. See the
-[documentation map](README.md) for evidence conventions.
+## Policy and Public Pages
 
-## Policy Decisions and Publication
-
-### September 13 Guest-First Copy Completion
-
-Ken explicitly approved publishing the guest-first changes through a dedicated
-website PR. [Site PR #1](https://github.com/KenWidemon/daily-whiskers-site/pull/1)
-was merged as `e80df0d75607ab3d5a5824223bbd2e1f1a99fb60`; GitHub Pages deployment
-succeeded. Both public routes returned HTTP 200 and their response bodies matched
-the approved source files exactly. The policy effective date is September 13,
-2026. Published changes:
-
-- Privacy, Account information: "You can view daily cards without an account.
-  If you choose to create an account or sign in from Settings, the app uses Google
-  Firebase email/password authentication. Your email address and password are sent
-  to Firebase to create or authenticate your account. Firebase assigns a user
-  identifier and manages authentication information. The app uses that identifier
-  to recognize your signed-in session. Guest access does not create an anonymous
-  Firebase account."
-- Support, before sign-in help: "Do I need an account? No. Daily Whiskers opens
-  directly to your daily card. Optional sign-in and account creation are available
-  from Settings > Sign In. You can close sign-in and keep enjoying daily cards."
-- Support, recovery: explain that guests open Settings > Sign In to reach
-  Forgot password. Existing signed-in users can log out first.
-- Support, deletion: begin with Settings > Sign In if needed, then Settings >
-  Delete Account. Explain that successful deletion returns to guest access and
-  daily cards remain available; keep permanent-deletion and retention caveats.
-
-Guest access changes the entry flow, not the retained Firebase SDK disclosures.
-Do not describe guest use as zero network activity or zero data collection.
-The service/security, local-content, purpose, provider, and retention disclosures
-were compared with the prior source and preserved. Local links and document
-landmarks passed validation; styling and hosting are unchanged. Guest-first
-App Store description/review notes are also saved and reload-verified. Reviewer
-preparation under checklist #4 is complete: Ken confirmed a working dedicated
-account and credentials saved and visible in App Store Connect. Credential
-persistence is owner-verified; final-candidate access must still be rechecked.
-
-### Previously Approved Inputs
-
-- Operator: Kenneth Widemon (confirmed by the owner September 8, 2026).
-- Public support/privacy contact: dailywhiskers.support@gmail.com (confirmed by
-  the owner September 8, 2026).
-- [Published privacy policy](https://kenwidemon.github.io/daily-whiskers-site/privacy/).
-- [Published support page](https://kenwidemon.github.io/daily-whiskers-site/support/).
-- Owner approved the presented policy and disclosures on September 8, 2026:
-  "Policy and disclosure review looks good." At that checkpoint, App Store
-  metadata had not been entered; September 12 publication is recorded in the
-  [listing record](app-store-listing.md#privacy-disclosure-review-september-12-2026).
-- Both destinations returned HTTP 200 on September 8, 2026. Public site source is
-  maintained separately in `KenWidemon/daily-whiskers-site`; no app configuration
-  or private QA material was published with it.
-
-## Historical Verification (September 8)
-
-The results, orientation warning, and signed-out login behavior below describe
-the pre-guest candidate. The warning was resolved September 9 and guest-first
-behavior later merged through PR #41. These archives/tests are not current RC
-acceptance; current scoped evidence is in the release checklist.
-
-- All 44 tests in six suites passed, including verified public-link constants, deletion ordering, failed
-  reauthentication, cancellation, retry, the six-operation request-lock matrix,
-  and bundled email/UID privacy declarations.
-- Signed Release archive succeeded at `/tmp/whiskers-account-privacy.xcarchive`.
-  Strict/deep signature verification passed; the packaged app privacy manifest
-  passed plist validation. Existing distribution-orientation warning remains.
-- `git diff --check` passed. XcodeGen registered the new Swift files, tests, and
-  privacy manifest in the explicit Xcode target build phases.
-- The owner reported completing explicitly authorized live account deletion on
-  September 8, 2026. The agent observed the login screen afterward and again
-  after terminating and relaunching the app on iPhone 17e / iOS 26.5 Simulator.
-  Evidence: `/tmp/whiskers-deletion-after.png` and
-  `/tmp/whiskers-deletion-relaunch.png`. The destructive confirmation itself was
-  user-operated, not directly observed by the agent. The owner subsequently
-  reported "Invalid email or password." when checking the formerly working
-  credentials. The agreed end-to-end acceptance check is complete; backend
-  account absence was not independently inspected in Firebase Console, and a
-  generic credential error alone does not prove account deletion.
-- No App Store metadata submission or physical-device acceptance was performed.
-- Build/unit run for this pass: `/tmp/whiskers-public-links-tests.log` (passed after link integration).
-  Simulator was subsequently reopened for live deletion acceptance. No UI
-  link-tapping acceptance was performed.
-- Earlier deletion/archive logs: `/tmp/whiskers-account-privacy-final-tests.log` and
-  `/tmp/whiskers-account-privacy-archive.log`.
+- Operator: Kenneth Widemon; public contact: dailywhiskers.support@gmail.com.
+- [Privacy policy](https://kenwidemon.github.io/daily-whiskers-site/privacy/) and
+  [support](https://kenwidemon.github.io/daily-whiskers-site/support/) are maintained
+  in the separate `KenWidemon/daily-whiskers-site` repository via GitHub Pages.
+- Ken approved disclosures September 8 and guest-first publication September 13.
+  Site PR #1 merged as `e80df0d75607ab3d5a5824223bbd2e1f1a99fb60`; deployment and
+  published bodies were verified. Policy effective date: September 13, 2026.
+- Daily cards require no account. Optional Firebase email/password accounts remain;
+  guests do not receive anonymous Firebase accounts. Account actions require internet.
+- Guest access does not imply zero Firebase network activity or diagnostics. Do not
+  remove SDK disclosures because accounts are optional.
+- Signing out/deleting an account returns to guest access; bundled cards remain.
+  Recovery uses Settings > Sign In > Forgot password. Backend retention and legal
+  requests follow the published policy, not a promise of instantaneous backup erasure.
+- App Store privacy disclosures were owner-approved, published and verified:
+  Email Address and User ID linked for App Functionality; Other Diagnostic Data
+  not linked for Analytics; no tracking declared. No app accessibility labels
+  were published; scoped QA does not establish blanket accessibility certification.
 
 ## Account Deletion
 
@@ -155,37 +85,13 @@ declarations; an empty app-level array does not override those SDK declarations.
 Manifest validity is not equivalent to legal policy approval or complete App
 Store privacy answers. The final answers must combine app and SDK behavior.
 
-## Decision History (Not Release Checklist Numbering)
+## Security Decisions
 
-1. Complete: publish public privacy-policy and support URLs and wire links into
-   signed-out and signed-in screens.
-2. Complete: owner approved the published policy covering operator/contact,
-   account data, Firebase processing, retention, deletion, and user requests on
-   September 8, 2026.
-3. Guest-first access approved and merged September 13: daily content no longer
-   requires authentication. Settings retains optional sign-in and
-   signed-in logout/deletion. No anonymous Firebase account is created. Existing
-   accounts and their deletion/recovery paths remain supported. Scoped iPhone
-   account-transition and VoiceOver acceptance passed by owner report, including
-   authorized disposable-account deletion and post-deletion guest persistence.
-   Public-policy/support and App Store copy reconciliation are complete;
-   final-candidate repeats remain under the canonical release checklist.
-   Firebase SDK initialization remains; guest mode is not a claim of zero SDK
-   diagnostics/network activity and does not justify removing privacy disclosures.
-4. Data-use scope confirmed by the owner on September 8: only Firebase
-   email/password authentication. Owner approved the presented disclosures on
-   September 8, 2026. Corresponding App Store privacy answers were published and
-   verified September 12; this did not submit a build for App Review. Recheck
-   disclosures if final-candidate app or SDK data use changes.
-5. Complete: live deletion was authorized and reported complete by the owner;
-   signed-out state after relaunch was observed. The owner reported rejection of
-   the previously working credentials with "Invalid email or password."
-
-September 13 follow-up: Ken reported disabling the exposed legacy account in
-Firebase Console. No independent rejected-login or token verification was
-performed. The orientation warning was resolved in the distribution pass, and
-the simulator scrolling failure was explicitly deferred after physical testing.
-Use the [canonical release checklist](release-checklist.md) for current status.
+Ken reported disabling the formerly embedded development account in Firebase on
+September 13. This is owner-reported, not an independently observed backend/token
+revocation check. Never reuse it or treat deletion of source literals as revocation.
+Do not rewrite history without separate authorization. Reviewer credentials belong
+only in secure credential storage and App Store Connect's dedicated fields.
 
 ## Sources
 

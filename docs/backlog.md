@@ -14,19 +14,6 @@ This file is a navigation aid, not a second roadmap. Do not duplicate issue
 requirements or live status here. The [release checklist](release-checklist.md)
 remains authoritative for V1 release gates and acceptance evidence.
 
-## Migrated Items
 
-This historical index covers the original migration only. Subsequent additions
-and the complete current backlog are in the GitHub project linked above.
-
-| Stable ID | GitHub issue |
-| --- | --- |
-| DW-001 | [#50: Daily Home Screen Widget](https://github.com/KenWidemon/daily-whiskers/issues/50) |
-| DW-002 | [#51: Share Today's Card](https://github.com/KenWidemon/daily-whiskers/issues/51) |
-| DW-003 | [#52: Favorites with Cloud Sync](https://github.com/KenWidemon/daily-whiskers/issues/52) |
-| DW-004 | [#53: Optional Daily Reminder](https://github.com/KenWidemon/daily-whiskers/issues/53) |
-| DW-005 | [#54: Dedicated Create Account Form](https://github.com/KenWidemon/daily-whiskers/issues/54) |
-
-DW identifiers are stable references, not implementation order. Release groupings
-are planning intent, not dates or delivery commitments. Consult the project for
-current sequencing and release scope.
+DW identifiers are stable references, not priority order. Find current and completed
+items in GitHub; do not maintain an incomplete migration-era item table here.

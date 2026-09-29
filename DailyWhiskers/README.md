@@ -4,7 +4,7 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day, wi
 
 Documentation entry point: [documentation map](../docs/README.md).
 For current remaining work, use only the [release checklist](../docs/release-checklist.md);
-dated QA reports preserve evidence rather than separate roadmaps.
+testing guidance preserves scoped evidence and open risks, not separate roadmaps.
 
 ## Current Behavior
 - The daily card opens immediately without sign-in, including while Firebase restores
@@ -70,78 +70,10 @@ local validation, visibility/background masking, and large-text reachability.
 Physical VoiceOver and password-manager/AutoFill checks remain necessary; UI
 hierarchy assertions do not prove speech, focus, or password-manager integration.
 
-### DW-005 Verification (September 28, 2026)
-
-The following runs preceded the eight-character policy revision; policy-specific
-verification is recorded separately below.
-
-- Xcode 27.0: all 65 unit tests in nine suites passed on iPhone 17 Pro / iOS 26.5.
-- All eight interaction tests passed on iPad Air 11-inch (M4) / iOS 26.5,
-  including both Sign In landscape checks and registration at largest text size.
-- iPhone 17 Pro / iOS 26.5: guest dismissal, registration navigation/clearing,
-  registration validation/visibility/background masking, and repeated reset
-  validation passed. Three keyboard-dependent tests failed their software-keyboard
-  precondition: the hierarchy placed the keyboard outside the screen. Temporarily
-  disabling the host hardware-keyboard preference did not resolve this; the
-  original preference was restored. This run is not a full phone acceptance pass.
-- iPhone 17 / iOS 27.0: four targeted checks passed on a separate simulator:
-  portrait keyboard navigation, landscape keyboard scrolling, registration
-  largest-text scrolling, and registration validation/visibility/background masking.
-- The previously deferred phone largest-text landscape test was not run or weakened.
-- The first registration UI run found that UIKit replaced an existing secure entry
-  when editing resumed after reveal/hide. Reinserting through the native input API
-  resolved it; validation/visibility tests subsequently passed on iPad and iPhone.
-- Physical VoiceOver speech/focus and password-manager/AutoFill acceptance remain
-  unverified. No live account was created, no reset email was sent, and no backend
-  policy, release configuration, or Xcode Cloud configuration was changed.
-
-Local evidence (temporary artifacts, not release acceptance):
-`/tmp/dw005-unit-final.log`, `/tmp/dw005-ipad-final.xcresult`,
-`/tmp/dw005-iphone-final.xcresult`, `/tmp/dw005-iphone27-keyboard.xcresult`,
-`/tmp/dw005-iphone27-interaction.xcresult`.
-The registration screenshot is at `build/dw005/create-account-ipad.png` locally.
-
-### Eight-Character Policy Verification (September 28, 2026)
-
-After the policy revision, all 68 unit tests in nine suites passed on iPhone 17 /
-iOS 27.0. Two focused interaction tests passed on iPad Air 11-inch (M4) / iOS 26.5:
-registration validation/visibility/background masking and largest-text scrolling.
-These checks cover the new minimum, each required character class, exact Unicode
-confirmation, whitespace preservation, backend policy-error mapping, and retries.
-Evidence: `/tmp/dw005-password-policy-unit-final.log` and
-`/tmp/dw005-password-policy-ui.xcresult`. The earlier screenshots show the previous
-six-character copy. Backend policy alignment and physical AutoFill/VoiceOver
-acceptance remain pending.
-
-### Physical Registration Check — Owner Report (September 28, 2026)
-
-Ken reported that the first guided physical-device round passed, using the
-iPhone 17 Pro Max selected for testing from branch `codex/dw-005-create-account`
-at `a7b37a3`. The round covered opening the dedicated form, its three fields and
-eight-character guidance, continuing password entry after reveal/hide without
-losing text, and masking a revealed password after switching apps and returning.
-Ken subsequently confirmed iOS 27 for these physical checks and approved the
-guided AutoFill/password-manager round. The specific password manager and its
-individual fill behavior were not reported. Ken also reported the guided
-VoiceOver round passed: field/action labels and navigation, empty-form and
-repeated validation-error focus/announcements, visibility-control labels,
-password privacy on focus, and Back/Close accessibility. This round did not
-exercise live-request progress announcements or backend failures.
-
-Ken also reported the guided largest-text and keyboard-layout round passed in
-portrait and landscape: each registration field could be focused, Create Account
-and Back to Sign In remained reachable by scrolling with the keyboard open, and
-labels and controls had no clipping or overlap at the largest accessibility text
-size. This covers the dedicated registration form on this device; it does not
-resolve the separately deferred Sign In largest-text landscape check.
-
-These are owner-reported results on iPhone 17 Pro Max / iOS 27; the installed
-binary was not independently verified. App code is unchanged from `a7b37a3`.
-iPad physical coverage and live-request VoiceOver progress/error checks remain pending.
-Ken deferred Firebase policy alignment. PR #69 is now ready for code review;
-review readiness does not complete the issue's acceptance criteria. These scoped
-results supersede the earlier pending status for the checks exercised, without
-closing untested acceptance criteria.
+Verification and remaining DW-005 acceptance limits are summarized in
+[testing](../docs/testing.md#dw-005-development-evidence). Detailed execution
+discussion belongs in [DW-005](https://github.com/KenWidemon/daily-whiskers/issues/54)
+and [PR #69](https://github.com/KenWidemon/daily-whiskers/pull/69).
 
 ## Account and Privacy Readiness
 
@@ -204,11 +136,12 @@ independently verify disabled state or token behavior. Do not reuse that account
 
 The English App Store copy and screenshot storyboard are in the
 [listing record](../docs/app-store-listing.md). Approved metadata and six final
-screenshots are saved in the App Store Connect version 1.0 draft. No build upload
-or App Review submission has occurred.
+screenshots are saved in App Store Connect. V1 build 1.0 (1) was uploaded and
+submitted; use the release checklist for the latest owner-reported resubmission
+and remaining approval gates.
 
 See [release readiness](../docs/release-readiness.md) for configuration, archive
-requirements and historical signing evidence. Older archives are not the current RC.
+requirements and credential safeguards. Older archives are not the current RC.
 `project.yml` is the source of truth for the initial version `1.0`, build `1`.
 Increment the build number before subsequent distribution uploads.
 
@@ -233,13 +166,10 @@ Load-time integrity checks:
 - if no valid cards remain, app uses a built-in fallback card
 
 Image import details:
-- see `DailyWhiskers/Resources/CAT_IMAGE_IMPORT.md`
+- See [content pipeline](../docs/content-pipeline.md).
 
 ## Tests
-- Step 4B behavior and manual acceptance checks are recorded in
-  [Accessibility and interaction QA](../docs/accessibility-interaction-qa.md).
-- Step 4A layout changes and verification limits are recorded in
-  [Visual readability QA](../docs/visual-readability-qa.md).
+- Repeatable acceptance checks and evidence limits: [testing](../docs/testing.md).
 - Unit tests live in `DailyWhiskersTests/`.
 - Current suite validates:
   - JSON decode path
@@ -251,6 +181,16 @@ Image import details:
   - bundled manifest and asset integrity, including the fallback image
   - foreground refresh state across month/year/leap-day boundaries and missed days
   - time-zone selection and daylight-saving transitions
+
+Run the unit suite on an available dedicated simulator after configuring Firebase
+and regenerating the project (CI uses the fake fixture described below):
+
+```sh
+xcodebuild test -project DailyWhiskers.xcodeproj \
+  -scheme DailyWhiskers \
+  -destination 'platform=iOS Simulator,id=YOUR_QA_SIMULATOR_ID' \
+  -parallel-testing-enabled NO -onlyUsePackageVersionsFromResolvedFile
+```
 
 ## Continuous Integration
 
@@ -266,8 +206,8 @@ are required. These tests do not exercise real authentication; keep using your
 local Firebase plist for interactive development and authentication testing.
 
 The workflow uploads its build log and `.xcresult` bundle for seven days.
-Its `Build and unit tests` check can be made required in GitHub branch rules
-after the first successful run.
+Verify that `Build and unit tests` is required in GitHub branch rules; the workflow
+alone does not configure protection. See the branching strategy for expectations.
 
 ## Optional Interaction Tests
 
@@ -300,7 +240,7 @@ Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air
 unresolved and was explicitly deferred for V1 after an owner-reported physical
 scrolling pass. Keep that test and its assertions unchanged. The new validation
 check is tracked separately;
-see [interaction QA](../docs/accessibility-interaction-qa.md). This optional scheme
+see [testing](../docs/testing.md). This optional scheme
 is not yet a fully green phone acceptance gate.
 
 ## Public Privacy and Support
@@ -321,7 +261,7 @@ statuses updated as work proceeds; skipped items are not automatically waived.
 Local archive/export steps and Apple account handoff:
 [Distribution readiness](../docs/distribution-readiness.md).
 
-Performance findings and remaining device checks: [Step 5 QA](../docs/performance-qa.md).
+Performance risks and scoped evidence: [testing](../docs/testing.md#v1-deferrals-and-performance-evidence).
 
 Branch roles:
 - `main`: stable release branch.
