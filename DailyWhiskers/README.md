@@ -37,7 +37,7 @@ clears the draft. Returning-user validation remains a six-character minimum, wit
 no new-account character rules. Both forms share the native fields and visibility
 control, with explicit existing/new-password AutoFill traits.
 
-The [combined physical acceptance procedure](../docs/dw005-dw006-acceptance.md)
+The [combined physical acceptance procedure](../docs/testing.md#account-form-acceptance)
 keeps DW-005 and DW-006 results separate and retains outstanding/deferred checks.
 
 Automated results and remaining DW-006 acceptance limits are summarized in
