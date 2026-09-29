@@ -20,6 +20,8 @@ and personal planning in Apple Notes. Updated September 28, 2026.
 | [App Store listing](app-store-listing.md) | Approved V1 customer-facing copy, screenshot inventory, metadata |
 | [App Review record](app-review-response-2-1.md) | Guideline 2.1 request, owner-reported resubmission, recording evidence |
 | [Backlog navigation](backlog.md) | Links to canonical GitHub Issues/Projects, not a duplicate roadmap |
+| [Agent guidance](../AGENTS.md) | Apply repository conventions during agent work |
+| [PR template](../.github/pull_request_template.md) | Prompt authors/reviewers to check evidence, scope and documentation |
 
 ## Where Notes Belong
 
@@ -38,6 +40,55 @@ and personal planning in Apple Notes. Updated September 28, 2026.
 - **Private artifact storage:** videos, raw logs/traces, archives, IPAs, signing
   profiles and screenshots. Use access-controlled, backed-up storage; do not
   commit these or assume a temporary path is durable.
+
+## Admission Rule
+
+Default to updating an existing canonical document, not creating another file.
+Keep documentation in Git only when all three conditions hold:
+
+1. It helps a contributor build, operate, maintain, test, or safely release this code,
+   or explains a consequential technical/product constraint on the implementation.
+2. It needs versioning with the code or provides minimal, auditable release evidence.
+3. It has one clear home, no secrets/private user data, and a defined update trigger.
+
+Examples worth keeping: setup commands, behavior contracts, non-obvious design
+decisions, repeatable test procedures, data/privacy boundaries, approved listing
+source, and compact candidate identity/acceptance records. Public contact details
+intended for the listing are not private credentials.
+
+Do not add session recaps, handoff diaries, copied chat/review threads, run-by-run
+test output, temporary troubleshooting logs, duplicate roadmaps, or speculative
+feature plans. Use issue/PR discussion for implementation details, Side Hustle for
+personal planning, App Store Connect for review correspondence, and private artifact
+storage for raw evidence. Keep only the resulting decision, risk or durable
+procedure in Git. A link to private material must not be the only explanation of
+a constraint that a contributor needs to understand.
+
+## Review and Retention
+
+- The author owns documentation affected by a change; the PR reviewer checks it.
+  Update behavior/setup/configuration/privacy guidance in the same PR that changes
+  it. No relevant documentation change is a valid outcome; do not manufacture one.
+- Every new document needs an entry in Start Here stating its responsibility.
+  Its introduction must identify its scope and update trigger. Prefer a section in
+  an existing guide when the responsibility overlaps.
+- Keep procedures current; keep release evidence explicitly dated and tied to its
+  candidate. Summarize acceptance as result, scope, provenance and remaining risk,
+  with a reference to detailed evidence rather than pasted transcripts or test logs.
+- At PR review, check duplication, stale instructions, links, sensitive data and
+  whether changed behavior is documented. The PR template is a human review gate,
+  not an automated guarantee. Do not add dated verification appendices to README.
+- At candidate freeze and release closure, reconcile the numbered release checklist,
+  preserve compact provenance/decisions/waivers, and retire temporary coordination
+  text. The Guideline 2.1 record is current review evidence, not a journal to extend
+  forever; after review closes, retain the outcome and material constraints.
+- Remove obsolete guidance once its replacement and necessary evidence are retained.
+  Git history is the archive for committed prose; do not add a repo archive folder.
+  Before deleting unique uncommitted material, preserve and verify a private copy.
+  Never erase unresolved risks or treat missing evidence as a pass.
+- External destinations are not automatic backups. Confirm a successful save and
+  appropriate access before removing unique material; if unavailable, leave it in
+  place and report the blocker. Do not migrate credentials or rewrite Git history.
 
 ## Maintenance Rules
 
