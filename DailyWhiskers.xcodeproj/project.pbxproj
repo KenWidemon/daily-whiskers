@@ -25,7 +25,6 @@
 		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
 		79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */ = {isa = PBXBuildFile; fileRef = 917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */; };
 		805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */; };
-		8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */ = {isa = PBXBuildFile; fileRef = 6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
 		83B0850A81AE9CBC45AB9BBB /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60951A29666D6A385849E3B9 /* AppLinks.swift */; };
 		89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDA5B8412ED5644FF9CCB41F /* FirebaseCore */; };
@@ -79,7 +78,6 @@
 		5DE2F5BACB447F69F1E33DB6 /* DailyWhiskersUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		60951A29666D6A385849E3B9 /* AppLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLinks.swift; sourceTree = "<group>"; };
 		6302C5A2119F79DB268403C8 /* AccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletion.swift; sourceTree = "<group>"; };
-		6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CAT_IMAGE_IMPORT.md; sourceTree = "<group>"; };
 		68964F9F5CF6E338D4855489 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		72F3060F2ABCCD9646D75D74 /* DailyWhiskers.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyWhiskers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		73B97AB401382BD895210910 /* RegistrationForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationForm.swift; sourceTree = "<group>"; };
@@ -176,7 +174,6 @@
 		BEA3400425A717CE50367DA1 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				6739FC658F8FDADEAFC84861 /* CAT_IMAGE_IMPORT.md */,
 				917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */,
 				D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */,
 				2B29A2F787302A2CE2B1D5B9 /* GoogleService-Info.plist */,
@@ -339,7 +336,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */,
-				8189AB354DC00D011F79CB3B /* CAT_IMAGE_IMPORT.md in Resources */,
 				79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */,
 				30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */,
 				2D805E3223046C50C726377B /* PrivacyInfo.xcprivacy in Resources */,

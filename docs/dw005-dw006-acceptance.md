@@ -38,8 +38,8 @@ round using the installed build and devices above:
 
 Email was left empty and no authentication request was submitted. This round did
 not exercise Apple Passwords, VoiceOver, large text, device locking, swipe
-dismissal, an unfocused visibility toggle, or live requests. Both issues remained
-In Review at this checkpoint, with acceptance ongoing.
+dismissal, an unfocused visibility toggle, or live requests. Acceptance was ongoing
+at this checkpoint.
 
 ## Round 2 — DW-005 Registration Editing and Privacy
 
@@ -80,7 +80,7 @@ both devices and the installed build identified above.
 These are owner-reported local behavior results. They do not establish VoiceOver
 speech/focus, backend enforcement, successful authentication, reset-email delivery,
 AutoFill or layout at larger text sizes. No account creation or reset email was
-part of this round. Both issues remain In Review; Firebase alignment is deferred.
+part of this round. Firebase alignment remains deferred.
 
 ## Round 4 — Apple Passwords AutoFill (DW-005 and DW-006)
 
@@ -133,7 +133,7 @@ Do not infer a pass for an unexercised row from confidence in the implementation
   guided AutoFill, local VoiceOver and largest-text portrait/landscape checks passed
   on iPhone 17 Pro Max / iOS 27 with implementation `a7b37a3`. The password manager
   was not identified and installed binary identity was not independently verified.
-  See the [app README](../DailyWhiskers/README.md#physical-registration-check--owner-report-september-28-2026).
+  See the [DW-005 testing evidence](testing.md#dw-005-development-evidence).
 - DW-005: At the prior checkpoint, iPad physical checks and live-request VoiceOver
   progress/backend-error checks were untested. The dated rounds above supersede
   only the specific checks exercised. Firebase policy alignment remains deferred:

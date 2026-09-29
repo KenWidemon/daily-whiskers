@@ -1,334 +1,79 @@
 # V1 Manual Release Checklist
 
-Canonical remaining-work list, established September 13, 2026. Maintain this
-file as work proceeds; preserve item numbers when checking items off or recording
-explicit deferrals. Detailed QA documents are evidence, not competing roadmaps.
-Use the [documentation map](README.md) to distinguish current guides from
-historical evidence. Older Step 4A/4B/5 and "step 2" labels are not this numbering.
-Skipping to an item does not waive earlier items. No upload, submission, or manual
-release is authorized merely by approval of this checklist.
+Canonical V1 release gates. Preserve item numbers and explicit deferrals.
+Updated September 28, 2026. **Ken reports the requested Guideline 2.1 material is
+uploaded and the app resubmitted; Apple's next decision is pending.** Exact live
+status and final sent Notes have not been independently rechecked. Manual release
+remains the approved policy; no public release is recorded.
 
-## Completed Baseline
+## Release Gates
 
-- PR #41 merged into `codex/develop`: guest-first access, optional account tools,
-  56 passing unit tests, four focused UI checks, signed Release build, and scoped
-  owner-reported iPhone account-transition/VoiceOver acceptance. RC promotion has
-  not occurred at that checkpoint; `release/rc` was created from the stable `main`
-  baseline. PR #46 subsequently promoted it as recorded under #6.
-- PR #42 merged into `codex/develop`: documented the main-based `release/rc`
-  strategy and added RC coverage to CI. No RC promotion occurred.
-- PR #40 merged into `codex/develop`: VoiceOver fixes, tests, and scoped physical
-  iPhone/iPad acceptance. At that checkpoint, 51 tests in seven suites passed;
-  focused error-visibility UI check and signed device builds passed.
-- Listing copy, six screenshots, content rights, privacy disclosures, age ratings,
-  review contact, and free/U.S.-only/iPhone-and-iPad/manual-release settings were
-  entered and verified at that checkpoint. Later upload and audit evidence appears
-  under #7 and in the September 28 readiness record.
-- Temporary logout QA app/project/build files were removed after acceptance.
-- Largest-text landscape simulator diagnosis is explicitly deferred until after
-  V1 by Ken. Keep the test/assertions intact; do not treat the suite as green or
-  silently reintroduce this as a release blocker.
+1. **Complete by owner report: final physical acceptance.** Ken confirmed exact
+   TestFlight `1.0 (1)` iPhone/iPad guest/account flows, VoiceOver/larger text, and
+   natural overnight foreground rollover without force-quitting or updating.
+   Named devices: iPhone 13, iPhone 17 Pro Max, iPhone 18 Pro Max; iOS 27.0 was
+   reported, followed by explicit confirmation of iOS 26 testing. The iPad model,
+   OS patch versions, per-device mapping and overnight date/device were not supplied.
+   Do not infer them from beta feedback or the later review recording.
+2. **Complete within approved scope, with V1 deferrals.** September 13 local
+   Release checks passed by owner report for three ordinary launches, no obvious
+   card stutter/freezes, and five foreground cycles. September 14 overnight
+   foreground rollover passed by owner report, supported by unchanged PID and
+   installation path on iPhone 17 Pro Max / iOS 26.6.2. Exact-TestFlight rollover
+   was subsequently confirmed under #1. Detailed startup/hitch, memory-pressure,
+   battery/long-session and lower-memory testing remain approved post-V1 deferrals,
+   not passing measurements. See [testing limits](testing.md#v1-deferrals-and-performance-evidence).
+3. **Complete: security/product decisions.** Ken reported disabling the legacy
+   development account in Firebase; disabled state/token revocation were not
+   independently verified. Dani approved guest-first access with optional account
+   tools. Guest access creates no anonymous Firebase account. Public privacy/support
+   pages and V1 listing copy were reconciled. Do not reuse exposed credentials.
+4. **Complete by owner report: reviewer access.** Dedicated credentials are saved
+   in App Store Connect; Ken confirmed sign-in on exact TestFlight `1.0 (1)` on
+   September 28. Keep this account available, and use a different disposable
+   account for deletion tests. No credentials belong in Git or chat.
+5. **Complete: account/metadata readiness.** September 28 preflight verified
+   free/U.S.-only availability, manual release, Mac/Vision Pro opt-outs, metadata,
+   screenshots, public URLs, Active Free Apps Agreement and Active DSA status.
+   Ken approved the no-EU-distribution declaration and exempt-encryption setting.
+   The RC's packaged `ITSAppUsesNonExemptEncryption` is Boolean false. Reassess
+   changed business scope, data use or dependencies; prior approval is not blanket
+   authorization for new declarations or legal agreements.
+6. **Complete: accepted RC1 promoted to main.** Immutable `v1.0.0-rc.1` identifies
+   `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`. PR #66 promoted accepted RC to main;
+   PR #67 synced main history into development. Archive/export/server validation,
+   57 RC unit tests and six RC-source screenshot comparisons passed September 14.
+   Preserve [artifact provenance](distribution-readiness.md#rc1-artifact-record-september-14-2026);
+   do not substitute a newer development build or retag/rebuild this candidate.
+7. **Complete by owner report: TestFlight distribution and scoped acceptance.**
+   Authorized upload completed September 14; September 28 observed Testing in
+   internal and Family & Friends groups. Ken confirmed exact-build acceptance,
+   including the specifically requested iOS 26 baseline. This is not a waiver or
+   independently observed physical test. Three beta reports established no new
+   blocker; existing password-visibility/widget requests remain backlog work.
+   Empty Crash Feedback is not proof of zero crashes.
+8. **Resubmitted by owner report; Apple's next decision pending.** Initial
+   submission of `1.0 (1)` was observed September 28 at 1:58 PM EDT as Waiting for
+   Review, submission `c7648ecf-cc4a-4d87-b014-d7c5e1a8b9e4`. Ken then supplied
+   Apple's 7:18 PM Guideline 2.1 request and reported uploading everything and
+   resubmitting. Sampled recording frames show TestFlight `1.0 (1)` and the
+   requested account flows. Ken confirmed iPhone 17 Pro Max / iOS 27.0.1 for that
+   recording. Final sent Notes, attachment processing, selected resubmission build,
+   submission ID and live status remain independently unverified. See the
+   [review record](app-review-response-2-1.md). Do not duplicate the submission.
+9. **Not started: manual release after approval.** At Pending Developer Release,
+   verify approved build, availability, reviewer outcome and remaining risks.
+   Perform the final go/no-go with Ken and release only with explicit approval.
+   Respond to further review feedback and retest any resulting app changes first.
 
-## Remaining Steps
+## Boundaries and Follow-ups
 
-1. **Scoped checks complete by owner report on TestFlight 1.0 (1).** On September 28, Ken
-   confirmed completion of iPhone/iPad guest and account flows, VoiceOver/larger
-   text, and natural overnight foreground rollover without force-quitting or
-   updating. Reported iPhone coverage: iPhone 13, iPhone 17 Pro Max, and iPhone
-   18 Pro Max; iOS 27.0 was reported. The iPad model/OS, per-device test matrix,
-   and overnight test date/device were not supplied. Do not infer them or claim
-   independent observation. See the
-   [current audit](distribution-readiness.md#v1-submission-preparation-september-28-2026).
-   The earlier scoped guest-first VoiceOver checks passed by owner report,
-   including backend-error focus, reset focus, account creation,
-   deletion warning/cancellation/completion,
-   and sign-in/logout with Reduce Motion. That evidence below is historical;
-   the September 28 report closes the requested final candidate repeat,
-   not all-device coverage. Ken subsequently confirmed iOS 26 testing as recorded
-   under #7; no specific device-to-OS mapping or patch version was supplied.
-2. **Complete for the tested build, with approved V1 deferrals.**
-   On the September 13 local Release build, Ken reported three ordinary launches
-   looked good,
-   no visible card freezes/stutter, and completion of five same-day foreground
-   cycles without reporting an issue; the process ID stayed unchanged. These are
-   scoped observations, not startup timing or memory measurements. Ken approved
-   deferring detailed launch/hitch profiling, memory-pressure, battery/long-session,
-   and lower-memory-device testing until after V1; these are unverified risks,
-   not passes. September 14: Ken reported the overnight card looked good and
-   confirmed no force-quit, phone restart, or build installation overnight.
-   CoreDevice showed the same PID 11106 and installation path as September 13,
-   supporting in-process foreground rollover on the tested Release build.
-   September 28: Ken also confirmed the requested natural overnight foreground
-   rollover on exact TestFlight 1.0 (1); this is owner-reported, without a new
-   process-ID observation or supplied overnight date/device. See #1 and #7.
-   The new Instruments attachment failed despite the app remaining visible; do
-   not repeat failed captures to force closure. See the
-   [bounded follow-up](performance-qa.md#bounded-follow-up-september-13-2026).
-3. **Complete: resolve security/product decisions.** Legacy development account
-   disabled in Firebase Console by owner report; independent disabled-state/login
-   verification has not been performed. Ken confirmed Dani's approval of guest-
-   first access and optional account tools. Implementation and automated checks
-   pass, as does the scoped physical iPhone transition/VoiceOver pass by owner
-   report. Guest-first public privacy/support copy is published and verified;
-   App Store description and review notes are saved and reload-verified.
-   Reviewer access is tracked separately under #4; final-candidate retesting
-   is tracked separately under #1 and #7.
-4. **Complete: reviewer access prepared and final-candidate sign-in confirmed.** Ken resumed this item September 13.
-   Ken confirmed creation and successful sign-out/sign-in verification of the
-   dedicated review account (owner-reported, not independently observed).
-   Ken confirmed credentials are saved and visible in App Store Connect; treat
-   persistence as owner-verified, not independently verified by the agent.
-   Final review notes are saved and reload-verified. Account features remain
-   optional; retain the reviewer account. On September 28, Ken confirmed that
-   the dedicated App Review account signs in on TestFlight 1.0 (1). This is
-   owner-reported final-candidate verification, not an agent-observed login.
-   No credentials were copied into the repository or chat.
-5. **Complete: pre-upload account/metadata readiness audit.** Free Apps Agreement is Active;
-   the owner-approved no-EU-distribution DSA declaration is saved and Active.
-   Saved metadata, pricing/territories, screenshots, and public privacy/support
-   pages were rechecked. No accessibility labels are published. Ken approved the
-   exempt-encryption declaration; all 57 unit tests passed, including the packaged
-   Boolean check. Release build settings also resolve the declaration to NO.
-   See the dated evidence in [distribution readiness](distribution-readiness.md#account-and-metadata-audit-september-13-2026).
-   September 28 candidate evidence and reviewer-access confirmation are recorded
-   under #4 and #7; the completed submission preflight is recorded under #8.
-6. **Complete: accepted RC1 promoted to main.** PR #46 promoted
-   develop to `release/rc` with merge ancestry preserved. Published tag
-   `v1.0.0-rc.1` identifies `20ae9cd3d664c3c412a2489ea7304449f1e0b8e2`.
-   RC CI and 57 fresh local unit tests passed; signed archive, App Store export,
-   packaged configuration, symbol checks, and Xcode server validation passed.
-   All six RC-source simulator screenshot comparisons passed; approved exports
-   remain unchanged. Scoped exact TestFlight-build acceptance, including the
-   iOS 26 baseline, is owner-reported under #7. Isolated previews are not the
-   acceptance evidence. See the
-   [RC1 artifact record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
-   Build-number availability was rechecked before the authorized #7 upload.
-   PR #66 merged `release/rc` into `main` on September 28 at
-   `090a4c9d6bbe29f488410f2ea32b0d83dad437c4`, preserving merge ancestry.
-   Both listed CI checks passed. The main tree exactly matches promoted RC head
-   `61531ecfb42e9f83f445772dc75aec2fbd48b998`; only seven Markdown files differ
-   from frozen RC1. The archive remains built from the RC1 tag, not the later
-   main merge commit. Older September 9 artifacts are not this candidate.
-7. **Complete by owner report: TestFlight distribution and scoped final acceptance.**
-   Ken explicitly authorized upload on September 14. Xcode reported upload success
-   at 9:41 PM EDT using the validated RC1 archive, without automatic build-number
-   changes. See the [upload record](distribution-readiness.md#testflight-upload-september-14-2026).
-   September 15: created `V1 Internal Testing` with automatic distribution off;
-   assigned `1.0 (1)`, shown as Ready to Test. Ken authorized the internal invitation;
-   the group showed 1 Tester, 1 Build, and his existing account as Invited at that
-   checkpoint. That setup-pending status is superseded: on September 28, the live
-   build is Testing with both `V1 Internal Testing` and `Family & Friends`, eight
-   invitations, and six installations. External beta testing is active.
-   Ken confirmed the scoped final TestFlight checks described in #1. The original
-   follow-up named only iOS 27.0, so review correctly kept the iOS 26 baseline open.
-   On September 28, in response to that specific gap, Ken confirmed "iOS 26 was
-   tested as well." Together with his earlier scoped acceptance, this closes the
-   TestFlight 1.0 (1) baseline by owner report, not a waiver or independent test.
-   The iOS 26 device, patch version, and per-check matrix were not supplied; do
-   not infer them from beta feedback or map the previously named devices to OS
-   versions. Preserve these evidence limits and the earlier reported passes.
-   The approved performance deferrals under #2
-   remain. No new blocker was established from the three visible feedback reports;
-   the password-visibility and widget requests remain follow-up backlog items.
-   Crash Feedback shows no reports; this is not proof of zero crashes.
-8. **Submitted: Waiting for Review; Apple's decision remains pending.**
-   September 28: selected existing build 1.0 (1), saved, and reload-verified its
-   build ID `544c2ff8-c06c-4e03-84db-6bb8dc46b920` on the version 1.0 draft.
-   Manual release remained selected throughout preflight and submission.
-   Free/U.S.-only availability, Mac/Vision Pro opt-outs, approved metadata/rating,
-   active Free Apps Agreement/DSA status, and public support/privacy pages were
-   checked. Reviewer sign-in is owner-confirmed under #4; credentials/contact
-   fields remain populated without their values being copied into the record.
-   With Ken's explicit approval, Add for Review passed submission validation,
-   then Submit for Review completed September 28 at 1:58 PM EDT. The submission
-   detail shows version/build 1.0 (1) as Waiting for Review, submission ID
-   `c7648ecf-cc4a-4d87-b014-d7c5e1a8b9e4`. This is not App Review approval or
-   public release. Address review feedback and retest any resulting app changes.
-   No replacement upload or V1.1 development build is needed for this candidate.
-9. **Not started: manually release after approval.** At Pending Developer Release,
-   perform the final go/no-go check. Release only with Ken's explicit approval.
-
-## Deferred Workspace Cleanup
-
-- September 15: Ken asked to leave the unexpected untracked
-  `DailyWhiskers.xcodeproj/xcshareddata/xcodecloud/` folder untouched and clean it
-  up later. Do not stage, delete, or infer a new Xcode Cloud workflow from it as
-  part of the TestFlight setup. Review its purpose separately before cleanup.
-
-## Item 3 Decision Record
-
-Ken selected #3 on September 13. At that checkpoint, items #1 and #2 remained
-open, not waived; their current dispositions are recorded above.
-Historical implementation branch: `codex/release-security-decisions`, merged
-through PR #41. Later copy/reviewer evidence is recorded separately below.
-
-### Legacy Development Account
-
-- Historical source identifies `test@dailywhiskers.app`. Only the email was
-  retrieved for this audit; the password was not printed or copied.
-- Current source uses local debug environment variables, but removing source
-  literals did not invalidate historical credentials.
-- Owner action complete: Ken confirmed on September 13 that he disabled the
-  legacy account himself in Firebase Console. Record this as owner-reported
-  remediation, not an independently verified console state or rejected-login test.
-- The agent did not change Firebase accounts/sessions or retrieve credentials.
-  No separate manual token-revocation action or token inspection was reported.
-  Do not re-enable this account or configure it as the reviewer account.
-- Do not rewrite Git history without separate approval. Issued ID tokens and
-  cached local auth state must not be assumed to disappear instantly after a
-  server-side account change.
-
-### Guest Access
-
-- Approved September 13: Ken confirmed Dani's decision to make sign-in and
-  account tools optional. This supersedes the earlier guest-access deferral.
-- Implemented and merged through PR #41: open directly to the daily card without authentication; retain
-  optional account entry in Settings and existing-user deletion/recovery access.
-- Guest use should not create a Firebase anonymous user or invent an account
-  benefit. Auth-only controls must reflect actual signed-in state.
-- Implementation includes routing/session behavior, optional auth
-  dismissal, Settings states, sign-out/deletion return behavior, regression tests,
-  accessibility checks, and corresponding listing/review/privacy documentation.
-- Firebase email/password accounts remain supported; removing all authentication
-  is not approved scope. No account sync, saved favorites, or other new benefit
-  is implied by an optional account.
-- Guest-first listing/review copy and the separate public site were reconciled
-  September 13; see the completion evidence below.
-- Ken also requested removal of the extra Hide Keyboard toolbar button. Native
-  keyboard submission, interactive scroll dismissal, and auth Close remain.
-- Verification complete on the work branch: 56 unit tests in eight suites,
-  four focused UI checks on iPhone 17e / iOS 26.5 Simulator, and a signed Release
-  device build passed. UI coverage includes guest card/relaunch, optional auth
-  Close/reopen, default portrait keyboard navigation without Hide Keyboard,
-  default landscape scrolling, and repeated local error visibility. This is not
-  an archive, upload, real-account transition test, or physical VoiceOver pass.
-- Evidence: `/tmp/whiskers-guest-verified-tests.xcresult`,
-  `/tmp/whiskers-guest-verified-ui.xcresult`,
-  `/tmp/whiskers-guest-verified-release.log`, and
-  `/tmp/whiskers-guest-verified-source-hashes.txt`. Source hashes were rechecked
-  after the run. The authorized temporary simulator hardware-keyboard change was
-  restored and the QA simulator shut down. No replacement of the approved
-  screenshot exports occurred in this pass.
-- Physical follow-up: the tested signed Release build was installed over the
-  existing app on iPhone 17 Pro Max, preserving data/session. Signature validation
-  and launch command succeeded; binary hash is recorded in
-  `/tmp/whiskers-guest-physical-binary-hash.txt`. Ken confirmed guest state with
-  VoiceOver initially off. After enabling VoiceOver, he reported the optional
-  sign-in labels/message, Close, return to the daily card, and Settings focus all
-  passed. This is owner-reported acceptance, not an independent speech capture.
-- Ken also confirmed successful sign-in with VoiceOver enabled: "Signing in"
-  was announced, the auth sheet closed to the daily card, and Settings replaced
-  Sign In with Log Out and Delete Account. Credentials stayed on-device. This
-  establishes the reported sign-in transition, not logout.
-- Signed-in persistence passed by owner report: after force-closing and reopening
-  the app with VoiceOver on, the daily card appeared without a login prompt and
-  Settings still offered Log Out and Delete Account. This is a session check,
-  not a measured cold-start performance result.
-- The scoped physical iPhone account-transition and VoiceOver pass is complete
-  by owner report. Preserve the individual results below and earlier historical
-  QA; this does not establish all-device or final-distributed-candidate acceptance.
-- Logout to guest passed by owner report with VoiceOver on: the daily card stayed
-  visible without a login form, focus returned to Settings, and Sign In replaced
-  Log Out and Delete Account.
-- Guest persistence passed by owner report with VoiceOver on: force-closing and
-  reopening returned directly to the daily card without an auth prompt, and
-  Settings offered Sign In with no Log Out or Delete Account. This establishes
-  guest-session behavior, not measured cold-launch performance or post-deletion
-  persistence.
-- Backend-error accessibility passed by owner report: one intentionally failed
-  sign-in announced and focused the error, left the optional auth sheet open,
-  and kept Close available. No repeated failed attempts or credentials were
-  requested or captured. Successful sign-in retry after an error is a separate check.
-- Reset accessibility passed by owner report in the optional auth sheet after
-  the failed-sign-in check: "Sending reset link" and Check Your Email were
-  announced, and OK returned focus to Forgot password. This confirms the reported
-  request/confirmation flow, not email delivery or a completed password change;
-  neither opening the email nor changing the password was requested.
-- Reduce Motion passed by owner report with VoiceOver on: after enabling Reduce
-  Motion, sign-in with the correct password succeeded, decorative sparkles/glow
-  stayed static, and logout retained the daily card with focus on Settings. Ken
-  reported no problematic large sliding/zooming transitions. This also establishes
-  successful sign-in following the prior failed-sign-in/reset checks. Restoration
-  of the temporary Reduce Motion setting was confirmed in the subsequent
-  account-creation check.
-- Account creation passed by owner report with VoiceOver on: Ken confirmed
-  creating a new disposable account, hearing "Creating account," automatic sheet
-  dismissal to the daily card, and signed-in Log Out/Delete Account menu options.
-  He also confirmed restoring Reduce Motion to off. Credentials stayed on-device;
-  no account deletion had been authorized or performed at that checkpoint.
-- Deletion confirmation/cancellation passed by owner report with VoiceOver on:
-  the warning/buttons were clearly announced, cancelling confirmation left the
-  deletion form open, and cancelling the form returned to the card with Settings
-  focus and signed-in Log Out/Delete Account options. The disposable account was
-  left signed in; that cancellation check did not authorize permanent deletion.
-- Ken subsequently confirmed that he is still signed into the disposable test
-  account and explicitly approved permanently deleting only that account for the
-  lifecycle check. Credentials and the destructive action stayed on-device under
-  Ken's control.
-- Permanent deletion passed by owner report: Ken confirmed "Deleting account"
-  was announced, the deletion sheet closed to the daily card, focus returned to
-  Settings, and Sign In replaced Log Out/Delete Account. Firebase Console state and rejection of the
-  deleted account's credentials were not independently inspected in this pass.
-- Post-deletion persistence passed by owner report with VoiceOver on: force-
-  closing and reopening returned to the daily card without an auth prompt, and
-  Settings offered Sign In with no Log Out/Delete Account. This closes the scoped
-  iPhone lifecycle pass, not the separate performance or final-build checks.
-- Reduce Motion was restored to off; VoiceOver remains on at the end of testing
-  unless Ken chooses to restore its original off setting. No restoration of
-  VoiceOver has yet been confirmed.
-
-### Published-Copy Completion: September 13
-
-- App documentation branch: `codex/guest-copy-reconciliation`, based on merged
-  PR #42 (`07a34032e2bce166c24094b96e2df6734a4d1738`).
-- Ken explicitly authorized publication and merger of the separate
-  [website PR #1](https://github.com/KenWidemon/daily-whiskers-site/pull/1).
-  Merge: `e80df0d75607ab3d5a5824223bbd2e1f1a99fb60`.
-  [GitHub Pages deployment](https://github.com/KenWidemon/daily-whiskers-site/actions/runs/34782579358)
-  succeeded. Public privacy/support URLs returned HTTP 200; downloaded HTML
-  matched the approved source exactly. Policy effective date: September 13, 2026.
-- Public copy now explains guest access, optional Settings sign-in, recovery,
-  and continued daily-card access after account deletion. Existing Firebase
-  service/security, provider, retention, and other data-use disclosures were
-  preserved; no promise of zero guest network activity or data collection.
-- App Store Connect version 1.0 English (U.S.) description and review notes were
-  saved. Reload confirmed exact text, disabled Save, and manual release selected.
-  No screenshot, privacy-label, review-contact, credential, or binary changes.
-- At #3 completion, Sign-In Information still had Sign-in required checked and
-  dedicated credentials pending. The subsequent #4 record below supersedes this
-  reviewer-access status; daily cards do not require login.
-- Item #3 is complete. No RC promotion, upload, App Review submission, or release
-  occurred. Final-candidate parity/acceptance and other checklist gates remain.
-
-### Reviewer-Access Completion: September 13
-
-- Ken confirmed creating the dedicated account and successfully signing out and
-  back in. This is owner-reported acceptance, not an agent-observed login test.
-- Ken entered credentials privately in App Store Connect and confirmed they are
-  saved and visible. An agent presence-only browser check returned empty fields,
-  conflicting with Ken's visible UI. That check is inconclusive, not proof that
-  credentials are absent; credential persistence is recorded as owner-verified.
-  Credential values were not requested, printed, or committed.
-- Final review notes explain Settings > Sign In, use of the dedicated credentials
-  in Sign-In Information, optional account tools, password recovery, and testing
-  permanent deletion with a separate account. The dedicated account should remain
-  available through review.
-- Notes were saved and matched exactly after reload. Save was disabled, Sign-in
-  required remained checked for optional account-tool access, and manual release
-  remained selected. No credential edits were made by the agent.
-- #4 is complete for reviewer preparation. Reconfirm working access on the final
-  distributed candidate and before submission. No upload, submission, or release
-  occurred.
-
-## Evidence and References
-
-- [Main-based RC branching and promotion strategy](branching-strategy.md)
-- [Physical accessibility and interaction QA](accessibility-interaction-qa.md)
-- [Performance evidence and gaps](performance-qa.md)
-- [Distribution evidence](distribution-readiness.md)
-- [Listing and App Store Connect records](app-store-listing.md)
-- [Credential history and release configuration](release-readiness.md)
-- [Account/privacy audit](account-privacy-readiness.md)
-- [Apple account-sign-in guidance](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage)
-- [Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions)
-- [Apple manual release](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/select-an-app-store-version-release-option)
+- The phone largest-text landscape simulator failure is explicitly deferred for
+  V1. Preserve the software-keyboard precondition and full-button visibility
+  assertion; do not mark the suite green or weaken the test to close this gate.
+- DW-005/DW-006 development work does not enter frozen V1 automatically. Follow
+  the [branching strategy](branching-strategy.md) for a replacement candidate.
+- The shared checkout's untracked Xcode Cloud folder was explicitly deferred by
+  Ken. This documentation cleanup does not stage, delete or configure it.
+- Older Step 4A/4B/5 labels were development phases, not these item numbers.
+  Historical detail is recoverable through the [documentation map](README.md#historical-recovery).
