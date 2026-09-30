@@ -10,7 +10,7 @@ on:
       cache_epoch:
         description: 'Cache namespace for reproducible cold/warm comparisons (same value for both runs)'
         type: string
-        default: v1
+        default: v2
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
     outputs:
       mode: ${{ steps.scope.outputs.mode }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -44,12 +44,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.12.0'
+          package-manager-cache: false
       - name: Lint workflows
         run: |
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/actionlint.tar.gz" \
@@ -75,7 +76,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Verify toolchain and prepare project
@@ -85,10 +86,10 @@ jobs:
           bash ci/prepare-app.sh 2>&1 | tee build/prepare.log
       - name: Restore SwiftPM dependencies
         id: packages
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v1' }}
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
       - name: Report cache state
         env:
           CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
@@ -99,13 +100,13 @@ jobs:
       # cannot populate the base branch's cache; shared caches are saved on pushes.
       - name: Save validated SwiftPM dependencies
         if: success() && steps.packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
           key: ${{ steps.packages.outputs.cache-primary-key }}
       - name: Upload test results and build logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-test-results
           path: |
@@ -124,7 +125,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Require every applicable result

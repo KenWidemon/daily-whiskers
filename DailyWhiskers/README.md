@@ -242,7 +242,7 @@ runner images remain mutable; reproducibility means pinned inputs with explicit
 drift failures, not byte-identical signed artifacts.
 
 XcodeGen **2.46.0** is downloaded from its release and checked against a committed
-SHA-256. Actions use full commit SHAs with release comments; actionlint **1.7.12**
+SHA-256. Actions use Node 24 and full commit SHAs with release comments; actionlint **1.7.12**
 is checksum-verified. When updating tools, verify upstream release identity,
 change the version/hash together, and rerun both cold and warm validation.
 
@@ -266,7 +266,9 @@ simulator SDK platform/version, lockfile hash, and a cache epoch. There are no
 broad restore keys and no DerivedData products, credentials, or Firebase config
 in the cache. A cache is saved only after successful app validation. GitHub scopes
 PR caches to the PR merge ref, so untrusted PR runs cannot populate the base
-branch's shared cache. Manual runs use their selected branch's cache scope.
+branch's shared cache. Fork runs may have restore-only cache access; cache-save
+denial is not validation failure and must never be worked around with broader
+permissions. Manual runs use their selected branch's cache scope.
 
 For a cold/warm comparison, dispatch the same commit twice with a fresh, identical
 `cache_epoch` value. The first must report a miss; the second must report a hit.
