@@ -128,3 +128,5 @@ silently rename a required job, remove protection, or treat missing checks as gr
 Candidate and promotion history is recorded once in [distribution provenance](distribution-readiness.md).
 
 <!-- Disposable docs-only classification proof; never merge this branch. -->
+
+[Deliberately broken proof link](./dw012-does-not-exist.md)
