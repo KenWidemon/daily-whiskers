@@ -23,7 +23,7 @@ jobs:
   classify:
     name: Classify changes
     runs-on: ubuntu-24.04
-    timeout-minutes: 1
+    timeout-minutes: 5
     outputs:
       mode: ${{ steps.scope.outputs.mode }}
     steps:
@@ -31,8 +31,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Deliberate prerequisite timeout
-        run: sleep 120
+      - name: Deliberate cancellation window
+        run: sleep 240
       - name: Classify changes (unknown means full validation)
         id: scope
         env:
