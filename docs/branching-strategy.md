@@ -75,17 +75,54 @@ feature is developed on `main`, nor does it make the initial RC an accepted buil
 ## CI and Protection
 
 The iOS workflow includes pushes to, and PRs targeting, `main`, `codex/develop`,
-and `release/rc`. It runs the existing build/unit-test job, not an automatic
-archive, upload, deployment, or UI/physical acceptance suite.
+and `release/rc`. **CI Gate** aggregates documentation/policy checks and the
+app build/unit suite, with an explicit app skip only for docs-only PRs. See the
+[CI contract](../DailyWhiskers/README.md#continuous-integration) for classification,
+pinned tools, caching, and repeatable validation. CI does not archive, upload,
+deploy, or establish physical/release acceptance.
 
-Repository settings to verify/configure separately for all three long-lived
-branches: require PR review and the `Build and unit tests` status check, rerun
-review/checks when a promotion changes, and prohibit force pushes/deletion.
-Use review settings that invalidate stale approval when new commits arrive.
-Do not require linear history on these branches: promotion/sync PRs use merge
-commits. Workflow filters alone do not enforce branch protection; no protection
-rules were changed by this documentation cleanup. Verify that required CI checks
-actually run and pass on each promotion before treating them as a gate.
+Workflow changes and ruleset changes are separate operations. Shipping the
+workflow does not activate protection. Before changing settings, read the live
+rulesets/classic protections, capture their current configuration privately,
+and present the exact diff and rollback procedure to Ken for separate approval.
 
+The proposed policy for the three long-lived branches is:
+
+- Require PRs, the proven `CI Gate` check from GitHub Actions, and an up-to-date
+  base before merging. Resolve review conversations.
+- Use zero mandatory independent approvals while Ken is the sole maintainer;
+  dismiss stale approvals when present. Do not require an unavailable CODEOWNER
+  or last-push reviewer. Revisit the count when independent reviewers exist.
+- Limit administrator bypass to PR-based emergency recovery, with the reason,
+  evidence, and follow-up recorded in the PR. Normal merges must satisfy checks.
+- Block force pushes and deletion. Preserve merge commits for promotions/syncs;
+  do not require linear history or enable a merge queue as part of this change.
+
+These are rollout recommendations, not a claim about active repository settings.
+Apply only the separately approved settings. Preserve any stronger unrelated
+existing rules and ensure a bypass on one ruleset cannot bypass force-push or
+deletion safeguards unintentionally.
+
+Rollout order:
+
+1. Publish the final check name and prove classification, passing/failing jobs,
+   timeout, cancellation, and unexpected skips using PR events. Never configure
+   a required check that its target PRs cannot report.
+2. Verify workflow availability separately for each branch. Enforce trunk first
+   after approval; enforce RC/main only when their workflow coverage is proven
+   and any necessary workflow propagation is authorized. Do not change a frozen
+   candidate or promote unrelated development work just to install CI.
+3. Read back the approved rules and inspect an intentional failing PR's merge
+   state without using administrator bypass; confirm the gate blocks it. Confirm
+   a corrected PR becomes eligible. Do not merge proof failures.
+4. Record run links, target coverage, actual enforcement, and remaining deferrals
+   in the linked GitHub issue. Partial rollout is not Done.
+
+Recovery: if a tool disappears or a check stops reporting, prefer a repair PR.
+If enforcement prevents that repair, Ken may explicitly authorize PR-only bypass
+or a narrowly scoped restoration of the previously captured required-check
+configuration. Keep force-push/deletion safeguards intact, document the exception,
+repair and prove the check, then restore enforcement and read it back. Never
+silently rename a required job, remove protection, or treat missing checks as green.
 
 Candidate and promotion history is recorded once in [distribution provenance](distribution-readiness.md).
