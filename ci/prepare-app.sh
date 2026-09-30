@@ -21,11 +21,11 @@ xcodegen="$RUNNER_TEMP/xcodegen-2.46.0/xcodegen/bin/xcodegen"
 "$xcodegen" --version | grep -Fx 'Version: 2.46.0'
 
 lock=DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
-test -s "$lock"
+test -s "$lock" || { echo "::error::Committed Package.resolved is missing or empty"; exit 1; }
 cp "$lock" "$RUNNER_TEMP/Package.resolved.expected"
 cp ci/firebase-test-config.plist DailyWhiskers/Resources/GoogleService-Info.plist
 "$xcodegen" generate
-cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected"
+cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected" || { echo "::error::XcodeGen changed Package.resolved"; exit 1; }
 
 # Select both runtime and device explicitly; never fall back to the first match.
 xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"

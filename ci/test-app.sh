@@ -10,16 +10,16 @@ common=( -project DailyWhiskers.xcodeproj -scheme DailyWhiskers -configuration D
 start=$(date +%s)
 xcodebuild -resolvePackageDependencies "${common[@]}" 2>&1 | tee build/resolve.log
 resolved=$(date +%s)
-cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected"
+cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected" || { echo "::error::Dependency lock changed during validation"; exit 1; }
 xcodebuild test "${common[@]}" \
   -destination "platform=iOS Simulator,id=$SIMULATOR_ID,arch=arm64" \
   -derivedDataPath build/DerivedData -resultBundlePath build/TestResults.xcresult \
   -parallel-testing-enabled NO 2>&1 | tee build/xcodebuild.log
 finished=$(date +%s)
-cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected"
+cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected" || { echo "::error::Dependency lock changed during validation"; exit 1; }
 {
   printf '| Measurement | Seconds |\n| --- | --- |\n'
   printf '| Dependency resolution | %s |\n' "$((resolved-start))"
   printf '| Build and unit tests | %s |\n' "$((finished-resolved))"
   printf '| Combined | %s |\n' "$((finished-start))"
-} | tee build/timings.md >> "$GITHUB_STEP_SUMMARY"
+} | tee build/timings.md | tee -a "$GITHUB_STEP_SUMMARY"
