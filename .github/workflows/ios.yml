@@ -131,3 +131,5 @@ jobs:
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: python3 ci/policy.py gate
+
+# Disposable workflow-only classification proof.
