@@ -18,3 +18,5 @@ struct AppLinksTests {
         }
     }
 }
+
+// Disposable app-only classification proof.
