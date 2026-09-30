@@ -6,6 +6,7 @@ import Testing
 struct AppLinksTests {
     @Test("Public destinations use the verified HTTPS site")
     func destinations() {
+        #expect(Bool(false), "Deliberate DW-012 failure proof; never merge")
         for (url, path) in [
             (AppLinks.privacyPolicy, "/daily-whiskers-site/privacy/"),
             (AppLinks.support, "/daily-whiskers-site/support/")
