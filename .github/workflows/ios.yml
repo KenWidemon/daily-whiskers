@@ -2,7 +2,7 @@ name: iOS CI
 
 on:
   pull_request:
-    branches: [main, codex/develop, release/rc]
+    branches: [main, codex/develop, release/rc, codex/dw-012-proof-base]
   push:
     branches: [main, codex/develop, release/rc]
   workflow_dispatch:
