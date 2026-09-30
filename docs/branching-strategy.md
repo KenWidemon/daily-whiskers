@@ -126,3 +126,5 @@ repair and prove the check, then restore enforcement and read it back. Never
 silently rename a required job, remove protection, or treat missing checks as green.
 
 Candidate and promotion history is recorded once in [distribution provenance](distribution-readiness.md).
+
+<!-- Disposable docs-only classification proof; never merge this branch. -->
