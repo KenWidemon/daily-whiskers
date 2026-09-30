@@ -23,7 +23,7 @@ jobs:
   classify:
     name: Classify changes
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 1
     outputs:
       mode: ${{ steps.scope.outputs.mode }}
     steps:
@@ -31,6 +31,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Deliberate prerequisite timeout
+        run: sleep 120
       - name: Classify changes (unknown means full validation)
         id: scope
         env:
@@ -69,7 +71,7 @@ jobs:
   build-and-test:
     name: Build and unit tests
     needs: classify
-    if: needs.classify.outputs.mode == 'deliberate-skip'
+    if: needs.classify.outputs.mode == 'full'
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -127,11 +129,11 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-      - name: Reject cancelled workflow
-        if: cancelled()
-        run: exit 1
       - name: Require every applicable result
         if: ${{ !cancelled() }}
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: python3 ci/policy.py gate
+      - name: Reject cancelled workflow
+        if: cancelled()
+        run: exit 1
