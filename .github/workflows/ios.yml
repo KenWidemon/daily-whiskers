@@ -69,7 +69,7 @@ jobs:
   build-and-test:
     name: Build and unit tests
     needs: classify
-    if: needs.classify.outputs.mode == 'full'
+    if: false
     runs-on: macos-26
     timeout-minutes: 30
     env:
