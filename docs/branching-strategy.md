@@ -127,4 +127,4 @@ silently rename a required job, remove protection, or treat missing checks as gr
 
 Candidate and promotion history is recorded once in [distribution provenance](distribution-readiness.md).
 
-Disposable enforcement proof: [intentional broken link](dw012-intentionally-missing.md).
+Disposable enforcement proof: [documentation guidance](README.md).
