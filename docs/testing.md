@@ -183,10 +183,7 @@ Record subsequent progress in the issues; the following is a September 28 snapsh
   of the historical Pro Max scenario or physical acceptance.
 - The strengthened nonempty-password dismissal test passed on both destinations.
   Its combined run had an iPad runner-launch failure before execution; the isolated
-  iPad rerun passed. App code was unchanged after the full suite runs. Temporary
-  result bundles are `/tmp/dw006-unit.xcresult`, `/tmp/dw006-iphone-ui.xcresult`,
-  `/tmp/dw006-ipad-ui.xcresult`, `/tmp/dw006-lifecycle-final.xcresult` and
-  `/tmp/dw006-ipad-lifecycle-final.xcresult`; these are not durable release artifacts.
+  iPad rerun passed. App code was unchanged after the full suite runs.
 - Physical setup was agent-verified: signed Debug 1.0 (1) from the same source,
   built with Xcode 27.0, installed and launched on iPhone 17 Pro Max and iPad Pro
   13-inch (M4), both OS 27.0 (24A437). No debug test-account credentials were supplied.
@@ -209,7 +206,7 @@ Record subsequent progress in the issues; the following is a September 28 snapsh
 Physical artifact SHA-256 values: executable
 `8b2bacb88b6e745872fba7e43fc1d38a3fbe1d497c41bcd97c83056e5d4e48a3`;
 Debug library `9a820e7e7474ae78651c00176207f71a01a05ad818b65dc8afb87dc965df32db`.
-Temporary local build/install/launch receipts use the `/tmp/dw006-physical-*` and
-`/tmp/dw006-{phone,ipad}-{install,launch}.json` paths; they are not distribution
-artifacts or durable backups. Detailed rounds remain in the issues and in Git at
+Detailed rounds and historical local artifact references remain in
+[DW-006 issue #55](https://github.com/KenWidemon/daily-whiskers/issues/55);
+those local references are not durable release evidence. Historical rounds are also in Git at
 `825fe1909e87167b6dfa0cffc33262cb35e17eab:docs/dw005-dw006-acceptance.md`.
