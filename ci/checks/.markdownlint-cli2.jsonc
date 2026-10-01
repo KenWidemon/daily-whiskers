@@ -1,0 +1,11 @@
+{
+  "globs": ["../../**/*.md", "!../../**/node_modules/**", "!../../build/**"],
+  "config": {
+    "default": false,
+    "MD009": { "br_spaces": 2 },
+    "MD010": true,
+    "MD023": true,
+    "MD031": true,
+    "MD040": true
+  }
+}
