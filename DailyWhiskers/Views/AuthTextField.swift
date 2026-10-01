@@ -94,9 +94,18 @@ struct AuthTextField: UIViewRepresentable {
         func textFieldDidBeginEditing(_ textField: UITextField) {
             if textField.isSecureTextEntry, let text = textField.text, !text.isEmpty {
                 // A secure field also prepares to replace its contents when it
-                // regains focus. Reinsert to retain the user's editable draft.
+                // regains focus. Reinsert without moving the user's caret/range.
+                let selection = textField.selectedTextRange.map {
+                    (textField.offset(from: textField.beginningOfDocument, to: $0.start),
+                     textField.offset(from: textField.beginningOfDocument, to: $0.end))
+                }
                 textField.text = ""
                 textField.insertText(text)
+                if let (start, end) = selection,
+                   let startPosition = textField.position(from: textField.beginningOfDocument, offset: start),
+                   let endPosition = textField.position(from: textField.beginningOfDocument, offset: end) {
+                    textField.selectedTextRange = textField.textRange(from: startPosition, to: endPosition)
+                }
             }
             if !parent.isFocused { parent.isFocused = true }
         }

@@ -76,6 +76,60 @@ struct AuthTextFieldTests {
         #expect(submissions == 0)
     }
 
+    @Test("Beginning secure editing preserves the caret or selection and subsequent input",
+          arguments: [UITextContentType.password.rawValue, UITextContentType.newPassword.rawValue],
+          [0..<0, 2..<2, 2..<5, 8..<8])
+    func preservesSelectionOnBeginEditing(_ rawType: String, _ offsets: Range<Int>) throws {
+        let original = " Aé🐈1z "
+        var draft = original
+        var focused = false
+        var submissions = 0
+        let input = AuthTextField(label: "Password", text: Binding(get: { draft }, set: { draft = $0 }),
+                                  isFocused: Binding(get: { focused }, set: { focused = $0 }),
+                                  isSecure: true, contentType: UITextContentType(rawValue: rawType),
+                                  identifier: "test-password", onSubmit: { submissions += 1 })
+        let coordinator = input.makeCoordinator()
+        let field = UITextField()
+        field.addTarget(coordinator, action: #selector(AuthTextField.Coordinator.changed(_:)), for: .editingChanged)
+        input.configure(field)
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previousWindow = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIViewController()
+        window.rootViewController?.view.addSubview(field)
+        window.makeKeyAndVisible()
+        defer {
+            field.resignFirstResponder()
+            window.isHidden = true
+            previousWindow?.makeKeyAndVisible()
+        }
+        #expect(field.becomeFirstResponder())
+        #expect(field.resignFirstResponder())
+        #expect(field.becomeFirstResponder())
+        // Supply the selection UIKit hands to the begin-editing callback.
+        // Calling the delegate explicitly makes caret/range coverage deterministic.
+        let start = try #require(field.position(from: field.beginningOfDocument, offset: offsets.lowerBound))
+        let end = try #require(field.position(from: field.beginningOfDocument, offset: offsets.upperBound))
+        field.selectedTextRange = field.textRange(from: start, to: end)
+        field.delegate = coordinator
+        coordinator.textFieldDidBeginEditing(field)
+        let selection = try #require(field.selectedTextRange)
+        #expect(field.offset(from: field.beginningOfDocument, to: selection.start) == offsets.lowerBound)
+        #expect(field.offset(from: field.beginningOfDocument, to: selection.end) == offsets.upperBound)
+        #expect(field.text?.utf8.elementsEqual(original.utf8) == true)
+        #expect(draft.utf8.elementsEqual(original.utf8))
+        #expect(field.isSecureTextEntry)
+        #expect(field.isFirstResponder)
+        #expect(focused)
+        #expect(field.accessibilityValue == "Password entered")
+        field.insertText("x")
+        let expected = (original as NSString).replacingCharacters(in: NSRange(location: offsets.lowerBound,
+                                                                             length: offsets.count), with: "x")
+        #expect(field.text?.utf8.elementsEqual(expected.utf8) == true)
+        #expect(draft.utf8.elementsEqual(expected.utf8))
+        #expect(submissions == 0)
+    }
+
     @Test("Visibility on an unfocused empty password does not focus or submit")
     func unfocusedVisibility() {
         var submissions = 0
