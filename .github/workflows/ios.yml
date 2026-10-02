@@ -6,6 +6,11 @@ on:
   push:
     branches: [main, codex/develop, release/rc]
   workflow_dispatch:
+    inputs:
+      cache_epoch:
+        description: 'Cache namespace for reproducible cold/warm comparisons (same value for both runs)'
+        type: string
+        default: v2
 
 permissions:
   contents: read
@@ -15,52 +20,120 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Classify changes (unknown means full validation)
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 ci/policy.py classify
+
+  checks:
+    name: Documentation and CI policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.12.0'
+          package-manager-cache: false
+      - name: Lint workflows
+        run: |
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/actionlint.tar.gz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 |
+            xargs -0 "$RUNNER_TEMP/actionlint" -shellcheck=
+      - name: Test classification and gate policy
+        run: python3 -m unittest discover -s ci -p 'test_*.py' -v
+      - name: Install locked documentation tools
+        run: npm ci --ignore-scripts --prefix ci/checks
+      - name: Test documentation checker
+        run: npm test --prefix ci/checks
+      - name: Check Markdown format and local links
+        run: npm run check --prefix ci/checks
+
   build-and-test:
     name: Build and unit tests
+    needs: classify
+    if: needs.classify.outputs.mode == 'full'
     runs-on: macos-26
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Prepare project
-        run: |
-          brew install xcodegen
-          cp ci/firebase-test-config.plist DailyWhiskers/Resources/GoogleService-Info.plist
-          xcodegen generate
-          xcodebuild -version
-
-      - name: Select available iPhone simulator
-        run: |
-          device_id=$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid // empty')
-          test -n "$device_id"
-          echo "SIMULATOR_ID=$device_id" >> "$GITHUB_ENV"
-
-      - name: Build and run unit tests
+      - name: Verify toolchain and prepare project
         run: |
           set -o pipefail
           mkdir -p build
-          xcodebuild test \
-            -project DailyWhiskers.xcodeproj \
-            -scheme DailyWhiskers \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -derivedDataPath build/DerivedData \
-            -resultBundlePath build/TestResults.xcresult \
-            -onlyUsePackageVersionsFromResolvedFile \
-            CODE_SIGNING_ALLOWED=NO 2>&1 \
-            | tee build/xcodebuild.log
-
-      - name: Upload test results and build log
+          bash ci/prepare-app.sh 2>&1 | tee build/prepare.log
+      - name: Restore SwiftPM dependencies
+        id: packages
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/SourcePackages
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
+      - name: Report cache state
+        env:
+          CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
+        run: printf 'SwiftPM cache hit = %s\n' "$CACHE_HIT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Resolve locked dependencies, build and run unit tests
+        run: bash ci/test-app.sh
+      # GitHub isolates pull_request caches to refs/pull/<number>/merge. A PR
+      # cannot populate the base branch's cache; shared caches are saved on pushes.
+      - name: Save validated SwiftPM dependencies
+        if: success() && steps.packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/SourcePackages
+          key: ${{ steps.packages.outputs.cache-primary-key }}
+      - name: Upload test results and build logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-test-results
           path: |
             build/TestResults.xcresult
             build/xcodebuild.log
+            build/resolve.log
+            build/prepare.log
+            build/timings.md
           retention-days: 7
           if-no-files-found: ignore
+
+  gate:
+    name: CI Gate
+    needs: [classify, checks, build-and-test]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require every applicable result
+        if: ${{ !cancelled() }}
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 ci/policy.py gate
+      - name: Reject cancelled workflow
+        if: cancelled()
+        run: exit 1
