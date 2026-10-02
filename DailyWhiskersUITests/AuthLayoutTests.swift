@@ -272,8 +272,16 @@ final class AuthLayoutTests: XCTestCase {
             password.typeText("discard-me")
             app.buttons["Show Password"].tap()
 
-            // Drag the sheet's navigation bar, outside its scrolling form.
-            app.navigationBars.firstMatch.swipeDown()
+            // The daily card's bar also remains in the phone hierarchy. Target
+            // the sheet by Close, then drag far enough to dismiss the sheet.
+            let sheetBar = app.navigationBars.containing(.button, identifier: "Close").firstMatch
+            XCTAssertTrue(sheetBar.exists)
+            let start = sheetBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let end = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                                      object: app.buttons["Close"])
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
             XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
             XCTAssertFalse(app.buttons["Close"].exists)
             openOptionalSignIn()
