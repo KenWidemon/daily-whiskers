@@ -76,13 +76,45 @@ and confirmation compares exact UTF-8 input without Unicode normalization.
 Sign In retains its existing validation so older accounts remain usable.
 
 **Backend alignment remains pending.** The live Firebase `getPasswordPolicy`
-response was rechecked September 28, 2026: minimum 6, maximum 4096, no required
-character classes, enforcement `ENFORCE`. The new baseline is enforced by this
-registration form, not yet by Firebase. Before shipping it as a service-wide
+response was rechecked October 2, 2026 UTC: minimum 6, maximum 4096, no required
+character classes, enforcement `ENFORCE`; `forceUpgradeOnSignin` was not returned.
+The new baseline is enforced by this registration form, not yet by Firebase.
+Before shipping it as a service-wide
 policy, configure Firebase's new-password requirements to minimum 8, uppercase,
 lowercase, and numeric required; retain maximum 4096 and optional symbols.
 Review existing-release/password-reset compatibility and preserve existing-user
 sign-in before applying that live change. No Firebase settings were changed.
+
+The frozen V1 source (`v1.0.0-rc.1`, `20ae9cd`) enables both Sign In and
+Create Account at six characters, with no complexity guidance. A stricter server
+policy therefore changes V1 behavior immediately: previously eligible registration
+input can fail, and its `weakPassword` message incorrectly recommends six characters.
+Other unmapped service errors produce generic retry feedback. V1.1 has the new
+guidance and a policy-neutral backend rejection message, but cannot repair already
+installed V1 clients. Neither client implements an in-app password reset completion
+screen: it requests email and shows neutral confirmation; the email action handler
+owns the new-password entry and error presentation. Its behavior under the proposed
+policy still requires an authorized end-to-end check, not an inference from email
+request success.
+
+Safest rollout: retain the current server policy until the compatible client and
+reset flow are accepted and available, or Ken explicitly accepts the older-client
+registration impact. Before any separately approved change, capture the full current
+console configuration. In Firebase Authentication > Settings > Password policy,
+propose minimum **8**, maximum **4096**, uppercase/lowercase/numeric **required**,
+non-alphanumeric **optional**, and retain enforcement. Keep forced password upgrade
+on sign-in **off**; verify the console value explicitly because the read response
+omitted it. [Firebase's password-policy guidance](https://firebase.google.com/docs/auth/ios/password-auth#recommended_set_a_password_policy)
+warns that forcing upgrade can block existing users. Do not change providers or
+other security settings as part of this rollout.
+
+After approval, read back the policy and have the owner verify a pre-existing
+six-character account can still sign in on V1 and V1.1, new registration rejects
+noncompliant input and accepts compliant input, and the real reset link reports
+requirements and completes successfully. Account creation, reset email, and password
+entry each need the appropriate deliberate owner authorization; credentials and
+links stay out of evidence. Any rollback to the captured policy is also a separately
+approved security change, not an automatic response to a failing check.
 
 Registration tests use injected operations and synthetic credentials, not live
 account creation. The interaction suite covers navigation, credential isolation,

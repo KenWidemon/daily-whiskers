@@ -15,7 +15,8 @@ Development tests do not retroactively validate the frozen V1 binary.
   accessibility tree does not satisfy the tappable-key precondition.
 - Interaction checks cover guest dismissal/relaunch, keyboard/landscape reachability,
   repeated validation, Sign In visibility/editing/lifecycle, and registration
-  navigation/credential isolation/visibility.
+  navigation/credential isolation/visibility, independent confirmation visibility,
+  both registration passwords masking on background, and Close/swipe draft clearing.
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
