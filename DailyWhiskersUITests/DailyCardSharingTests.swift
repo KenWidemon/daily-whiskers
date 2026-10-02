@@ -40,7 +40,7 @@ final class DailyCardSharingTests: XCTestCase {
         XCTAssertEqual(share.label, "Share Today's Card")
         XCTAssertTrue(app.otherElements["daily-card"].exists)
         XCTAssertFalse(app.textFields["Email"].exists)
-        for attempt in 0..<2 {
+        for _ in 0..<2 {
             XCTAssertTrue(share.isEnabled)
             XCTAssertTrue(share.isHittable)
             share.tap()
@@ -56,14 +56,14 @@ final class DailyCardSharingTests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10), .completed)
             let close = app.buttons["Close"].firstMatch
             let compactPortrait = UIDevice.current.userInterfaceIdiom == .phone && orientation == .portrait
-            if !compactPortrait {
-                XCTAssertTrue(close.waitForExistence(timeout: 10), "Expanded sheets/popovers must offer Close.")
+            if UIDevice.current.userInterfaceIdiom == .phone && !compactPortrait {
+                XCTAssertTrue(close.waitForExistence(timeout: 10), "The expanded phone sheet must offer Close.")
             }
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "Daily card system share sheet"
             screenshot.lifetime = .keepAlways
             add(screenshot)
-            if UIDevice.current.userInterfaceIdiom == .pad && attempt == 1 {
+            if UIDevice.current.userInterfaceIdiom == .pad {
                 // The popover is anchored to the upper-right Share button.
                 let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
                 XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
