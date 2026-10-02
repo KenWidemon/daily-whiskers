@@ -157,3 +157,5 @@ and merge approval remain separate from protection activation.
   pending final acceptance are tracked in the
   [RC1 record](distribution-readiness.md#rc1-artifact-record-september-14-2026).
 - `main` is unchanged. No upload, submission, or release has occurred.
+
+CI enforcement probe: [branch roles](missing-dw012-enforcement-proof.md).
