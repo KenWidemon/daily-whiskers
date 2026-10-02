@@ -78,6 +78,15 @@ struct DailyWhiskersView: View {
                     .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
                     .accessibilityIdentifier("share-daily-card")
                     .accessibilityFocused($shareFocused)
+                    .background {
+                        DailyCardShareSheet(export: shareState.export) { failed in
+                            shareState.completeActivity(failed: failed)
+                            shareState.sheetDismissed()
+                            shareFocused = true
+                        }
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -126,14 +135,6 @@ struct DailyWhiskersView: View {
                     NavigationStack { AuthView() }
                 case .deletion:
                     DeleteAccountView(request: deletionRequest)
-                }
-            }
-            .sheet(item: $shareState.export, onDismiss: {
-                shareState.sheetDismissed()
-                shareFocused = true
-            }) { export in
-                DailyCardShareSheet(export: export) { failed in
-                    shareState.completeActivity(failed: failed)
                 }
             }
             .alert("Couldn't Share Card", isPresented: $shareState.hasError) {

@@ -129,7 +129,7 @@ Record future progress in the issue rather than extending this session log.
 For DW-002, run `DailyCardShareTests` in the unit scheme. Coverage includes a
 snapshot across local midnight, all bundled artwork/quotes plus fallback, text
 measurement and pixel bounds, optional vibe/text companion, PNG metadata,
-render failures/retry, duplicate taps, and completion/cancellation cleanup.
+render failures/retry, duplicate taps, local preview metadata, and completion/cancellation cleanup.
 These checks do not establish physical share-sheet or VoiceOver acceptance.
 
 On both iPhone and iPad, record the exact SHA/build and OS, then:
@@ -139,7 +139,8 @@ On both iPhone and iPad, record the exact SHA/build and OS, then:
    optional vibe, branding, and absence of app/account chrome. The app's generation
    must work offline; destination delivery may require connectivity.
 2. Dismiss without sending, then share again. Verify the daily card and Settings
-   remain usable, the system sheet fits the device, and rotation does not break
+   remain usable after Close or tapping outside the compact sheet/popover, the
+   system sheet fits the device, and rotation does not break
    presentation. Do not send or post to others as part of automated validation.
 3. With VoiceOver and largest accessibility text, verify the action's name/hint,
    progress feedback, system-sheet navigation, text companion, and return focus

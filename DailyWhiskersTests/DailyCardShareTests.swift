@@ -101,6 +101,20 @@ struct DailyCardShareTests {
         #expect(png?[kCGImagePropertyPNGCreationTime as String] == nil)
     }
 
+    @Test("Native share preview retains the image payload and never requests a remote URL")
+    func previewMetadata() throws {
+        let export = try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card()))
+        let source = DailyCardShareImageSource(image: export.image)
+        let controller = UIActivityViewController(activityItems: [source, export.text], applicationActivities: nil)
+        #expect(source.activityViewControllerPlaceholderItem(controller) as? UIImage === export.image)
+        #expect(source.activityViewController(controller, itemForActivityType: nil) as? UIImage === export.image)
+        let metadata = try #require(source.activityViewControllerLinkMetadata(controller))
+        #expect(metadata.title == "Daily Whiskers")
+        #expect(metadata.url == nil)
+        #expect(metadata.originalURL == nil)
+        #expect(metadata.imageProvider?.hasItemConformingToTypeIdentifier("public.image") == true)
+    }
+
     @Test("Missing art and oversized future content fail without a misleading partial export")
     func failures() {
         #expect(throws: DailyCardShareError.self) {

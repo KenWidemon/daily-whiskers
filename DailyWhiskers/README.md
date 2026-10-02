@@ -33,7 +33,9 @@ It captures the displayed card when tapped, so a foreground/day change cannot
 replace an in-flight export. The system share sheet receives a freshly rendered
 image and a plain-text quote/vibe companion; the user chooses a destination and
 confirms sending. There is no account requirement, upload, tracking, or automatic
-posting in the app's sharing path.
+posting in the app's sharing path. UIKit presents from the card screen's window
+root, with the Share button as the iPad popover anchor. Preview metadata uses only
+the local export and branding, without a URL or network preview lookup.
 
 The portrait image uses the bundled artwork in full, measured quote text, an
 optional vibe, and subtle Daily Whiskers branding. Rendering is offline at 1080
