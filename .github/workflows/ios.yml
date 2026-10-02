@@ -57,7 +57,8 @@ jobs:
             https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint" -shellcheck= .github/workflows/*.yml
+          mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
+          "$RUNNER_TEMP/actionlint" -shellcheck= "${workflows[@]}"
       - name: Test classification and gate policy
         run: python3 -m unittest discover -s ci -p 'test_*.py' -v
       - name: Install locked documentation tools
@@ -68,22 +69,23 @@ jobs:
         run: npm run check --prefix ci/checks
 
   build-and-test:
-    name: Build and unit tests
+    name: App regression
     needs: classify
     if: needs.classify.outputs.mode == 'full'
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Record tested checkout
+        run: echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Verify toolchain and prepare project
-        run: |
-          set -o pipefail
-          mkdir -p build
-          bash ci/prepare-app.sh 2>&1 | tee build/prepare.log
+        id: prepare
+        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
       - name: Restore SwiftPM dependencies
         id: packages
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -94,8 +96,21 @@ jobs:
         env:
           CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
         run: printf 'SwiftPM cache hit = %s\n' "$CACHE_HIT" >> "$GITHUB_STEP_SUMMARY"
-      - name: Resolve locked dependencies, build and run unit tests
-        run: bash ci/test-app.sh
+      - name: Resolve locked dependencies
+        id: resolve
+        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
+      - name: Debug unit tests
+        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
+        run: python3 ci/run-stage.py unit bash ci/test-app.sh unit
+      - name: Offline UI smoke tests
+        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
+        run: python3 ci/run-stage.py ui bash ci/test-app.sh ui
+      - name: Unsigned Release simulator build
+        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
+        run: python3 ci/run-stage.py release bash ci/test-app.sh release
+      - name: Verify test-result evidence
+        if: always()
+        run: python3 ci/results.py collect
       # GitHub isolates pull_request caches to refs/pull/<number>/merge. A PR
       # cannot populate the base branch's cache; shared caches are saved on pushes.
       - name: Save validated SwiftPM dependencies
@@ -105,18 +120,27 @@ jobs:
           path: build/SourcePackages
           key: ${{ steps.packages.outputs.cache-primary-key }}
       - name: Upload test results and build logs
+        id: artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-test-results
           path: |
             build/TestResults.xcresult
-            build/xcodebuild.log
-            build/resolve.log
-            build/prepare.log
-            build/timings.md
+            build/SmokeResults.xcresult
+            build/*.log
+            build/*-status.json
+            build/*-results.json
+            build/results.json
+            build/toolchain.txt
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: warn
+      - name: Publish app evidence summary
+        if: always()
+        env:
+          ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
+          APP_JOB_STATUS: ${{ job.status }}
+        run: python3 ci/results.py render
 
   gate:
     name: CI Gate
@@ -136,3 +160,11 @@ jobs:
       - name: Reject cancelled workflow
         if: cancelled()
         run: exit 1
+      - name: Publish overall run summary
+        if: always()
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          export TESTED_SHA="$(git rev-parse HEAD)"
+          python3 ci/results.py gate
