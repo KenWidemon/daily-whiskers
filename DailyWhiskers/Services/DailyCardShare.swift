@@ -123,6 +123,7 @@ final class DailyCardShareState: ObservableObject {
     @Published var export: DailyCardShareExport?
     @Published var hasError = false
     private(set) var snapshot: DailyCardShareSnapshot?
+    private var activityFailed = false
     private let render: @MainActor (DailyCardShareSnapshot) throws -> DailyCardShareExport
 
     init(render: (@MainActor (DailyCardShareSnapshot) throws -> DailyCardShareExport)? = nil) {
@@ -152,6 +153,17 @@ final class DailyCardShareState: ObservableObject {
         } catch {
             hasError = true
         }
+    }
+
+    func completeActivity(failed: Bool) {
+        // Present an error only after the sheet has finished dismissing.
+        activityFailed = failed
+        export = nil
+    }
+
+    func sheetDismissed() {
+        finish(failed: activityFailed)
+        activityFailed = false
     }
 
     func finish(failed: Bool = false) {

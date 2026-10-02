@@ -73,7 +73,7 @@ struct DailyWhiskersView: View {
                         }
                         .frame(minWidth: 44, minHeight: 44)
                     }
-                    .disabled(contentState.currentCard == nil || shareState.isRendering || shareState.export != nil)
+                    .disabled(contentState.currentCard == nil || accountSheet != nil || shareState.isRendering || shareState.export != nil)
                     .accessibilityLabel(shareState.isRendering ? "Preparing Card" : "Share Today's Card")
                     .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
                     .accessibilityIdentifier("share-daily-card")
@@ -109,6 +109,7 @@ struct DailyWhiskersView: View {
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
+                    .disabled(shareState.isRendering || shareState.export != nil)
                     .accessibilityLabel("Settings")
                     .accessibilityHint("Opens privacy, support, and optional account tools.")
                     .accessibilityFocused($settingsFocused)
@@ -128,12 +129,11 @@ struct DailyWhiskersView: View {
                 }
             }
             .sheet(item: $shareState.export, onDismiss: {
-                // A swipe dismissal is cancellation; preserve a completion error for retry.
-                shareState.finish(failed: shareState.hasError)
+                shareState.sheetDismissed()
                 shareFocused = true
             }) { export in
                 DailyCardShareSheet(export: export) { failed in
-                    shareState.finish(failed: failed)
+                    shareState.completeActivity(failed: failed)
                 }
             }
             .alert("Couldn't Share Card", isPresented: $shareState.hasError) {

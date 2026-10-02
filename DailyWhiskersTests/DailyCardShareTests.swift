@@ -73,18 +73,32 @@ struct DailyCardShareTests {
         }
     }
 
-    @Test("Fresh PNG contains no source EXIF, GPS, TIFF, or private text metadata")
+    @Test("Fresh PNG contains only encoding metadata, without location or private source fields")
     func metadata() throws {
         let export = try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card()))
         let data = try #require(export.image.pngData())
         let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
         let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any])
-        #expect(properties[kCGImagePropertyExifDictionary as String] == nil)
+        // UIKit adds geometry/color fields even to a fresh bitmap. Permit only
+        // these encoding facts, never source identity, timestamps, or location.
+        let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any] ?? [:]
+        #expect(Set(exif.keys).isSubset(of: [
+            kCGImagePropertyExifColorSpace as String,
+            kCGImagePropertyExifPixelXDimension as String,
+            kCGImagePropertyExifPixelYDimension as String
+        ]))
         #expect(properties[kCGImagePropertyGPSDictionary as String] == nil)
-        #expect(properties[kCGImagePropertyTIFFDictionary as String] == nil)
+        let tiff = properties[kCGImagePropertyTIFFDictionary as String] as? [String: Any] ?? [:]
+        #expect(Set(tiff.keys).isSubset(of: [
+            kCGImagePropertyTIFFOrientation as String,
+            kCGImagePropertyTIFFResolutionUnit as String,
+            kCGImagePropertyTIFFXResolution as String,
+            kCGImagePropertyTIFFYResolution as String
+        ]))
         let png = properties[kCGImagePropertyPNGDictionary as String] as? [String: Any]
         #expect(png?[kCGImagePropertyPNGDescription as String] == nil)
         #expect(png?[kCGImagePropertyPNGAuthor as String] == nil)
+        #expect(png?[kCGImagePropertyPNGCreationTime as String] == nil)
     }
 
     @Test("Missing art and oversized future content fail without a misleading partial export")
@@ -135,7 +149,7 @@ struct DailyCardShareTests {
         #expect(share.export?.text.contains("First") == true)
         await share.start(card: card(quote: "Presented duplicate"))
         #expect(attempts == 1)
-        share.finish()
+        share.sheetDismissed()
         #expect(share.export == nil)
         #expect(share.snapshot == nil)
         await share.start(card: card(quote: "New card"))
@@ -147,13 +161,16 @@ struct DailyCardShareTests {
     func activityCompletion() async {
         let share = DailyCardShareState { DailyCardShareExport(image: UIImage(), text: $0.companionText) }
         await share.start(card: card())
-        share.finish(failed: true)
+        share.completeActivity(failed: true)
         #expect(share.export == nil)
+        #expect(!share.hasError)
+        share.sheetDismissed()
         #expect(share.hasError)
         #expect(share.snapshot != nil)
         await share.retry()
         #expect(share.export != nil)
-        share.finish()
+        share.completeActivity(failed: false)
+        share.sheetDismissed()
         #expect(!share.hasError)
         #expect(share.export == nil)
         #expect(share.snapshot == nil)
