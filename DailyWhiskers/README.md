@@ -137,20 +137,108 @@ Image import details:
 
 ## Continuous Integration
 
-The `iOS CI` GitHub Actions workflow builds the Debug simulator app and runs
-unit tests on pull requests and pushes to `main`, `codex/develop`, and `release/rc`. It can
-also be started manually. It uses macOS 26 and Xcode 26.6, generates the project
-with XcodeGen, and selects an available iPhone simulator.
+The `iOS CI` workflow runs on every PR targeting `main`, `codex/develop`, or
+`release/rc`, pushes to those branches, and manual dispatch. Its final **CI Gate**
+checks the actual results of classification, documentation/policy checks, and the
+app job. Only a successful docs-only classification permits the app job to skip.
+A failed, cancelled, timed-out, missing, or unexpectedly skipped prerequisite
+cannot pass the gate. Workflow-level path filters are deliberately absent.
+A whole-run cancellation or service outage can prevent the gate from executing;
+required-check enforcement must leave that PR blocked, never treat it as a pass.
 
-CI copies `ci/firebase-test-config.plist` into the generated app resources before
-project generation. This is a fake configuration for initializing the hosted
-test app, not a Firebase account or a working backend. No repository secrets
-are required. These tests do not exercise real authentication; keep using your
-local Firebase plist for interactive development and authentication testing.
+Documentation-only means changes exclusively to `docs/**/*.md`, `AGENTS.md`,
+`DailyWhiskers/README.md`, `ci/screenshots/README.md`, or the PR template. Renames
+consider both old and new paths. Empty, unknown, or unreadable comparisons take
+the full path. Scripts, workflow/configuration files, dependency locks, source,
+tests, and resources require app validation. Pushes/manual runs always validate
+the app. Classification uses the PR base/head merge-base; validation checks out
+GitHub's proposed merge commit.
 
-The workflow uploads its build log and `.xcresult` bundle for seven days.
-Its `Build and unit tests` check can be made required in GitHub branch rules
-after the first successful run.
+### Documentation and policy checks
+
+Every run checks Markdown formatting, repository-relative links and Markdown
+heading anchors across tracked documentation. Tools parse Markdown without
+executing embedded content or fetching external URLs. External URL availability
+is outside this deterministic gate. Paths and symlinks cannot leave the checkout.
+The formatting rules preserve existing prose conventions; this is not a rewrite
+of the documentation. CI also lints both `.yml` and `.yaml` workflows and tests
+classification, gate results, and the link checker.
+
+```sh
+python3 -m unittest discover -s ci -p 'test_*.py' -v
+npm ci --ignore-scripts --prefix ci/checks
+npm test --prefix ci/checks
+npm run check --prefix ci/checks
+```
+
+Node 24.12.0 and the documentation tool lockfile define the check environment.
+`npm ci --ignore-scripts` does not execute dependency lifecycle scripts. Tool
+updates must update the lockfile and pass the checks in the same PR.
+
+### App validation and pinned inputs
+
+The app job uses the `macos-26` ARM64 runner, Xcode **26.6 / 17F113**, the iOS
+simulator SDK 26.5, and **iPhone 17 Pro / iOS 26.4.1**. It verifies Xcode and the
+exact simulator rather than falling back to another installation. Runner image,
+architecture, Swift/SDK versions, and simulator identity are logged. Hosted
+runner images remain mutable; reproducibility means pinned inputs with explicit
+drift failures, not byte-identical signed artifacts.
+
+XcodeGen **2.46.0** is downloaded from its release and checked against a committed
+SHA-256. Actions use Node 24 and full commit SHAs with release comments; actionlint **1.7.12**
+is checksum-verified. When updating tools, verify upstream release identity,
+change the version/hash together, and rerun both cold and warm validation.
+
+CI copies `ci/firebase-test-config.plist` into the app resources before project
+generation. This fake fixture initializes the hosted test app without live
+Firebase access. PRs receive only `contents: read`, checkout does not persist
+credentials, and no release secrets are used. App validation runs the Debug
+build and unit suite with signing disabled. It does not replace live auth,
+interaction, physical accessibility, or release acceptance.
+
+### SwiftPM cache and lock enforcement
+
+The committed `Package.resolved` must exist and remain byte-for-byte unchanged
+after project generation, dependency resolution, and tests. Resolution/build
+use `-onlyUsePackageVersionsFromResolvedFile` and
+`-disableAutomaticPackageResolution`. Dependency upgrades require an intentional
+lockfile change in the PR; a cache hit never substitutes for resolution or tests.
+
+Only `build/SourcePackages` is cached. Keys include OS, architecture, Xcode build,
+simulator SDK platform/version, lockfile hash, and a cache epoch. There are no
+broad restore keys and no DerivedData products, credentials, or Firebase config
+in the cache. A cache is saved only after successful app validation. GitHub scopes
+PR caches to the PR merge ref, so untrusted PR runs cannot populate the base
+branch's shared cache. Fork runs may have restore-only cache access; cache-save
+denial is not validation failure and must never be worked around with broader
+permissions. Manual runs use their selected branch's cache scope.
+
+For a cold/warm comparison, dispatch the same commit twice with a fresh, identical
+`cache_epoch` value. The first must report a miss; the second must report a hit.
+Use the same runner/tool configuration and compare the job summaries for
+resolution, build/test, and combined seconds. Record actual measurements and run
+links in the issue/PR, not a promised speedup or a README execution journal.
+Changing the epoch safely abandons an old cache without deleting evidence.
+
+The app timeout remains 30 minutes; smaller jobs have explicit timeouts.
+Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
+and `.xcresult` bundles are uploaded when available, including failure paths,
+with seven-day retention. Hard termination can prevent artifact upload; missing
+artifacts are not proof of success.
+
+### Gate verification and rollout
+
+Before requiring CI Gate, exercise docs-only, app-only, mixed, and workflow-only
+PR changes, plus broken links/tests, lock enforcement, timeout, cancellation,
+unknown paths, and unexpected skips. Use disposable proof branches if the new
+workflow is not yet on a target branch; clearly distinguish that evidence from
+actual target-branch enforcement. Do not merge deliberate failures. Reruns and
+manual dispatch are useful diagnostics but do not replace real PR-event proof.
+
+Ruleset configuration and recovery are governed by the
+[branching strategy](../docs/branching-strategy.md#ci-and-protection). The workflow
+alone does not protect branches. A passing workflow PR does not complete ruleset
+rollout or authorize any release.
 
 ## Optional Interaction Tests
 

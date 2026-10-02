@@ -13,3 +13,7 @@ build/
 # Firebase local config (do not commit secrets)
 GoogleService-Info.plist
 DailyWhiskers/Resources/GoogleService-Info.plist
+
+# CI documentation tools and Python cache
+ci/checks/node_modules/
+__pycache__/
