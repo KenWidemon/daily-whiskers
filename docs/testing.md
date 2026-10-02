@@ -123,3 +123,33 @@ Record future progress in the issue rather than extending this session log.
   The app's new-account form requires minimum 8 plus uppercase/lowercase ASCII and
   a number. Do not claim server enforcement or silently change Firebase; preserve
   existing-account login/reset compatibility. Recheck live state before any change.
+
+## Sharing Today's Card
+
+For DW-002, run `DailyCardShareTests` in the unit scheme. Coverage includes a
+snapshot across local midnight, all bundled artwork/quotes plus fallback, text
+measurement and pixel bounds, optional vibe/text companion, PNG metadata,
+render failures/retry, duplicate taps, and completion/cancellation cleanup.
+These checks do not establish physical share-sheet or VoiceOver acceptance.
+
+On both iPhone and iPad, record the exact SHA/build and OS, then:
+
+1. As a guest, enable airplane mode, open the daily card, and activate **Share
+   Today's Card**. Inspect the preview for matching art, complete readable quote,
+   optional vibe, branding, and absence of app/account chrome. The app's generation
+   must work offline; destination delivery may require connectivity.
+2. Dismiss without sending, then share again. Verify the daily card and Settings
+   remain usable, the system sheet fits the device, and rotation does not break
+   presentation. Do not send or post to others as part of automated validation.
+3. With VoiceOver and largest accessibility text, verify the action's name/hint,
+   progress feedback, system-sheet navigation, text companion, and return focus
+   after cancellation. Repeat from an already signed-in session without creating
+   an account merely to share.
+4. Exercise failure/retry using the injected renderer test seam; confirm retry
+   uses the captured card. Review the longest supported quote's exported image
+   at natural size. Automated measurement is evidence against clipping, not a
+   substitute for visual legibility review.
+
+Keep account/regression prerequisites and artwork/quote redistribution approval
+explicit in the linked issue/PR. No physical check or rights approval is implied
+by passing unit tests or opening a draft PR.

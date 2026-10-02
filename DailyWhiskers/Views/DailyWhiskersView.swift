@@ -26,6 +26,8 @@ struct DailyWhiskersView: View {
     @StateObject private var accountRequest = AuthRequestState()
     @StateObject private var deletionRequest = AuthRequestState()
     @State private var accountSheet: AccountSheet?
+    @StateObject private var shareState = DailyCardShareState()
+    @AccessibilityFocusState private var shareFocused: Bool
     @AccessibilityFocusState private var settingsFocused: Bool
 
     var body: some View {
@@ -56,6 +58,27 @@ struct DailyWhiskersView: View {
                 contentState.scenePhaseDidChange(to: newPhase, at: Date())
             }
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        guard let card = contentState.currentCard else { return }
+                        shareFocused = false
+                        Task { await shareState.start(card: card) }
+                    } label: {
+                        Group {
+                            if shareState.isRendering {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                        .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .disabled(contentState.currentCard == nil || shareState.isRendering || shareState.export != nil)
+                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : "Share Today's Card")
+                    .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
+                    .accessibilityIdentifier("share-daily-card")
+                    .accessibilityFocused($shareFocused)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Link("Privacy Policy", destination: AppLinks.privacyPolicy)
@@ -103,6 +126,24 @@ struct DailyWhiskersView: View {
                 case .deletion:
                     DeleteAccountView(request: deletionRequest)
                 }
+            }
+            .sheet(item: $shareState.export, onDismiss: {
+                // A swipe dismissal is cancellation; preserve a completion error for retry.
+                shareState.finish(failed: shareState.hasError)
+                shareFocused = true
+            }) { export in
+                DailyCardShareSheet(export: export) { failed in
+                    shareState.finish(failed: failed)
+                }
+            }
+            .alert("Couldn't Share Card", isPresented: $shareState.hasError) {
+                Button("Try Again") { Task { await shareState.retry() } }
+                Button("Cancel", role: .cancel) {
+                    shareState.finish()
+                    shareFocused = true
+                }
+            } message: {
+                Text("The card couldn't be prepared or shared. Please try again.")
             }
             .onChange(of: router.authState) { previous, state in
                 // Successful sign-in/deletion (or an external session change) closes
