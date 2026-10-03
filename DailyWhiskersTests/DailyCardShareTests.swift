@@ -108,6 +108,7 @@ struct DailyCardShareTests {
         let controller = UIActivityViewController(activityItems: [source, export.text], applicationActivities: nil)
         #expect(source.activityViewControllerPlaceholderItem(controller) as? UIImage === export.image)
         #expect(source.activityViewController(controller, itemForActivityType: nil) as? UIImage === export.image)
+        #expect(source.activityViewController(controller, itemForActivityType: .saveToCameraRoll) as? UIImage === export.image)
         let metadata = try #require(source.activityViewControllerLinkMetadata(controller))
         #expect(metadata.title == "Daily Whiskers")
         #expect(metadata.url == nil)

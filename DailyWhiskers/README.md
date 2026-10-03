@@ -37,6 +37,11 @@ posting in the app's sharing path. UIKit presents from the card screen's window
 root, with the Share button as the iPad popover anchor. Preview metadata uses only
 the local export and branding, without a URL or network preview lookup.
 
+The packaged app declares an add-only Photos purpose for a user-selected save
+from the system sheet. It does not request photo-library reading or prompt for
+access when opening the share sheet. Destination availability and successful
+saving still require device acceptance; a purpose string alone is not proof.
+
 The portrait image uses the bundled artwork in full, measured quote text, an
 optional vibe, and subtle Daily Whiskers branding. Rendering is offline at 1080
 pixels wide, scale 1, standard color range, with a maximum height of 2400 pixels

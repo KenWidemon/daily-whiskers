@@ -142,6 +142,12 @@ On both iPhone and iPad, record the exact SHA/build and OS, then:
    remain usable after Close or tapping outside the compact sheet/popover, the
    system sheet fits the device, and rotation does not break
    presentation. Do not send or post to others as part of automated validation.
+   Inspect the system's Save Image/Save Photo action. With owner approval, choose
+   it, let the owner handle any add-only Photos prompt, and inspect the saved
+   artwork and complete quote. Verify cancellation or denial leaves sharing
+   usable without a crash; do not change device privacy settings to force a pass.
+   Record action availability separately from successful saving. Verify the built
+   app contains `NSPhotoLibraryAddUsageDescription` and no read-access purpose.
 3. With VoiceOver and largest accessibility text, verify the action's name/hint,
    progress feedback, system-sheet navigation, text companion, and return focus
    after cancellation. Repeat from an already signed-in session without creating
