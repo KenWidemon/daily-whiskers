@@ -122,11 +122,15 @@ struct DailyWhiskersView: View {
                     .accessibilityLabel("Settings")
                     .accessibilityHint("Opens privacy, support, and optional account tools.")
                     .accessibilityFocused($settingsFocused)
+                    // A closing menu must not restore focus behind its account sheet.
+                    .accessibilityHidden(accountSheet != nil)
                 }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $accountSheet, onDismiss: {
+                // A previous dismissal must not focus Settings over a replacement sheet.
+                guard accountSheet == nil else { return }
                 deletionRequest.clearFeedback()
                 settingsFocused = true
             }) { sheet in

@@ -22,6 +22,9 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
 - Daily content refreshes when app returns to foreground and local day changed.
 - Signed-in Settings offers password-confirmed permanent account deletion.
 - Closing auth returns to the same daily card and discards unfinished credentials.
+  While an account sheet is active, its underlying Settings menu is hidden from
+  accessibility; dismissal restores Settings focus only when no replacement sheet
+  is active. This avoids requesting background focus during account presentation.
   Close/swipe dismissal is disabled while an auth request is running. Successful
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.

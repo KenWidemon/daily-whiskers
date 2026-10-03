@@ -31,6 +31,50 @@ final class DailyCardSharingTests: XCTestCase {
         checkCancellation(orientation: .landscapeLeft, textSize: .accessibilityExtraExtraExtraLarge)
     }
 
+    func testSettingsAccessibilityIsExcludedUntilAccountSheetDismisses() {
+        XCUIDevice.shared.orientation = .portrait
+        app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launch()
+        let settings = app.buttons["Settings"]
+        for _ in 0..<2 {
+            XCTAssertTrue(settings.waitForExistence(timeout: 10))
+            XCTAssertTrue(settings.isHittable)
+            settings.tap()
+            let signIn = app.buttons["Sign In"]
+            XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+            signIn.tap()
+            let form = app.scrollViews["auth-form"]
+            XCTAssertTrue(form.waitForExistence(timeout: 5))
+            let excluded = NSPredicate { _, _ in !settings.exists }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: excluded, object: nil)], timeout: 5), .completed)
+            XCTAssertTrue(app.buttons["Close"].isHittable)
+
+            // Empty-email validation stays local; no reset email is requested.
+            tapInForm(app.buttons["Forgot password?"])
+            XCTAssertTrue(app.staticTexts["Enter a valid email address."].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.alerts["Check Your Email"].exists)
+            XCTAssertFalse(settings.exists)
+            tapInForm(app.buttons["Create Account"])
+            XCTAssertTrue(app.textFields["registration-email"].waitForExistence(timeout: 5))
+            XCTAssertFalse(settings.exists)
+            tapInForm(app.buttons["Back to Sign In"])
+            XCTAssertTrue(app.buttons["Forgot password?"].waitForExistence(timeout: 5))
+            XCTAssertFalse(settings.exists)
+            app.buttons["Close"].tap()
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            XCTAssertFalse(form.exists)
+            XCTAssertTrue(app.buttons["share-daily-card"].isHittable)
+        }
+        // Accessibility-tree/navigation evidence, not VoiceOver focus timing or speech.
+    }
+
+    private func tapInForm(_ element: XCUIElement) {
+        let form = app.scrollViews["auth-form"]
+        for _ in 0..<8 where !element.isHittable { form.swipeUp() }
+        XCTAssertTrue(element.isHittable)
+        element.tap()
+    }
+
     private func checkCancellation(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory) {
         XCUIDevice.shared.orientation = orientation
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", textSize.rawValue]

@@ -37,6 +37,10 @@ owner-reported results. Use the exact distributed candidate for release acceptan
 4. With VoiceOver, check reading order, actionable labels, initial/repeated local
    and backend errors, loading announcements, reset dismissal to Forgot password,
    Settings focus after dismissal/logout, and no decorative sparkle announcements.
+   Repeatedly open Sign In from Settings: focus must stay inside the presented
+   sheet without bouncing back to Settings. Check Close and swipe dismissal return
+   focus to Settings, then reopen and repeat through registration and a local
+   missing-email reset error. Element-tree tests do not prove VoiceOver timing.
 5. With explicit approval for a disposable account, test deletion cancellation,
    reauthentication, Delete Permanently, return to guest and guest relaunch.
    Never delete the reviewer account. A generic login error alone is not backend proof.
