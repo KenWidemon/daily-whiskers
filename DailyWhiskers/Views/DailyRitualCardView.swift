@@ -116,8 +116,10 @@ struct DailyRitualCardView: View {
                             Spacer(minLength: cardWidth * 0.65)
                             VStack(spacing: 18) {
                                 QuoteBlock(text: data.quote, theme: theme)
+                                    .accessibilityIdentifier("daily-card-quote")
                                 if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                     VibePill(text: data.vibe.uppercased(), theme: theme)
+                                        .accessibilityIdentifier("daily-card-vibe")
                                 }
                             }
                             .padding(24)

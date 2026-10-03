@@ -31,6 +31,10 @@ final class DailyCardSharingTests: XCTestCase {
         checkCancellation(orientation: .landscapeLeft, textSize: .accessibilityExtraExtraExtraLarge)
     }
 
+    func testShareSheetRemainsUsableAcrossRotation() {
+        checkCancellation(orientation: .portrait, textSize: .large, rotateWhilePresented: true)
+    }
+
     func testAccountSheetKeepsLocalNavigationUsableAcrossReopening() {
         XCUIDevice.shared.orientation = .portrait
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
@@ -70,6 +74,59 @@ final class DailyCardSharingTests: XCTestCase {
         // Accessibility-tree/navigation evidence, not VoiceOver focus timing or speech.
     }
 
+    func testDailyCanvasRotationFromPortrait() {
+        checkDailyCanvasRotation(initial: .portrait)
+    }
+
+    func testDailyCanvasRotationFromLandscape() {
+        checkDailyCanvasRotation(initial: .landscapeLeft)
+    }
+
+    private func checkDailyCanvasRotation(initial: UIDeviceOrientation) {
+        XCUIDevice.shared.orientation = initial
+        app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launch()
+        let card = app.otherElements["daily-card"]
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        let other: UIDeviceOrientation = initial == .portrait ? .landscapeLeft : .portrait
+        for (index, orientation) in [initial, other, initial, other, initial].enumerated() {
+            XCUIDevice.shared.orientation = orientation
+            let landscape = orientation == .landscapeLeft
+            let window = app.windows.firstMatch
+            let rotated = NSPredicate { _, _ in
+                let frame = window.frame
+                return landscape ? frame.width > frame.height : frame.height > frame.width
+            }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: rotated, object: nil)], timeout: 10), .completed)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Main canvas rotation \(initial.rawValue)-\(index)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            print("ROTATION \(index) orientation=\(orientation.rawValue) window=\(window.frame) card=\(card.frame)")
+            XCTAssertEqual(card.frame.width, window.frame.width, accuracy: 2, "Daily canvas must follow current window width.")
+            XCTAssertEqual(card.frame.midX, window.frame.midX, accuracy: 2, "Daily canvas must stay centered after rotation.")
+            XCTAssertLessThanOrEqual(card.frame.maxY, window.frame.maxY + 2, "Daily canvas viewport cannot extend beyond the current window.")
+            checkQuoteRemainsReachable()
+            XCTAssertTrue(app.buttons["Settings"].isHittable)
+            XCTAssertTrue(app.buttons["share-daily-card"].isHittable)
+        }
+    }
+
+    private func checkQuoteRemainsReachable() {
+        let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+        let window = app.windows.firstMatch
+        XCTAssertTrue(quote.exists)
+        XCTAssertEqual(quote.frame.midX, window.frame.midX, accuracy: 2, "Artwork and quote must follow the current window center.")
+        let scroll = app.scrollViews.firstMatch
+        for _ in 0..<5 where !window.frame.contains(quote.frame) { scroll.swipeUp() }
+        XCTAssertTrue(window.frame.contains(quote.frame), "The complete quote must be reachable after rotation.")
+        let vibe = app.descendants(matching: .any)["daily-card-vibe"].firstMatch
+        if vibe.exists {
+            for _ in 0..<5 where !window.frame.contains(vibe.frame) { scroll.swipeUp() }
+            XCTAssertTrue(window.frame.contains(vibe.frame), "The vibe must remain reachable after rotation.")
+        }
+    }
+
     private func tapInForm(_ element: XCUIElement) {
         let form = app.scrollViews["auth-form"]
         for _ in 0..<8 where !element.isHittable { form.swipeUp() }
@@ -77,7 +134,8 @@ final class DailyCardSharingTests: XCTestCase {
         element.tap()
     }
 
-    private func checkCancellation(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory) {
+    private func checkCancellation(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory, rotateWhilePresented: Bool = false) {
+        var currentOrientation = orientation
         XCUIDevice.shared.orientation = orientation
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", textSize.rawValue]
         app.launch()
@@ -92,6 +150,16 @@ final class DailyCardSharingTests: XCTestCase {
             share.tap()
             let sheet = app.otherElements["ActivityListView"]
             XCTAssertTrue(sheet.waitForExistence(timeout: 10), "System share sheet must be presented.")
+            if rotateWhilePresented {
+                currentOrientation = currentOrientation == .portrait ? .landscapeLeft : .portrait
+                XCUIDevice.shared.orientation = currentOrientation
+                let landscape = currentOrientation == .landscapeLeft
+                let rotated = NSPredicate { _, _ in
+                    let frame = self.app.windows.firstMatch.frame
+                    return landscape ? frame.width > frame.height : frame.height > frame.width
+                }
+                XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: rotated, object: nil)], timeout: 10), .completed)
+            }
             // Remote share UI can exist before its entrance animation/layout settles.
             var previousFrame = CGRect.null
             let settled = NSPredicate { _, _ in
@@ -101,7 +169,7 @@ final class DailyCardSharingTests: XCTestCase {
             }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10), .completed)
             let close = app.buttons["Close"].firstMatch
-            let compactPortrait = UIDevice.current.userInterfaceIdiom == .phone && orientation == .portrait
+            let compactPortrait = UIDevice.current.userInterfaceIdiom == .phone && currentOrientation == .portrait
             if UIDevice.current.userInterfaceIdiom == .phone && !compactPortrait {
                 XCTAssertTrue(close.waitForExistence(timeout: 10), "The expanded phone sheet must offer Close.")
             }
@@ -127,6 +195,7 @@ final class DailyCardSharingTests: XCTestCase {
             XCTAssertFalse(sheet.exists)
             XCTAssertFalse(app.alerts["Couldn't Share Card"].exists)
             XCTAssertTrue(app.otherElements["daily-card"].exists)
+            if rotateWhilePresented { checkQuoteRemainsReachable() }
         }
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.buttons["Sign In"].waitForExistence(timeout: 5), "Use a dedicated guest QA simulator.")

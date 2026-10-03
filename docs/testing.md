@@ -136,9 +136,19 @@ measurement and pixel bounds, optional vibe/text companion, PNG metadata,
 render failures/retry, duplicate taps, local preview metadata, and completion/cancellation cleanup.
 These checks do not establish physical share-sheet or VoiceOver acceptance.
 
+The interaction suite checks launch in either orientation, repeated bidirectional
+rotation before sharing, current-window canvas bounds and quote centering, scroll
+recovery to the complete quote/vibe, and rotation with the system share sheet open.
+The toolbar uses a view-only UIKit anchor: embedding a controller there previously
+left the main canvas at its launch dimensions while the toolbar rotated.
+
 On both iPhone and iPad, record the exact SHA/build and OS, then:
 
-1. As a guest, enable airplane mode, open the daily card, and activate **Share
+1. Before sharing, launch separately in portrait and landscape. Rotate in both
+   directions repeatedly; verify the background fills the current window, the
+   artwork stays centered, and scrolling reaches the complete quote and vibe.
+   Return to the initial orientation and repeat after dismissing a share sheet.
+   As a guest, enable airplane mode, open the daily card, and activate **Share
    Today's Card**. Inspect the preview for matching art, complete readable quote,
    optional vibe, branding, and absence of app/account chrome. The app's generation
    must work offline; destination delivery may require connectivity.

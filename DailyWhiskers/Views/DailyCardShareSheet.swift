@@ -2,32 +2,29 @@ import LinkPresentation
 import SwiftUI
 import UIKit
 
-/// Lives behind the share button so UIKit has an actual presenting controller
-/// and an on-screen iPad anchor, rather than embedding the activity UI as a child.
-struct DailyCardShareSheet: UIViewControllerRepresentable {
+/// A view-only toolbar anchor keeps navigation rotation under SwiftUI control.
+/// Present the activity controller from this view's window, never as a toolbar child.
+struct DailyCardShareSheet: UIViewRepresentable {
     let export: DailyCardShareExport?
     let onComplete: (Bool) -> Void
 
-    func makeUIViewController(context: Context) -> DailyCardSharePresenter {
-        DailyCardSharePresenter()
+    func makeUIView(context: Context) -> DailyCardShareAnchor {
+        let anchor = DailyCardShareAnchor()
+        anchor.backgroundColor = .clear
+        anchor.isUserInteractionEnabled = false
+        return anchor
     }
 
-    func updateUIViewController(_ controller: DailyCardSharePresenter, context: Context) {
-        controller.update(export: export, onComplete: onComplete)
+    func updateUIView(_ anchor: DailyCardShareAnchor, context: Context) {
+        anchor.update(export: export, onComplete: onComplete)
     }
 }
 
-final class DailyCardSharePresenter: UIViewController, UIPopoverPresentationControllerDelegate {
+final class DailyCardShareAnchor: UIView, UIPopoverPresentationControllerDelegate {
     private var pendingExport: DailyCardShareExport?
     private var activeID: UUID?
     private weak var activityController: UIActivityViewController?
     private var onComplete: ((Bool) -> Void)?
-
-    override func loadView() {
-        view = UIView()
-        view.backgroundColor = .clear
-        view.isUserInteractionEnabled = false
-    }
 
     func update(export: DailyCardShareExport?, onComplete: @escaping (Bool) -> Void) {
         pendingExport = export
@@ -35,21 +32,21 @@ final class DailyCardSharePresenter: UIViewController, UIPopoverPresentationCont
         presentIfReady()
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
         presentIfReady()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
+    override func layoutSubviews() {
+        super.layoutSubviews()
         // Keep the anchor current across rotation and split-view resizing.
-        activityController?.popoverPresentationController?.sourceRect = view.bounds
+        activityController?.popoverPresentationController?.sourceRect = bounds
         presentIfReady()
     }
 
     private func presentIfReady() {
         guard let export = pendingExport, activeID == nil,
-              let presenter = viewIfLoaded?.window?.rootViewController,
+              let presenter = window?.rootViewController,
               presenter.presentedViewController == nil else { return }
         activeID = export.id
         let source = DailyCardShareImageSource(image: export.image)
@@ -67,8 +64,8 @@ final class DailyCardSharePresenter: UIViewController, UIPopoverPresentationCont
         }
         if UIDevice.current.userInterfaceIdiom == .pad {
             controller.modalPresentationStyle = .popover
-            controller.popoverPresentationController?.sourceView = view
-            controller.popoverPresentationController?.sourceRect = view.bounds
+            controller.popoverPresentationController?.sourceView = self
+            controller.popoverPresentationController?.sourceRect = bounds
             controller.popoverPresentationController?.permittedArrowDirections = [.up, .down]
         } else {
             controller.modalPresentationStyle = .pageSheet
