@@ -37,6 +37,10 @@ owner-reported results. Use the exact distributed candidate for release acceptan
 4. With VoiceOver, check reading order, actionable labels, initial/repeated local
    and backend errors, loading announcements, reset dismissal to Forgot password,
    Settings focus after dismissal/logout, and no decorative sparkle announcements.
+   Repeatedly open Sign In from Settings: focus must stay inside the presented
+   sheet without bouncing back to Settings. Check Close and swipe dismissal return
+   focus to Settings, then reopen and repeat through registration and a local
+   missing-email reset error. Element-tree tests do not prove VoiceOver timing.
 5. With explicit approval for a disposable account, test deletion cancellation,
    reauthentication, Delete Permanently, return to guest and guest relaunch.
    Never delete the reviewer account. A generic login error alone is not backend proof.
@@ -123,3 +127,50 @@ Record future progress in the issue rather than extending this session log.
   The app's new-account form requires minimum 8 plus uppercase/lowercase ASCII and
   a number. Do not claim server enforcement or silently change Firebase; preserve
   existing-account login/reset compatibility. Recheck live state before any change.
+
+## Sharing Today's Card
+
+For DW-002, run `DailyCardShareTests` in the unit scheme. Coverage includes a
+snapshot across local midnight, all bundled artwork/quotes plus fallback, text
+measurement and pixel bounds, optional vibe/text companion, PNG metadata,
+render failures/retry, duplicate taps, local preview metadata, and completion/cancellation cleanup.
+These checks do not establish physical share-sheet or VoiceOver acceptance.
+
+The interaction suite checks launch in either orientation, repeated bidirectional
+rotation before sharing, current-window canvas bounds and quote centering, scroll
+recovery to the complete quote/vibe, and rotation with the system share sheet open.
+The toolbar uses a view-only UIKit anchor: embedding a controller there previously
+left the main canvas at its launch dimensions while the toolbar rotated.
+
+On both iPhone and iPad, record the exact SHA/build and OS, then:
+
+1. Before sharing, launch separately in portrait and landscape. Rotate in both
+   directions repeatedly; verify the background fills the current window, the
+   artwork stays centered, and scrolling reaches the complete quote and vibe.
+   Return to the initial orientation and repeat after dismissing a share sheet.
+   As a guest, enable airplane mode, open the daily card, and activate **Share
+   Today's Card**. Inspect the preview for matching art, complete readable quote,
+   optional vibe, branding, and absence of app/account chrome. The app's generation
+   must work offline; destination delivery may require connectivity.
+2. Dismiss without sending, then share again. Verify the daily card and Settings
+   remain usable after Close or tapping outside the compact sheet/popover, the
+   system sheet fits the device, and rotation does not break
+   presentation. Do not send or post to others as part of automated validation.
+   Inspect the system's Save Image/Save Photo action. With owner approval, choose
+   it, let the owner handle any add-only Photos prompt, and inspect the saved
+   artwork and complete quote. Verify cancellation or denial leaves sharing
+   usable without a crash; do not change device privacy settings to force a pass.
+   Record action availability separately from successful saving. Verify the built
+   app contains `NSPhotoLibraryAddUsageDescription` and no read-access purpose.
+3. With VoiceOver and largest accessibility text, verify the action's name/hint,
+   progress feedback, system-sheet navigation, text companion, and return focus
+   after cancellation. Repeat from an already signed-in session without creating
+   an account merely to share.
+4. Exercise failure/retry using the injected renderer test seam; confirm retry
+   uses the captured card. Review the longest supported quote's exported image
+   at natural size. Automated measurement is evidence against clipping, not a
+   substitute for visual legibility review.
+
+Keep account/regression prerequisites and artwork/quote redistribution approval
+explicit in the linked issue/PR. No physical check or rights approval is implied
+by passing unit tests or opening a draft PR.

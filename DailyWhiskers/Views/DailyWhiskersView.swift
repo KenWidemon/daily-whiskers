@@ -26,6 +26,8 @@ struct DailyWhiskersView: View {
     @StateObject private var accountRequest = AuthRequestState()
     @StateObject private var deletionRequest = AuthRequestState()
     @State private var accountSheet: AccountSheet?
+    @StateObject private var shareState = DailyCardShareState()
+    @AccessibilityFocusState private var shareFocused: Bool
     @AccessibilityFocusState private var settingsFocused: Bool
 
     var body: some View {
@@ -57,6 +59,36 @@ struct DailyWhiskersView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        guard let card = contentState.currentCard else { return }
+                        shareFocused = false
+                        Task { await shareState.start(card: card) }
+                    } label: {
+                        Group {
+                            if shareState.isRendering {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                        .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .disabled(contentState.currentCard == nil || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : "Share Today's Card")
+                    .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
+                    .accessibilityIdentifier("share-daily-card")
+                    .accessibilityFocused($shareFocused)
+                    .background {
+                        DailyCardShareSheet(export: shareState.export) { failed in
+                            shareState.completeActivity(failed: failed)
+                            shareState.sheetDismissed()
+                            shareFocused = true
+                        }
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Link("Privacy Policy", destination: AppLinks.privacyPolicy)
                         Link("Support", destination: AppLinks.support)
@@ -86,14 +118,19 @@ struct DailyWhiskersView: View {
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
+                    .disabled(shareState.isRendering || shareState.export != nil)
                     .accessibilityLabel("Settings")
                     .accessibilityHint("Opens privacy, support, and optional account tools.")
                     .accessibilityFocused($settingsFocused)
+                    // A closing menu must not restore focus behind its account sheet.
+                    .accessibilityHidden(accountSheet != nil)
                 }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $accountSheet, onDismiss: {
+                // A previous dismissal must not focus Settings over a replacement sheet.
+                guard accountSheet == nil else { return }
                 deletionRequest.clearFeedback()
                 settingsFocused = true
             }) { sheet in
@@ -103,6 +140,15 @@ struct DailyWhiskersView: View {
                 case .deletion:
                     DeleteAccountView(request: deletionRequest)
                 }
+            }
+            .alert("Couldn't Share Card", isPresented: $shareState.hasError) {
+                Button("Try Again") { Task { await shareState.retry() } }
+                Button("Cancel", role: .cancel) {
+                    shareState.finish()
+                    shareFocused = true
+                }
+            } message: {
+                Text("The card couldn't be prepared or shared. Please try again.")
             }
             .onChange(of: router.authState) { previous, state in
                 // Successful sign-in/deletion (or an external session change) closes
