@@ -31,7 +31,7 @@ final class DailyCardSharingTests: XCTestCase {
         checkCancellation(orientation: .landscapeLeft, textSize: .accessibilityExtraExtraExtraLarge)
     }
 
-    func testSettingsAccessibilityIsExcludedUntilAccountSheetDismisses() {
+    func testAccountSheetKeepsLocalNavigationUsableAcrossReopening() {
         XCUIDevice.shared.orientation = .portrait
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
         app.launch()
@@ -45,7 +45,9 @@ final class DailyCardSharingTests: XCTestCase {
             signIn.tap()
             let form = app.scrollViews["auth-form"]
             XCTAssertTrue(form.waitForExistence(timeout: 5))
-            let excluded = NSPredicate { _, _ in !settings.exists }
+            // XCTest includes the covered toolbar in its UI hierarchy; this checks
+            // interaction isolation, not VoiceOver focus eligibility.
+            let excluded = NSPredicate { _, _ in !settings.isHittable }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: excluded, object: nil)], timeout: 5), .completed)
             XCTAssertTrue(app.buttons["Close"].isHittable)
 
@@ -53,13 +55,13 @@ final class DailyCardSharingTests: XCTestCase {
             tapInForm(app.buttons["Forgot password?"])
             XCTAssertTrue(app.staticTexts["Enter a valid email address."].waitForExistence(timeout: 5))
             XCTAssertFalse(app.alerts["Check Your Email"].exists)
-            XCTAssertFalse(settings.exists)
+            XCTAssertFalse(settings.isHittable)
             tapInForm(app.buttons["Create Account"])
             XCTAssertTrue(app.textFields["registration-email"].waitForExistence(timeout: 5))
-            XCTAssertFalse(settings.exists)
+            XCTAssertFalse(settings.isHittable)
             tapInForm(app.buttons["Back to Sign In"])
             XCTAssertTrue(app.buttons["Forgot password?"].waitForExistence(timeout: 5))
-            XCTAssertFalse(settings.exists)
+            XCTAssertFalse(settings.isHittable)
             app.buttons["Close"].tap()
             XCTAssertTrue(settings.waitForExistence(timeout: 5))
             XCTAssertFalse(form.exists)
