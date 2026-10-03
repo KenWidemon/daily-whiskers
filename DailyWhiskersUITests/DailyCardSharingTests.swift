@@ -12,7 +12,7 @@ final class DailyCardSharingTests: XCTestCase {
 
     override func tearDownWithError() throws {
         if let run = testRun, run.failureCount > 0 {
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             screenshot.lifetime = .keepAlways
             add(screenshot)
             let hierarchy = XCTAttachment(string: app.debugDescription)
@@ -98,7 +98,7 @@ final class DailyCardSharingTests: XCTestCase {
                 return landscape ? frame.width > frame.height : frame.height > frame.width
             }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: rotated, object: nil)], timeout: 10), .completed)
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             screenshot.name = "Main canvas rotation \(initial.rawValue)-\(index)"
             screenshot.lifetime = .keepAlways
             add(screenshot)
@@ -173,7 +173,7 @@ final class DailyCardSharingTests: XCTestCase {
             if UIDevice.current.userInterfaceIdiom == .phone && !compactPortrait {
                 XCTAssertTrue(close.waitForExistence(timeout: 10), "The expanded phone sheet must offer Close.")
             }
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             screenshot.name = "Daily card system share sheet"
             screenshot.lifetime = .keepAlways
             add(screenshot)
