@@ -377,7 +377,10 @@ final class AuthLayoutTests: XCTestCase {
     private func waitForVisibleKey(_ key: XCUIElement) {
         let visible = NSPredicate { [self] _, _ in
             guard key.exists, key.isHittable else { return false }
-            return app.windows.firstMatch.frame.contains(key.frame)
+            // UIKit can round an edge key's accessibility frame half a point
+            // beyond the display. Keep the visible, hittable-key precondition
+            // while allowing that rounding; offscreen keyboards still fail.
+            return app.windows.firstMatch.frame.insetBy(dx: -1, dy: -1).contains(key.frame)
         }
         let ready = XCTNSPredicateExpectation(predicate: visible, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed,
