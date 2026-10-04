@@ -29,8 +29,7 @@ struct AuthTextField: UIViewRepresentable {
     }
 
     func updateUIView(_ field: UITextField, context: Context) {
-        context.coordinator.parent = self
-        configure(field)
+        context.coordinator.update(field, parent: self)
         if isFocused && !field.isFirstResponder && isEnabled {
             DispatchQueue.main.async { [weak field, weak coordinator = context.coordinator] in
                 guard let parent = coordinator?.parent, parent.isFocused, parent.isEnabled else { return }
@@ -41,20 +40,29 @@ struct AuthTextField: UIViewRepresentable {
         }
     }
 
-    /// Apply traits and visibility to the same native input, preserving its edit.
-    func configure(_ field: UITextField) {
+    static func dismantleUIView(_ field: UITextField, coordinator: Coordinator) {
+        coordinator.invalidate(field)
+    }
+
+    /// Apply traits and visibility without replacing an unreported native edit.
+    func configure(_ field: UITextField, preservingNativeText nativeText: String? = nil) {
+        let displayedText = nativeText ?? text
         field.font = .preferredFont(forTextStyle: .body)
         field.textColor = .label
         field.attributedPlaceholder = NSAttributedString(string: label, attributes: [.foregroundColor: UIColor(white: 0.38, alpha: 1)])
         field.accessibilityLabel = label
         field.accessibilityIdentifier = identifier
         field.accessibilityHint = accessibilityHint
-        field.textContentType = contentType
-        field.passwordRules = passwordRules.map { UITextInputPasswordRules(descriptor: $0) }
-        field.keyboardType = contentType == .emailAddress ? .emailAddress : .default
-        field.returnKeyType = returnKey
+        // Do not reassign unchanged AutoFill traits on unrelated renders.
+        if field.textContentType != contentType { field.textContentType = contentType }
+        if field.passwordRules?.passwordRulesDescriptor != passwordRules {
+            field.passwordRules = passwordRules.map { UITextInputPasswordRules(descriptor: $0) }
+        }
+        let keyboard: UIKeyboardType = contentType == .emailAddress ? .emailAddress : .default
+        if field.keyboardType != keyboard { field.keyboardType = keyboard }
+        if field.returnKeyType != returnKey { field.returnKeyType = returnKey }
         field.isEnabled = isEnabled
-        if !(field.text ?? "").utf8.elementsEqual(text.utf8) { field.text = text }
+        if !(field.text ?? "").utf8.elementsEqual(displayedText.utf8) { field.text = displayedText }
         if field.isSecureTextEntry != isSecure {
             let selection = field.selectedTextRange.map {
                 (field.offset(from: field.beginningOfDocument, to: $0.start),
@@ -65,7 +73,7 @@ struct AuthTextField: UIViewRepresentable {
                 // Reset UIKit's secure-entry replacement state through its input
                 // API; assigning `text` alone can discard input on the next key.
                 field.text = ""
-                field.insertText(text)
+                field.insertText(displayedText)
             }
             if let (start, end) = selection,
                let startPosition = field.position(from: field.beginningOfDocument, offset: start),
@@ -75,7 +83,7 @@ struct AuthTextField: UIViewRepresentable {
         }
         // Do not read a revealed password aloud when VoiceOver focuses the field.
         let isPassword = contentType == .password || contentType == .newPassword
-        field.accessibilityValue = isPassword ? (text.isEmpty ? "Empty" : "Password entered") : nil
+        field.accessibilityValue = isPassword ? (displayedText.isEmpty ? "Empty" : "Password entered") : nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
@@ -86,10 +94,63 @@ struct AuthTextField: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: AuthTextField
-        init(_ parent: AuthTextField) { self.parent = parent }
+        private var lastModelText: String
+        private var hasConfiguredField = false
+        private var isApplyingModel = false
+        private var isValid = true
+        private var updateRevision = 0
+
+        init(_ parent: AuthTextField) {
+            self.parent = parent
+            lastModelText = parent.text
+        }
+
+        func update(_ field: UITextField, parent: AuthTextField) {
+            self.parent = parent
+            updateRevision += 1
+            let revision = updateRevision
+            let modelText = parent.text
+            let modelChanged = !hasConfiguredField || !modelText.utf8.elementsEqual(lastModelText.utf8)
+            hasConfiguredField = true
+            // A changed model is an explicit replacement/clear. Otherwise UIKit may
+            // already contain an insertion whose editingChanged callback is pending.
+            if modelChanged { lastModelText = modelText }
+            let displayedText = modelChanged ? modelText : (field.text ?? "")
+            isApplyingModel = true
+            parent.configure(field, preservingNativeText: displayedText)
+            isApplyingModel = false
+            guard !displayedText.utf8.elementsEqual(modelText.utf8) else { return }
+            // Publishing during updateUIView would mutate SwiftUI state mid-render.
+            // A newer edit, model clear, or dismantled field must win over this work.
+            DispatchQueue.main.async { [weak self, weak field] in
+                guard let self, let field, self.isValid, self.updateRevision == revision,
+                      self.parent.text.utf8.elementsEqual(modelText.utf8),
+                      (field.text ?? "").utf8.elementsEqual(displayedText.utf8) else { return }
+                self.changed(field)
+            }
+        }
+
         @objc func changed(_ field: UITextField) {
+            guard isValid, !isApplyingModel,
+                  parent.text.utf8.elementsEqual(lastModelText.utf8) else { return }
+            updateRevision += 1
             let text = field.text ?? ""
+            lastModelText = text
             if !parent.text.utf8.elementsEqual(text.utf8) { parent.text = text }
+        }
+
+        func textFieldDidChangeSelection(_ textField: UITextField) {
+            // Reconcile native replacements as well as ordinary keyboard edits.
+            changed(textField)
+        }
+
+        func invalidate(_ field: UITextField) {
+            isValid = false
+            updateRevision += 1
+            field.delegate = nil
+            field.removeTarget(self, action: #selector(changed(_:)), for: .editingChanged)
+            field.text = ""
+            lastModelText = ""
         }
         func textFieldDidBeginEditing(_ textField: UITextField) {
             if textField.isSecureTextEntry, let text = textField.text, !text.isEmpty {
@@ -110,6 +171,7 @@ struct AuthTextField: UIViewRepresentable {
             if !parent.isFocused { parent.isFocused = true }
         }
         func textFieldDidEndEditing(_ textField: UITextField) {
+            changed(textField)
             if parent.isFocused { parent.isFocused = false }
         }
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {

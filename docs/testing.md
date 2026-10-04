@@ -66,6 +66,20 @@ Use a controlled account for explicitly chosen live checks. Never put passwords,
 reset links, or account addresses in the evidence. Automated tests use synthetic
 input and injected operations; they do not prove live auth or password-manager use.
 
+### Native Input Synchronization
+
+Native-field unit coverage includes synthetic pending input in both registration
+fields before editing callbacks, unrelated SwiftUI refreshes, stable AutoFill
+traits, selection/end-editing callbacks, visibility with a pending edit, explicit
+model clearing and view dismantling. Native edits must survive a refresh; explicit
+model replacements and discarded forms must not be restored by queued work.
+These tests exercise the bridge ordering, not an actual password provider.
+
+For a provider-specific failure, record the provider and device separately. A
+successful fill with another provider does not establish Apple Passwords acceptance.
+Confirm generated input reaches both registration fields and remains editable
+through focus/visibility changes, without submitting merely to test AutoFill.
+
 ### Shared Physical Session
 
 Run on iPhone and iPad, in portrait and landscape where applicable. Mark each
