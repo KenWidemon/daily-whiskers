@@ -22,7 +22,8 @@ Development tests do not retroactively validate the frozen V1 binary.
   reset delivery or backend policy changes belong in those tests.
 - Native-field tests repeat registration mounts, detached-field clearing and
   synthetic native replacements across focus changes. These checks do not invoke
-  a real strong-password provider.
+  a real strong-password provider. The offline UI regression repeats editing
+  after Back, sheet Close and explicit process termination/relaunch.
 - Keep the known largest-text Sign In landscape assertion and keyboard precondition
   intact. A skipped/deferred test is not a pass; report exact selected tests/results.
 
