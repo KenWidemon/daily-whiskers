@@ -19,6 +19,12 @@ Configuration guide, not a second release roadmap. See the
   every referenced PNG exists and has no alpha channel.
 - Local Firebase configuration remains ignored by Git. The CI plist is fake
   test configuration and must not be used for a distribution build.
+- Password AutoFill uses `webcredentials:daily-whiskers.web.app`. XcodeGen
+  supplies the Associated Domains capability and entitlement for Debug and Release.
+  Signing profiles must authorize Associated Domains; verify the signed app's
+  application identifier against the host's `/.well-known/apple-app-site-association`
+  response before distributing a build.
+  This domain configuration does not establish successful on-device AutoFill.
 - Ken approved `ITSAppUsesNonExemptEncryption = NO` for the reviewed app/Firebase
   Auth path. XcodeGen preserves it for Debug and Release; a regression test checks
   the packaged Boolean. Reassess dependencies and verify the exact RC declaration

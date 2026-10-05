@@ -35,7 +35,7 @@ struct CreateAccountView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Email").font(.subheadline.weight(.semibold))
                 AuthTextField(label: "Email", text: $form.email, isFocused: focus(.email),
-                              isEnabled: !request.isWorking, contentType: .emailAddress,
+                              isEnabled: !request.isWorking, contentType: .username, keyboardType: .emailAddress,
                               identifier: "registration-email") {
                     focusedField = .password
                 }

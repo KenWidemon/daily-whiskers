@@ -84,6 +84,7 @@
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
 		894E64BBBF94F39B0C8F6606 /* CreateAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateAccountView.swift; sourceTree = "<group>"; };
 		917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
+		988EDE1EBBAC22AF0B241EB3 /* DailyWhiskers.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyWhiskers.entitlements; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
@@ -207,6 +208,7 @@
 			children = (
 				68964F9F5CF6E338D4855489 /* AppRouter.swift */,
 				14427E6E78184E5322A7BE40 /* Assets.xcassets */,
+				988EDE1EBBAC22AF0B241EB3 /* DailyWhiskers.entitlements */,
 				7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */,
 				EF4BC92A5E83B9EFB48A9D04 /* Models */,
 				B8E545F01C8523CF52683A93 /* Services */,
@@ -300,6 +302,11 @@
 					2AB9B0B3C585C082AD7E240D = {
 						DevelopmentTeam = HYU33CNQ69;
 						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.AssociatedDomains = {
+								enabled = 1;
+							};
+						};
 					};
 					89A545EE19A8CC480521F425 = {
 						TestTargetID = 2AB9B0B3C585C082AD7E240D;
@@ -413,6 +420,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DailyWhiskers/DailyWhiskers.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -442,6 +450,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DailyWhiskers/DailyWhiskers.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

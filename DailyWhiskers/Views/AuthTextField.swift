@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// A stable native field keeps first responder, selection, and AutoFill intact
-/// when password visibility changes. The trailing control lives in SwiftUI.
+/// A stable native field preserves selection and input traits across visibility changes.
+/// Provider acceptance requires physical validation. The trailing control lives in SwiftUI.
 struct AuthTextField: UIViewRepresentable {
     let label: String
     @Binding var text: String
@@ -10,6 +10,7 @@ struct AuthTextField: UIViewRepresentable {
     var isSecure = false
     var isEnabled = true
     let contentType: UITextContentType
+    var keyboardType: UIKeyboardType? = nil
     let identifier: String
     var accessibilityHint: String?
     var returnKey: UIReturnKeyType = .next
@@ -58,7 +59,7 @@ struct AuthTextField: UIViewRepresentable {
         if field.passwordRules?.passwordRulesDescriptor != passwordRules {
             field.passwordRules = passwordRules.map { UITextInputPasswordRules(descriptor: $0) }
         }
-        let keyboard: UIKeyboardType = contentType == .emailAddress ? .emailAddress : .default
+        let keyboard: UIKeyboardType = keyboardType ?? (contentType == .emailAddress ? .emailAddress : .default)
         if field.keyboardType != keyboard { field.keyboardType = keyboard }
         if field.returnKeyType != returnKey { field.returnKeyType = returnKey }
         field.isEnabled = isEnabled
@@ -154,6 +155,11 @@ struct AuthTextField: UIViewRepresentable {
         }
         func textFieldDidBeginEditing(_ textField: UITextField) {
             if textField.isSecureTextEntry, let text = textField.text, !text.isEmpty {
+                // Selection/edit callbacks can fire inside the UIKit workaround.
+                // Its temporary empty field is not a user edit or draft discard.
+                let wasApplyingModel = isApplyingModel
+                isApplyingModel = true
+                defer { isApplyingModel = wasApplyingModel }
                 // A secure field also prepares to replace its contents when it
                 // regains focus. Reinsert without moving the user's caret/range.
                 let selection = textField.selectedTextRange.map {

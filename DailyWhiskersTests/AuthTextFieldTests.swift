@@ -6,6 +6,127 @@ import UIKit
 @Suite("Native authentication fields", .serialized)
 @MainActor
 struct AuthTextFieldTests {
+    @Test("Repeated registration mounts discard old native fields and accept new native edits")
+    func repeatedRegistrationMounts() async throws {
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first { $0.isKeyWindow }
+        let probe = RegistrationNavigationProbe()
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIHostingController(rootView: RegistrationNavigationHarness(probe: probe))
+        window.makeKeyAndVisible()
+        defer {
+            window.endEditing(true)
+            window.isHidden = true
+            window.rootViewController = nil
+            previous?.makeKeyAndVisible()
+        }
+        func settle() async throws {
+            window.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(200))
+            window.layoutIfNeeded()
+        }
+        func field(_ identifier: String, in view: UIView) -> UITextField? {
+            if let input = view as? UITextField, input.accessibilityIdentifier == identifier { return input }
+            return view.subviews.lazy.compactMap { field(identifier, in: $0) }.first
+        }
+        // Keep the old objects alive so pointer reuse cannot masquerade as reuse
+        // of a field. This harness tests removal/recreation of the real form;
+        // the UI test exercises the actual AuthView Back/Close button actions.
+        var retired: [UITextField] = []
+        try await settle()
+        for _ in 0..<3 {
+            probe.showingRegistration = true
+            try await settle()
+            let email = try #require(field("registration-email", in: window))
+            let password = try #require(field("registration-password", in: window))
+            let confirmation = try #require(field("registration-confirmation", in: window))
+            for input in [email, password, confirmation] {
+                #expect(!retired.contains { $0 === input })
+                #expect(input.text?.isEmpty != false)
+                #expect(!input.isFirstResponder)
+            }
+            #expect(email.textContentType == .username)
+            #expect(email.keyboardType == .emailAddress)
+            #expect(email.becomeFirstResponder())
+            email.insertText("repeat@example.invalid")
+            #expect(password.becomeFirstResponder())
+            try await settle()
+            // Synthetic native replacement exercises the bridge, not the
+            // system password provider or its strong-password panel.
+            for input in [password, confirmation] {
+                #expect(input.textContentType == .newPassword)
+                #expect(input.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
+                #expect(input.isSecureTextEntry)
+                input.text = "Synthetic-Repeat-1"
+                input.delegate?.textFieldDidChangeSelection?(input)
+            }
+            try await settle()
+            #expect(confirmation.becomeFirstResponder())
+            try await settle()
+            #expect(password.becomeFirstResponder())
+            try await settle()
+            #expect(field("registration-password", in: window) === password)
+            #expect(field("registration-confirmation", in: window) === confirmation)
+            #expect(password.text == "Synthetic-Repeat-1")
+            #expect(confirmation.text == "Synthetic-Repeat-1")
+            let oldCoordinator = try #require(password.delegate as? AuthTextField.Coordinator)
+            probe.showingRegistration = false
+            try await settle()
+            #expect(field("registration-password", in: window) == nil)
+            for input in [email, password, confirmation] {
+                #expect(input.delegate == nil)
+                #expect(input.text == "")
+                #expect(!input.isFirstResponder)
+            }
+            // An already queued callback from a dismantled form must be inert.
+            password.text = "Synthetic-Late-2"
+            oldCoordinator.changed(password)
+            retired += [email, password, confirmation]
+        }
+    }
+
+    @Test("The real registration form tags its account identifier and both new-password fields")
+    func registrationFormTraits() async throws {
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIHostingController(rootView: RegistrationTraitHarness())
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; previous?.makeKeyAndVisible() }
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(150))
+        func field(_ identifier: String, in view: UIView) -> UITextField? {
+            if let input = view as? UITextField, input.accessibilityIdentifier == identifier { return input }
+            return view.subviews.lazy.compactMap { field(identifier, in: $0) }.first
+        }
+        let email = try #require(field("registration-email", in: window))
+        #expect(email.textContentType == .username)
+        #expect(email.keyboardType == .emailAddress)
+        #expect(!email.isSecureTextEntry)
+        for identifier in ["registration-password", "registration-confirmation"] {
+            let password = try #require(field(identifier, in: window))
+            #expect(password.textContentType == .newPassword)
+            #expect(password.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
+            #expect(password.isSecureTextEntry)
+        }
+    }
+
+    @Test("Email account identifiers use username semantics with an email keyboard")
+    func usernameWithEmailKeyboard() {
+        let input = AuthTextField(label: "Email", text: .constant(""), isFocused: .constant(false),
+                                  contentType: .username, keyboardType: .emailAddress,
+                                  identifier: "registration-email", onSubmit: {})
+        let field = UITextField()
+        input.configure(field)
+        let originalContentType = field.textContentType
+        input.configure(field)
+        #expect(field.textContentType == .username)
+        #expect(field.textContentType == originalContentType)
+        #expect(field.keyboardType == .emailAddress)
+        #expect(!field.isSecureTextEntry)
+        #expect(field.passwordRules == nil)
+    }
+
     @Test("Returning and new passwords keep distinct AutoFill traits and private values",
           arguments: [UITextContentType.password.rawValue, UITextContentType.newPassword.rawValue])
     func passwordTraits(_ rawType: String) {
@@ -294,6 +415,164 @@ struct AuthTextFieldTests {
         #expect(host.model.confirmation == synthetic)
     }
 
+    @Test("Production State form bindings retain native two-field replacement with delegates active")
+    func stateFormRetainsNativeReplacement() async throws {
+        let host = try HostedStateRegistrationFields()
+        defer { host.close() }
+        try await host.settle()
+        let password = try #require(host.field("state-password"))
+        let confirmation = try #require(host.field("state-confirmation"))
+        let synthetic = "Synthetic-State-42"
+        // Exercise live delegates and projected members of one @State value.
+        // These native operations still do not simulate a password provider.
+        password.text = synthetic
+        confirmation.text = synthetic
+        password.sendActions(for: .editingChanged)
+        confirmation.sendActions(for: .editingChanged)
+        host.probe.revision += 1
+        try await host.settle()
+        let nativeValuesMatch = password.text == synthetic && confirmation.text == synthetic
+        let modelValuesMatch = host.probe.form.password == synthetic && host.probe.form.confirmation == synthetic
+        #expect(nativeValuesMatch)
+        #expect(modelValuesMatch)
+
+        host.probe.clearRequest += 1
+        try await host.settle()
+        let nativeDraftDiscarded = password.text == "" && confirmation.text == ""
+        let modelDraftDiscarded = host.probe.form.password.isEmpty && host.probe.form.confirmation.isEmpty
+        #expect(nativeDraftDiscarded)
+        #expect(modelDraftDiscarded)
+    }
+
+    @Test("Production State form retains unreported native replacements across a refresh")
+    func stateFormRetainsPendingNativeReplacement() async throws {
+        let host = try HostedStateRegistrationFields()
+        defer { host.close() }
+        try await host.settle()
+        let password = try #require(host.field("state-password"))
+        let confirmation = try #require(host.field("state-confirmation"))
+        let synthetic = "Synthetic-State-Pending-42"
+        password.text = synthetic
+        confirmation.text = synthetic
+        host.probe.revision += 1
+        try await host.settle()
+        let nativeValuesMatch = password.text == synthetic && confirmation.text == synthetic
+        let modelValuesMatch = host.probe.form.password == synthetic && host.probe.form.confirmation == synthetic
+        #expect(nativeValuesMatch)
+        #expect(modelValuesMatch)
+    }
+
+    @Test("Secure native refocus does not publish an intermediate cleared model")
+    func secureRefocusDoesNotPublishTransientClear() async throws {
+        var draft = "Synthetic-Refocus-42"
+        var focused = false
+        var transientClearPublished = false
+        let input = AuthTextField(label: "Password", text: Binding(get: { draft }, set: {
+            if $0.isEmpty { transientClearPublished = true }
+            draft = $0
+        }), isFocused: Binding(get: { focused }, set: { focused = $0 }),
+        isSecure: true, contentType: .newPassword, identifier: "refocus-probe", onSubmit: {})
+        let coordinator = input.makeCoordinator()
+        let field = UITextField()
+        field.delegate = coordinator
+        field.addTarget(coordinator, action: #selector(AuthTextField.Coordinator.changed(_:)), for: .editingChanged)
+        coordinator.update(field, parent: input)
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIViewController()
+        window.rootViewController?.view.addSubview(field)
+        window.makeKeyAndVisible()
+        defer {
+            field.resignFirstResponder()
+            window.isHidden = true
+            previous?.makeKeyAndVisible()
+        }
+        #expect(field.becomeFirstResponder())
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(field.resignFirstResponder())
+        #expect(field.becomeFirstResponder())
+        try await Task.sleep(for: .milliseconds(150))
+        let finalValuePreserved = draft == "Synthetic-Refocus-42" && field.text == draft
+        #expect(finalValuePreserved)
+        #expect(!transientClearPublished)
+    }
+
+}
+
+@MainActor
+private final class StateRegistrationProbe: ObservableObject {
+    @Published var revision = 0
+    @Published var clearRequest = 0
+    var form = RegistrationForm()
+}
+
+private struct StateRegistrationHarness: View {
+    @ObservedObject var probe: StateRegistrationProbe
+    @State private var form = RegistrationForm()
+    @State private var focusedField: Int?
+
+    private func focus(_ field: Int) -> Binding<Bool> {
+        Binding(get: { focusedField == field }, set: { focused in
+            if focused { focusedField = field }
+            else if focusedField == field { focusedField = nil }
+        })
+    }
+
+    var body: some View {
+        VStack {
+            AuthTextField(label: "Password", text: $form.password, isFocused: focus(1),
+                          isSecure: !form.passwordVisible, contentType: .newPassword,
+                          identifier: "state-password", accessibilityHint: "Refresh \(probe.revision)",
+                          passwordRules: RegistrationForm.passwordRules, onSubmit: {})
+            AuthTextField(label: "Confirm Password", text: $form.confirmation, isFocused: focus(2),
+                          isSecure: !form.confirmationVisible, contentType: .newPassword,
+                          identifier: "state-confirmation", accessibilityHint: "Refresh \(probe.revision)",
+                          passwordRules: RegistrationForm.passwordRules, onSubmit: {})
+        }
+        .onChange(of: form) { _, updated in probe.form = updated }
+        .onChange(of: probe.clearRequest) { _, _ in
+            focusedField = nil
+            form.clearPasswords()
+        }
+    }
+}
+
+@MainActor
+private final class HostedStateRegistrationFields {
+    let probe = StateRegistrationProbe()
+    let window: UIWindow
+    let previousWindow: UIWindow?
+
+    init() throws {
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        previousWindow = scene.windows.first { $0.isKeyWindow }
+        window = UIWindow(windowScene: scene)
+        window.rootViewController = UIHostingController(rootView: StateRegistrationHarness(probe: probe))
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+    }
+
+    func field(_ identifier: String) -> UITextField? {
+        func search(_ view: UIView) -> UITextField? {
+            if let field = view as? UITextField, field.accessibilityIdentifier == identifier { return field }
+            return view.subviews.lazy.compactMap(search).first
+        }
+        return search(window)
+    }
+
+    func settle() async throws {
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(150))
+        window.layoutIfNeeded()
+    }
+
+    func close() {
+        window.endEditing(true)
+        window.isHidden = true
+        window.rootViewController = nil
+        previousWindow?.makeKeyAndVisible()
+    }
 }
 
 
@@ -356,5 +635,51 @@ private final class HostedRegistrationFields {
         window.isHidden = true
         window.rootViewController = nil
         previousWindow?.makeKeyAndVisible()
+    }
+}
+
+private struct RegistrationTraitHarness: View {
+    @StateObject private var request = AuthRequestState()
+    var body: some View {
+        ScrollViewReader { scroll in
+            ScrollView {
+                CreateAccountView(email: "", request: request, scroll: scroll, onBack: {})
+            }
+        }
+    }
+}
+
+@MainActor
+private final class RegistrationNavigationProbe: ObservableObject {
+    @Published var showingRegistration = false
+}
+
+private struct RegistrationNavigationHarness: View {
+    @ObservedObject var probe: RegistrationNavigationProbe
+    @StateObject private var request = AuthRequestState()
+
+    var body: some View {
+        NavigationStack {
+            GeometryReader { geometry in
+                ScrollViewReader { scroll in
+                    ScrollView {
+                        Group {
+                            if probe.showingRegistration {
+                                CreateAccountView(email: "", request: request, scroll: scroll) {
+                                    probe.showingRegistration = false
+                                }
+                            } else {
+                                Text("Sign In")
+                            }
+                        }
+                        .frame(maxWidth: 520)
+                        .padding(.vertical, 28)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: geometry.size.height)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                }
+            }
+        }
     }
 }

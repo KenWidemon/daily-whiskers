@@ -20,6 +20,9 @@ Development tests do not retroactively validate the frozen V1 binary.
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
+- Native-field tests repeat registration mounts, detached-field clearing and
+  synthetic native replacements across focus changes. These checks do not invoke
+  a real strong-password provider.
 - Keep the known largest-text Sign In landscape assertion and keyboard precondition
   intact. A skipped/deferred test is not a pass; report exact selected tests/results.
 
@@ -73,7 +76,38 @@ fields before editing callbacks, unrelated SwiftUI refreshes, stable AutoFill
 traits, selection/end-editing callbacks, visibility with a pending edit, explicit
 model clearing and view dismantling. Native edits must survive a refresh; explicit
 model replacements and discarded forms must not be restored by queued work.
+Programmatic secure-entry caret restoration must not publish a temporary cleared
+model. Coverage also uses production-shaped `@State RegistrationForm` bindings
+with native delegates active.
 These tests exercise the bridge ordering, not an actual password provider.
+
+Apple Passwords strong-password acceptance remains an unresolved physical-device
+issue ([#85](https://github.com/KenWidemon/daily-whiskers/issues/85)). Keep its
+provider results separate from manual registration, synthetic input tests and
+association-file checks. The native synchronization and secure-refocus guard
+protect independently reproduced input defects; they are not established fixes
+for the provider failure. Temporary diagnostic/comparison screens are excluded
+from the intended production candidate. Do not promote those experiment branches
+as part of the ordinary authentication implementation.
+
+Manual password loss after dismissing the strong-password popup with its corner X
+is tracked separately in [#86](https://github.com/KenWidemon/daily-whiskers/issues/86).
+Its real provider callback ordering and relationship to #85 remain unproven.
+Synthetic native restoration and deliberate deletion checks do not establish
+physical popup-cancellation behavior. Test that manual input survives dismissal
+and confirmation editing without suppressing intentional clearing. Both defects
+remain open; development integration does not establish release acceptance.
+
+Registration's email account identifier uses `.username` content semantics with an
+explicit `.emailAddress` keyboard, independently of the password fields'
+`.newPassword` content semantics. This follows Apple's [field tagging guidance](https://developer.apple.com/documentation/security/enabling-password-autofill-on-a-text-input-view).
+The keyboard must remain email-friendly when content semantics change.
+
+Automatic strong-password support also depends on an [associated domain](https://developer.apple.com/documentation/security/about-the-password-autofill-workflow).
+Verify the signed app/profile, the chosen credential domain's association file,
+and actual device behavior before accepting this flow. Field tests alone do not
+establish domain association or provider compatibility. Capability, provisioning,
+and hosted-file changes require their own authorized configuration work.
 
 For a provider-specific failure, record the provider and device separately. A
 successful fill with another provider does not establish Apple Passwords acceptance.
