@@ -102,7 +102,13 @@ final class RegressionSmokeTests: XCTestCase {
 
     private func tapInForm(_ element: XCUIElement) {
         let scroll = app.scrollViews["auth-form"]
-        for _ in 0..<6 where !element.isHittable { scroll.swipeUp() }
+        for _ in 0..<6 where !element.isHittable {
+            // The default swipe can begin behind the docked keyboard and never
+            // scroll the form. Keep the gesture in its upper visible content.
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
         XCTAssertTrue(element.isHittable)
         element.tap()
     }
