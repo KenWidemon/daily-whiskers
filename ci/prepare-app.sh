@@ -4,6 +4,7 @@ set -euo pipefail
 # Keep these exact inputs aligned with ios.yml and the development README.
 test "$(uname -m)" = arm64
 uname -m
+{ xcodebuild -version; xcrun swift --version; xcrun --sdk iphonesimulator --show-sdk-version; } > build/toolchain.txt
 xcodebuild -version | tee "$RUNNER_TEMP/xcode-version.txt"
 grep -qx 'Xcode 26.6' "$RUNNER_TEMP/xcode-version.txt"
 grep -qx 'Build version 17F113' "$RUNNER_TEMP/xcode-version.txt"

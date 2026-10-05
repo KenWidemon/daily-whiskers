@@ -29,6 +29,25 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
 
+## Sign In Password Visibility
+
+Sign In starts masked. Its trailing Show/Hide Password control retains the native
+field, typed value, selection and editing focus without submitting a request.
+It exposes the current action and Hidden/Visible state to accessibility; password
+fields expose only Empty/Password entered on focus, including while revealed.
+The password masks on inactivity, auth requests and navigation; dismissing auth
+clears the draft. Returning-user validation remains a six-character minimum, with
+no new-account character rules. Both forms share the native fields and visibility
+control, with explicit existing/new-password AutoFill traits.
+
+The [combined physical acceptance procedure](../docs/testing.md#account-form-acceptance)
+keeps DW-005 and DW-006 results separate and retains outstanding/deferred checks.
+
+Automated results and remaining DW-006 acceptance limits are summarized in
+[testing](../docs/testing.md#dw-006-development-evidence). Detailed execution
+and review discussion belongs in [DW-006](https://github.com/KenWidemon/daily-whiskers/issues/55)
+and [PR #70](https://github.com/KenWidemon/daily-whiskers/pull/70).
+
 ## Sharing Today's Card
 
 The daily toolbar offers **Share Today's Card** to guests and signed-in users.
@@ -71,8 +90,9 @@ trimmed email is prefilled. Sign In's password is cleared on entry; registration
 passwords are cleared when leaving that form or dismissing auth. Registration
 keeps its input for correction after a failed request, without persisting or
 logging credentials. Password fields support AutoFill and independent visibility
-controls, and mask again when the app becomes inactive. Sign In visibility remains
-separate DW-006 work.
+controls, and mask again when the app becomes inactive. Sign In uses the same
+visibility control with existing-password AutoFill, while registration keeps
+new-password AutoFill and its generation rules.
 
 Registration validates email, password length and character types, and exact confirmation
 before calling Firebase. Passwords are never trimmed. Empty/invalid submissions
@@ -94,13 +114,45 @@ and confirmation compares exact UTF-8 input without Unicode normalization.
 Sign In retains its existing validation so older accounts remain usable.
 
 **Backend alignment remains pending.** The live Firebase `getPasswordPolicy`
-response was rechecked September 28, 2026: minimum 6, maximum 4096, no required
-character classes, enforcement `ENFORCE`. The new baseline is enforced by this
-registration form, not yet by Firebase. Before shipping it as a service-wide
+response was rechecked October 2, 2026 UTC: minimum 6, maximum 4096, no required
+character classes, enforcement `ENFORCE`; `forceUpgradeOnSignin` was not returned.
+The new baseline is enforced by this registration form, not yet by Firebase.
+Before shipping it as a service-wide
 policy, configure Firebase's new-password requirements to minimum 8, uppercase,
 lowercase, and numeric required; retain maximum 4096 and optional symbols.
 Review existing-release/password-reset compatibility and preserve existing-user
 sign-in before applying that live change. No Firebase settings were changed.
+
+The frozen V1 source (`v1.0.0-rc.1`, `20ae9cd`) enables both Sign In and
+Create Account at six characters, with no complexity guidance. A stricter server
+policy therefore changes V1 behavior immediately: previously eligible registration
+input can fail, and its `weakPassword` message incorrectly recommends six characters.
+Other unmapped service errors produce generic retry feedback. V1.1 has the new
+guidance and a policy-neutral backend rejection message, but cannot repair already
+installed V1 clients. Neither client implements an in-app password reset completion
+screen: it requests email and shows neutral confirmation; the email action handler
+owns the new-password entry and error presentation. Its behavior under the proposed
+policy still requires an authorized end-to-end check, not an inference from email
+request success.
+
+Safest rollout: retain the current server policy until the compatible client and
+reset flow are accepted and available, or Ken explicitly accepts the older-client
+registration impact. Before any separately approved change, capture the full current
+console configuration. In Firebase Authentication > Settings > Password policy,
+propose minimum **8**, maximum **4096**, uppercase/lowercase/numeric **required**,
+non-alphanumeric **optional**, and retain enforcement. Keep forced password upgrade
+on sign-in **off**; verify the console value explicitly because the read response
+omitted it. [Firebase's password-policy guidance](https://firebase.google.com/docs/auth/ios/password-auth#recommended_set_a_password_policy)
+warns that forcing upgrade can block existing users. Do not change providers or
+other security settings as part of this rollout.
+
+After approval, read back the policy and have the owner verify a pre-existing
+six-character account can still sign in on V1 and V1.1, new registration rejects
+noncompliant input and accepts compliant input, and the real reset link reports
+requirements and completes successfully. Account creation, reset email, and password
+entry each need the appropriate deliberate owner authorization; credentials and
+links stay out of evidence. Any rollback to the captured policy is also a separately
+approved security change, not an automatic response to a failing check.
 
 Registration tests use injected operations and synthetic credentials, not live
 account creation. The interaction suite covers navigation, credential isolation,
@@ -288,8 +340,37 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-build and unit suite with signing disabled. It does not replace live auth,
-interaction, physical accessibility, or release acceptance.
+unit suite, three offline UI smoke tests, and an unsigned Release build for
+`generic/platform=iOS Simulator`. Release compiles and packages simulator code;
+it is not a signed archive, device build, distribution or physical acceptance.
+
+The smoke suite selects only `RegressionSmokeTests` from the interaction scheme:
+guest daily content/relaunch, account tools open/dismiss, and local reset and
+registration validation/navigation. It uses existing accessible identifiers and
+bounded state waits, without retries, credentials, email or live account changes.
+Only the smoke Debug command adds `CI_SMOKE_TESTING`; together with `DEBUG` and
+`--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
+rejects every backend auth operation. The visible offline marker is asserted by
+the tests. Ordinary Debug and Release builds exclude this code. The Release
+check also rejects binaries containing the smoke seam's symbols/marker/argument.
+The existing larger `AuthLayoutTests` suite remains separate and unchanged.
+
+Each stage records start, completion, exit code and duration before the next
+stage. Unit, smoke and Release checks run independently after successful package
+resolution, so one failure does not hide the other results. An always-run evidence
+check rejects missing/unreadable result bundles, zero tests, failures and skips.
+Summaries use `xcresulttool get test-results summary`, which includes both XCTest
+and Swift Testing; they report test cases separately from per-device executions
+including dynamic parameters. Console XCTest totals are not combined or used as
+a substitute. Source head, tested checkout (including synthetic PR merge), event
+SHA, Xcode/Swift/SDK, observed simulator/runtime, counts, stage outcomes/durations,
+and artifact links identify the evidence. Raw failure details remain in the
+result bundles/logs instead of copying potential account data into summaries.
+
+Overall summaries run even on dependency failure and explain docs-only app skips.
+Interrupted stages and unavailable results never claim a pass. Original command
+failures remain failures even if summary generation succeeds. Hard cancellation
+or runner loss can prevent summaries/artifacts entirely; missing CI is not green.
 
 ### SwiftPM cache and lock enforcement
 
@@ -315,7 +396,7 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout remains 30 minutes; smaller jobs have explicit timeouts.
+The app timeout is 45 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with seven-day retention. Hard termination can prevent artifact upload; missing
@@ -357,8 +438,8 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 ```
 
 Use the normal signed development build and a local Firebase configuration.
-The existing `DailyWhiskers` unit-test scheme and CI job are unchanged. The UI
-suite restores portrait orientation and passes text size as a launch argument,
+The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects only the
+separate offline smoke class; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
 Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air

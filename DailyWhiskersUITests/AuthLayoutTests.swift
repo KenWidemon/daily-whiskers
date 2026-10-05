@@ -85,6 +85,74 @@ final class AuthLayoutTests: XCTestCase {
                        "Relaunching as a guest must not require authentication.")
     }
 
+    func testSignInVisibilityEditingAndLifecycle() {
+        launch(orientation: .portrait, textSize: .large)
+        let show = app.buttons["Show Password"]
+        let hide = app.buttons["Hide Password"]
+        XCTAssertTrue(app.secureTextFields["sign-in-password"].exists)
+        XCTAssertEqual(show.value as? String, "Hidden")
+        show.tap()
+        XCTAssertEqual(hide.value as? String, "Visible")
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        hide.tap()
+
+        let email = app.textFields["sign-in-email"]
+        email.tap()
+        email.typeText("validation@example.com")
+        let password = app.secureTextFields["sign-in-password"]
+        password.tap()
+        password.typeText("abc")
+        XCTAssertFalse(app.buttons["Sign In"].isEnabled)
+        show.tap()
+        XCTAssertEqual(app.textFields["sign-in-password"].value as? String, "Password entered")
+        waitForVisibleKey(app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "done")).firstMatch)
+        // Send keys to the current responder without tapping/refocusing the field.
+        app.typeText("de")
+        hide.tap()
+        app.typeText("f")
+        XCTAssertTrue(app.buttons["Sign In"].isEnabled,
+                      "Visibility changes must retain editing; existing six-character passwords remain eligible.")
+        XCTAssertTrue(app.buttons["Forgot password?"].isEnabled)
+        XCTAssertTrue(app.buttons["Create Account"].isEnabled)
+        show.tap()
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(show.waitForExistence(timeout: 5))
+        XCTAssertTrue(password.exists)
+        XCTAssertTrue(app.buttons["Sign In"].isEnabled)
+
+        show.tap()
+        app.buttons["Create Account"].tap()
+        app.buttons["Back to Sign In"].tap()
+        XCTAssertTrue(show.exists)
+        XCTAssertEqual(password.value as? String, "Empty")
+        XCTAssertFalse(app.buttons["Sign In"].isEnabled)
+        password.tap()
+        password.typeText("discard-me")
+        show.tap()
+        app.buttons["Close"].tap()
+        openOptionalSignIn()
+        XCTAssertTrue(show.exists)
+        XCTAssertEqual(password.value as? String, "Empty")
+        XCTAssertEqual(email.value as? String, "Email")
+        XCTAssertFalse(app.buttons["Sign In"].isEnabled)
+        // No Sign In, reset or registration submission occurs in this test.
+    }
+
+    func testSignInVisibilityLargeText() {
+        launch(orientation: .portrait, textSize: .accessibilityExtraExtraExtraLarge)
+        let scroll = app.scrollViews["auth-form"]
+        let show = app.buttons["Show Password"]
+        for _ in 0..<12 where !isFullyVisible(show) { scroll.swipeUp() }
+        XCTAssertTrue(isFullyVisible(show))
+        XCTAssertGreaterThanOrEqual(show.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(show.frame.height, 44)
+        show.tap()
+        XCTAssertTrue(app.buttons["Hide Password"].isHittable)
+        app.buttons["Hide Password"].tap()
+        XCTAssertTrue(app.secureTextFields["sign-in-password"].exists)
+    }
+
     func testRegistrationNavigationAndCredentialIsolation() {
         launch(orientation: .portrait, textSize: .large)
         app.textFields["Email"].tap()
@@ -99,7 +167,7 @@ final class AuthLayoutTests: XCTestCase {
         app.buttons["Back to Sign In"].tap()
         XCTAssertTrue(app.buttons["Forgot password?"].exists)
         XCTAssertFalse(app.buttons["Sign In"].isEnabled)
-        XCTAssertEqual(app.secureTextFields["Password"].value as? String, "Password")
+        XCTAssertEqual(app.secureTextFields["Password"].value as? String, "Empty")
         app.buttons["Create Account"].tap()
         app.buttons["Close"].tap()
         XCTAssertTrue(app.otherElements["daily-card"].exists)
@@ -148,6 +216,84 @@ final class AuthLayoutTests: XCTestCase {
         app.buttons["Back to Sign In"].tap()
         app.buttons["Create Account"].tap()
         XCTAssertEqual(app.secureTextFields["registration-password"].value as? String, "Empty")
+    }
+
+    func testRegistrationConfirmationPrivacyAndCloseDiscard() {
+        launch(orientation: .portrait, textSize: .large)
+        app.buttons["Create Account"].tap()
+        let password = app.secureTextFields["registration-password"]
+        let confirmation = app.secureTextFields["registration-confirmation"]
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        password.tap()
+        password.typeText("Synthetic1")
+        confirmation.tap()
+        confirmation.typeText("Synthetic1")
+
+        app.buttons["Show Password"].tap()
+        XCTAssertTrue(confirmation.exists, "Revealing the password must leave confirmation masked.")
+        app.buttons["Show Confirm Password"].tap()
+        XCTAssertEqual(app.textFields["registration-password"].value as? String, "Password entered")
+        XCTAssertEqual(app.textFields["registration-confirmation"].value as? String, "Password entered")
+        app.typeText("x")
+        app.buttons["Hide Confirm Password"].tap()
+        app.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertTrue(app.buttons["Hide Password"].exists,
+                      "Masking confirmation must leave the password visibility unchanged.")
+        app.buttons["Show Confirm Password"].tap()
+
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(app.buttons["Show Password"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Show Confirm Password"].exists)
+        XCTAssertEqual(password.value as? String, "Password entered")
+        XCTAssertEqual(confirmation.value as? String, "Password entered")
+
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
+        openOptionalSignIn()
+        app.buttons["Create Account"].tap()
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        XCTAssertEqual(password.value as? String, "Empty")
+        XCTAssertEqual(confirmation.value as? String, "Empty")
+        XCTAssertTrue(app.buttons["Show Password"].exists)
+        XCTAssertTrue(app.buttons["Show Confirm Password"].exists)
+        // No submission: this checks simulator lifecycle and accessibility values,
+        // not VoiceOver speech or exact input (covered by native-field unit tests).
+    }
+
+    func testSwipeDismissalDiscardsSignInAndRegistrationDrafts() {
+        launch(orientation: .portrait, textSize: .large)
+        for registration in [false, true] {
+            if registration { app.buttons["Create Account"].tap() }
+            let identifier = registration ? "registration-password" : "sign-in-password"
+            let password = app.secureTextFields[identifier]
+            XCTAssertTrue(password.waitForExistence(timeout: 5))
+            password.tap()
+            password.typeText("discard-me")
+            app.buttons["Show Password"].tap()
+
+            // The daily card's bar also remains in the phone hierarchy. Target
+            // the sheet by Close, then drag far enough to dismiss the sheet.
+            let sheetBar = app.navigationBars.containing(.button, identifier: "Close").firstMatch
+            XCTAssertTrue(sheetBar.exists)
+            let start = sheetBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let end = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                                      object: app.buttons["Close"])
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+            XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["Close"].exists)
+            openOptionalSignIn()
+            XCTAssertEqual(app.secureTextFields["sign-in-password"].value as? String, "Empty")
+            if registration {
+                app.buttons["Create Account"].tap()
+                XCTAssertTrue(password.waitForExistence(timeout: 5))
+                XCTAssertEqual(password.value as? String, "Empty")
+                XCTAssertEqual(app.secureTextFields["registration-confirmation"].value as? String, "Empty")
+            }
+            XCTAssertTrue(app.buttons["Show Password"].exists)
+        }
     }
 
     func testRegistrationLargeTextScrolling() {
@@ -231,7 +377,10 @@ final class AuthLayoutTests: XCTestCase {
     private func waitForVisibleKey(_ key: XCUIElement) {
         let visible = NSPredicate { [self] _, _ in
             guard key.exists, key.isHittable else { return false }
-            return app.windows.firstMatch.frame.contains(key.frame)
+            // UIKit can round an edge key's accessibility frame half a point
+            // beyond the display. Keep the visible, hittable-key precondition
+            // while allowing that rounding; offscreen keyboards still fail.
+            return app.windows.firstMatch.frame.insetBy(dx: -1, dy: -1).contains(key.frame)
         }
         let ready = XCTNSPredicateExpectation(predicate: visible, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed,
