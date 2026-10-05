@@ -331,6 +331,10 @@ and artifact links identify the evidence. Raw failure details remain in the
 result bundles/logs instead of copying potential account data into summaries.
 
 Overall summaries run even on dependency failure and explain docs-only app skips.
+For a docs-only PR, inspect the CI Gate summary for both source and tested merge
+SHAs, the docs classification, and explicit not-applicable app counts, duration,
+toolchain/device evidence and artifacts. A skipped app job alone does not prove
+that this summary was published or establish an app test pass.
 Interrupted stages and unavailable results never claim a pass. Original command
 failures remain failures even if summary generation succeeds. Hard cancellation
 or runner loss can prevent summaries/artifacts entirely; missing CI is not green.
