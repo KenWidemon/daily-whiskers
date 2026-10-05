@@ -302,8 +302,38 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-build and unit suite with signing disabled. It does not replace live auth,
-interaction, physical accessibility, or release acceptance.
+unit suite, four offline UI smoke tests, and an unsigned Release build for
+`generic/platform=iOS Simulator`. Release compiles and packages simulator code;
+it is not a signed archive, device build, distribution or physical acceptance.
+
+The smoke suite selects only `RegressionSmokeTests` from the interaction scheme:
+guest daily content/relaunch, account tools open/dismiss, local reset and
+registration validation/navigation, and repeated registration editing after Back,
+Close and process relaunch. It uses existing accessible identifiers and
+bounded state waits, without retries, credentials, email or live account changes.
+Only the smoke Debug command adds `CI_SMOKE_TESTING`; together with `DEBUG` and
+`--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
+rejects every backend auth operation. The visible offline marker is asserted by
+the tests. Ordinary Debug and Release builds exclude this code. The Release
+check also rejects binaries containing the smoke seam's symbols/marker/argument.
+The existing larger `AuthLayoutTests` suite remains separate and unchanged.
+
+Each stage records start, completion, exit code and duration before the next
+stage. Unit, smoke and Release checks run independently after successful package
+resolution, so one failure does not hide the other results. An always-run evidence
+check rejects missing/unreadable result bundles, zero tests, failures and skips.
+Summaries use `xcresulttool get test-results summary`, which includes both XCTest
+and Swift Testing; they report test cases separately from per-device executions
+including dynamic parameters. Console XCTest totals are not combined or used as
+a substitute. Source head, tested checkout (including synthetic PR merge), event
+SHA, Xcode/Swift/SDK, observed simulator/runtime, counts, stage outcomes/durations,
+and artifact links identify the evidence. Raw failure details remain in the
+result bundles/logs instead of copying potential account data into summaries.
+
+Overall summaries run even on dependency failure and explain docs-only app skips.
+Interrupted stages and unavailable results never claim a pass. Original command
+failures remain failures even if summary generation succeeds. Hard cancellation
+or runner loss can prevent summaries/artifacts entirely; missing CI is not green.
 
 ### SwiftPM cache and lock enforcement
 
@@ -329,7 +359,7 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout remains 30 minutes; smaller jobs have explicit timeouts.
+The app timeout is 45 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with seven-day retention. Hard termination can prevent artifact upload; missing
@@ -371,8 +401,8 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 ```
 
 Use the normal signed development build and a local Firebase configuration.
-The existing `DailyWhiskers` unit-test scheme and CI job are unchanged. The UI
-suite restores portrait orientation and passes text size as a launch argument,
+The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects only the
+separate offline smoke class; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
 Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air
