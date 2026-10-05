@@ -307,8 +307,9 @@ unit suite, four offline UI smoke tests, and an unsigned Release build for
 it is not a signed archive, device build, distribution or physical acceptance.
 
 The smoke suite selects only `RegressionSmokeTests` from the interaction scheme:
-guest daily content/relaunch, account tools open/dismiss, and local reset and
-registration validation/navigation. It uses existing accessible identifiers and
+guest daily content/relaunch, account tools open/dismiss, local reset and
+registration validation/navigation, and repeated registration editing after Back,
+Close and process relaunch. It uses existing accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 Only the smoke Debug command adds `CI_SMOKE_TESTING`; together with `DEBUG` and
 `--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
