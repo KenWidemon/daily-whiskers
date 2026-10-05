@@ -40,6 +40,7 @@
 		CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 14427E6E78184E5322A7BE40 /* Assets.xcassets */; };
 		D3CF63D1EC262516CC23276E /* DailyContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */; };
 		D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */; };
+		DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */; };
 		DB93C04A5505B24D31DE77A3 /* CISmokeMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A7C09369FF1213FE30C6AD /* CISmokeMode.swift */; };
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
 		FFF2684C59692E2FEDB6672E /* GuestAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5038272DE90C96D54A69B211 /* GuestAccessTests.swift */; };
@@ -64,6 +65,7 @@
 
 /* Begin PBXFileReference section */
 		03D49C6335115DC858536C84 /* AuthLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthLayoutTests.swift; sourceTree = "<group>"; };
+		0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTextFieldTests.swift; sourceTree = "<group>"; };
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A0132BD83383C6288582604 /* DailyWhiskersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersView.swift; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 		88A7C09369FF1213FE30C6AD /* CISmokeMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CISmokeMode.swift; sourceTree = "<group>"; };
 		894E64BBBF94F39B0C8F6606 /* CreateAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateAccountView.swift; sourceTree = "<group>"; };
 		917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
+		988EDE1EBBAC22AF0B241EB3 /* DailyWhiskers.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyWhiskers.entitlements; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A68AA9E4C7B8F961542B011C /* RegressionSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegressionSmokeTests.swift; sourceTree = "<group>"; };
@@ -128,6 +131,7 @@
 				5CA5B6FA8B03B217C1D67EC4 /* AccountDeletionTests.swift */,
 				594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */,
 				2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */,
+				0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */,
 				E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */,
 				A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */,
 				EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */,
@@ -210,6 +214,7 @@
 				68964F9F5CF6E338D4855489 /* AppRouter.swift */,
 				14427E6E78184E5322A7BE40 /* Assets.xcassets */,
 				88A7C09369FF1213FE30C6AD /* CISmokeMode.swift */,
+				988EDE1EBBAC22AF0B241EB3 /* DailyWhiskers.entitlements */,
 				7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */,
 				EF4BC92A5E83B9EFB48A9D04 /* Models */,
 				B8E545F01C8523CF52683A93 /* Services */,
@@ -303,6 +308,11 @@
 					2AB9B0B3C585C082AD7E240D = {
 						DevelopmentTeam = HYU33CNQ69;
 						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.AssociatedDomains = {
+								enabled = 1;
+							};
+						};
 					};
 					89A545EE19A8CC480521F425 = {
 						TestTargetID = 2AB9B0B3C585C082AD7E240D;
@@ -365,6 +375,7 @@
 				3C36FC20FC86871557DD7B96 /* AccountDeletionTests.swift in Sources */,
 				561E2DB3B877C881173146F0 /* AppLinksTests.swift in Sources */,
 				3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */,
+				DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */,
 				D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */,
 				7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */,
 				805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */,
@@ -417,6 +428,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DailyWhiskers/DailyWhiskers.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -446,6 +458,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DailyWhiskers/DailyWhiskers.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

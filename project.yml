@@ -26,6 +26,15 @@ targets:
   DailyWhiskers:
     type: application
     platform: iOS
+    attributes:
+      SystemCapabilities:
+        com.apple.AssociatedDomains:
+          enabled: 1
+    entitlements:
+      path: DailyWhiskers/DailyWhiskers.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - webcredentials:daily-whiskers.web.app
     sources:
       - path: DailyWhiskers
         excludes:
