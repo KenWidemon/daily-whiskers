@@ -340,7 +340,7 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, three offline UI smoke tests, and an unsigned Release build for
+unit suite, four offline UI smoke tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
