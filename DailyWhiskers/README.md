@@ -22,6 +22,9 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
 - Daily content refreshes when app returns to foreground and local day changed.
 - Signed-in Settings offers password-confirmed permanent account deletion.
 - Closing auth returns to the same daily card and discards unfinished credentials.
+  While an account sheet is active, its underlying Settings menu is hidden from
+  accessibility; dismissal restores Settings focus only when no replacement sheet
+  is active. This avoids requesting background focus during account presentation.
   Close/swipe dismissal is disabled while an auth request is running. Successful
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
@@ -44,6 +47,41 @@ Automated results and remaining DW-006 acceptance limits are summarized in
 [testing](../docs/testing.md#dw-006-development-evidence). Detailed execution
 and review discussion belongs in [DW-006](https://github.com/KenWidemon/daily-whiskers/issues/55)
 and [PR #70](https://github.com/KenWidemon/daily-whiskers/pull/70).
+
+## Sharing Today's Card
+
+The daily toolbar offers **Share Today's Card** to guests and signed-in users.
+It captures the displayed card when tapped, so a foreground/day change cannot
+replace an in-flight export. The system share sheet receives a freshly rendered
+image and a plain-text quote/vibe companion; the user chooses a destination and
+confirms sending. There is no account requirement, upload, tracking, or automatic
+posting in the app's sharing path. UIKit presents from the card screen's window
+root, with the Share button as the iPad popover anchor. Preview metadata uses only
+the local export and branding, without a URL or network preview lookup.
+
+The packaged app declares an add-only Photos purpose for a user-selected save
+from the system sheet. It does not request photo-library reading or prompt for
+access when opening the share sheet. Destination availability and successful
+saving still require device acceptance; a purpose string alone is not proof.
+
+The portrait image uses the bundled artwork in full, measured quote text, an
+optional vibe, and subtle Daily Whiskers branding. Rendering is offline at 1080
+pixels wide, scale 1, standard color range, with a maximum height of 2400 pixels
+(under 10 MiB for the RGBA canvas, excluding source/encoding overhead). Text grows
+the image vertically rather than shrinking or clipping. Unsupported future text
+that exceeds the bound fails with a retryable error. Content additions must pass
+the sharing tests and visual review.
+
+The app holds one export in memory, creates no temporary share files, and releases
+its image reference when the sheet completes or is dismissed. UIKit/destination
+apps manage any copies they create. A new bitmap excludes source image metadata;
+only artwork, quote, vibe, and branding are exported, without account identifiers,
+internal card IDs, date/location metadata, or Settings controls. Rendering or
+activity errors offer retry; cancellation leaves the daily card usable.
+
+Before release, confirm that the bundled artwork and quotes permit redistribution
+through user sharing. Implementation and tests do not establish those rights.
+See the [sharing acceptance procedure](../docs/testing.md#sharing-todays-card).
 
 ## Dedicated Registration
 
