@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct CreateAccountView: View {
-    private enum Field: Hashable { case email, password, confirmation }
+    private enum Field: Hashable { case email, password }
     private enum AccessibilityTarget: Hashable { case heading, error }
     @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
@@ -43,16 +43,11 @@ struct CreateAccountView: View {
                 .id(Field.email)
 
                 Text("Password").font(.subheadline.weight(.semibold))
-                passwordField(label: "Password", text: $form.password,
-                              visible: $form.passwordVisible, field: .password)
+                passwordField
                 Text(RegistrationForm.passwordRequirements)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("registration-requirements")
-
-                Text("Confirm Password").font(.subheadline.weight(.semibold))
-                passwordField(label: "Confirm Password", text: $form.confirmation,
-                              visible: $form.confirmationVisible, field: .confirmation)
             }
 
             Button {
@@ -74,7 +69,7 @@ struct CreateAccountView: View {
             .tint(Color(red: 0.24, green: 0.12, blue: 0.04))
             .disabled(request.isWorking)
             .accessibilityIdentifier("registration-submit")
-            .accessibilityHint("Creates your optional account. All fields are required.")
+            .accessibilityHint("Creates your optional account. Email and password are required.")
 
             if let message = request.errorMessage {
                 Text(message)
@@ -123,7 +118,6 @@ struct CreateAccountView: View {
         }
         .onChange(of: form.email) { _, _ in request.clearFeedback() }
         .onChange(of: form.password) { _, _ in request.clearFeedback() }
-        .onChange(of: form.confirmation) { _, _ in request.clearFeedback() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { form.maskPasswords() }
         }
@@ -146,21 +140,19 @@ struct CreateAccountView: View {
         })
     }
 
-    private func passwordField(label: String, text: Binding<String>, visible: Binding<Bool>, field: Field) -> some View {
+    private var passwordField: some View {
         HStack(spacing: 8) {
-            AuthTextField(label: label, text: text, isFocused: focus(field),
-                          isSecure: !visible.wrappedValue, isEnabled: !request.isWorking,
+            AuthTextField(label: "Password", text: $form.password, isFocused: focus(.password),
+                          isSecure: !form.passwordVisible, isEnabled: !request.isWorking,
                           contentType: .newPassword,
-                          identifier: field == .password ? "registration-password" : "registration-confirmation",
-                          returnKey: field == .confirmation ? .done : .next,
+                          identifier: "registration-password", returnKey: .done,
                           passwordRules: RegistrationForm.passwordRules) {
-                if field == .password { focusedField = .confirmation }
-                else { submit() }
+                submit()
             }
-            PasswordVisibilityButton(isVisible: visible, label: label, isEnabled: !request.isWorking)
+            PasswordVisibilityButton(isVisible: $form.passwordVisible, isEnabled: !request.isWorking)
         }
         .modifier(AuthFieldStyle())
-        .id(field)
+        .id(Field.password)
     }
 
     private func submit() {

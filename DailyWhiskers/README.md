@@ -14,7 +14,7 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   signed-in users. Privacy and Support are always available.
 - Optional auth UI supports:
   - Sign In (email/password)
-  - Dedicated Create Account form (email/password/confirmation)
+  - Dedicated Create Account form (email/password)
   - Forgot password (uses the entered email; no password required)
   - Debug-only "Use Test Account"
 - Daily content is selected deterministically from local date:
@@ -87,16 +87,17 @@ See the [sharing acceptance procedure](../docs/testing.md#sharing-todays-card).
 
 Create Account opens its own form without submitting Sign In credentials. Only
 trimmed email is prefilled. Sign In's password is cleared on entry; registration
-passwords are cleared when leaving that form or dismissing auth. Registration
+password is cleared when leaving that form or dismissing auth. Registration
 keeps its input for correction after a failed request, without persisting or
-logging credentials. Password fields support AutoFill and independent visibility
-controls, and mask again when the app becomes inactive. Sign In uses the same
+logging credentials. Each form has one password field with AutoFill and a
+Show/Hide control, and masks again when the app becomes inactive. Sign In uses the same
 visibility control with existing-password AutoFill, while registration keeps
 new-password AutoFill and its generation rules.
 
-Registration validates email, password length and character types, and exact confirmation
-before calling Firebase. Passwords are never trimmed. Empty/invalid submissions
-show accessible feedback; navigation is available with empty Sign In fields.
+Registration validates email, password length and character types before calling
+Firebase. Passwords are never trimmed or normalized. The password keyboard’s Done
+action submits the form, using the same validation and request lock as the button.
+Empty/invalid submissions show accessible feedback; navigation is available with empty Sign In fields.
 Both forms retain one request lock and existing progress/error announcements.
 Close and Back are disabled while a request runs; success closes auth through the
 existing session listener and leaves the daily card in place.
@@ -110,8 +111,16 @@ This is the selected length/character baseline, not a claim to reproduce Apple's
 complete account security system or its common-password screening.
 
 Length uses UTF-16 units to match [Firebase's reference policy validator](https://github.com/firebase/firebase-js-sdk/blob/main/packages/auth/src/core/auth/password_policy_impl.ts),
-and confirmation compares exact UTF-8 input without Unicode normalization.
+and the entered password is submitted with its exact UTF-8 input preserved.
 Sign In retains its existing validation so older accounts remain usable.
+
+Registration uses a single password to contain the cross-field loss reported in
+[#86](https://github.com/KenWidemon/daily-whiskers/issues/86). Removing confirmation
+reduces typo detection; Show/Hide offers optional visual review, and the existing
+email-reset flow remains the recovery path. Neither is an equivalent nonvisual
+confirmation check. This change does not establish that Apple’s popup dismissal
+works in one field or that the separate [#85 Fill failure](https://github.com/KenWidemon/daily-whiskers/issues/85) is fixed.
+Physical provider, manual-entry and accessibility acceptance remain required.
 
 **Backend alignment remains pending.** The live Firebase `getPasswordPolicy`
 response was rechecked October 2, 2026 UTC: minimum 6, maximum 4096, no required
@@ -341,21 +350,23 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, four offline UI smoke tests, and an unsigned Release build for
+unit suite, five offline UI smoke tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
 The smoke suite selects only `RegressionSmokeTests` from the interaction scheme:
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
-Close and process relaunch. It uses existing accessible identifiers and
+Close and process relaunch, plus single-password Done submission to the rejecting
+offline boundary. It uses existing accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
-Only the smoke Debug command adds `CI_SMOKE_TESTING`; together with `DEBUG` and
+The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and
 `--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
 rejects every backend auth operation. The visible offline marker is asserted by
 the tests. Ordinary Debug and Release builds exclude this code. The Release
 check also rejects binaries containing the smoke seam's symbols/marker/argument.
-The existing larger `AuthLayoutTests` suite remains separate and unchanged.
+The larger `AuthLayoutTests` suite remains separate and also requires the offline
+marker before interaction, including now-valid single-password submissions.
 
 Each stage records start, completion, exit code and duration before the next
 stage. Unit, smoke and Release checks run independently after successful package
@@ -433,17 +444,22 @@ VoiceOver speech or accessibility focus; those require physical acceptance.
 Show the software keyboard in Simulator (I/O > Keyboard > Toggle Software
 Keyboard). Tests require an on-screen, tappable keyboard key and fail clearly
 when only an offscreen keyboard accessibility tree is available.
-They do not create accounts, submit valid credentials, or sign out an existing
-user. The scheme fails its login precondition on a signed-in device.
+The auth-layout suite requires the offline marker before interacting. Synthetic
+valid registration input reaches the rejecting offline boundary; no account is
+created and no live authentication operation is permitted.
 
 ```sh
 xcodebuild test -project DailyWhiskers.xcodeproj \
-  -scheme DailyWhiskersInteraction \
+  -scheme DailyWhiskersInteraction -configuration Debug \
+  'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
+  -only-testing:DailyWhiskersUITests/AuthLayoutTests \
+  CODE_SIGNING_ALLOWED=NO \
   -destination 'platform=iOS Simulator,id=YOUR_QA_SIMULATOR_ID' \
   -parallel-testing-enabled NO -onlyUsePackageVersionsFromResolvedFile
 ```
 
-Use the normal signed development build and a local Firebase configuration.
+Use the fake `ci/firebase-test-config.plist` copied to the app resource location,
+as in CI; this command builds an unsigned simulator app.
 The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects only the
 separate offline smoke class; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.

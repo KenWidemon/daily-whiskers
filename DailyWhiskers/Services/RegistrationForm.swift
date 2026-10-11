@@ -4,9 +4,7 @@ import Foundation
 struct RegistrationForm: Equatable {
     var email = ""
     var password = ""
-    var confirmation = ""
     var passwordVisible = false
-    var confirmationVisible = false
 
     // Ken's selected Apple Account-style baseline for new registrations.
     // Firebase still permits six-character passwords; see the README's policy
@@ -34,18 +32,15 @@ struct RegistrationForm: Equatable {
         if !password.utf8.contains(where: { (48...57).contains($0) }) {
             return "Add a number (0–9) to your password."
         }
-        if !password.utf8.elementsEqual(confirmation.utf8) { return "Passwords don’t match. Enter the same password in both fields." }
         return nil
     }
 
     mutating func maskPasswords() {
         passwordVisible = false
-        confirmationVisible = false
     }
 
     mutating func clearPasswords() {
         password = ""
-        confirmation = ""
         maskPasswords()
     }
 }

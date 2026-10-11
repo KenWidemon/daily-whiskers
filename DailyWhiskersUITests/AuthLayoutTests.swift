@@ -163,7 +163,7 @@ final class AuthLayoutTests: XCTestCase {
         XCTAssertTrue(app.buttons["registration-submit"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.textFields["registration-email"].value as? String, "prefill@")
         XCTAssertEqual(app.secureTextFields["registration-password"].value as? String, "Empty")
-        XCTAssertEqual(app.secureTextFields["registration-confirmation"].value as? String, "Empty")
+        XCTAssertFalse(app.secureTextFields["registration-confirmation"].exists)
         app.buttons["Back to Sign In"].tap()
         XCTAssertTrue(app.buttons["Forgot password?"].exists)
         XCTAssertFalse(app.buttons["Sign In"].isEnabled)
@@ -207,7 +207,9 @@ final class AuthLayoutTests: XCTestCase {
         password.tap()
         password.typeText("A")
         submit.tap()
-        XCTAssertTrue(app.staticTexts["Passwords don’t match. Enter the same password in both fields."].waitForExistence(timeout: 5))
+        // This is now a valid single-password form. launch() requires the
+        // offline boundary so the submit cannot create a real account.
+        XCTAssertTrue(app.staticTexts["Something went wrong. Please try again."].waitForExistence(timeout: 5))
         app.buttons["Show Password"].tap()
         XCUIDevice.shared.press(.home)
         app.activate()
@@ -218,35 +220,27 @@ final class AuthLayoutTests: XCTestCase {
         XCTAssertEqual(app.secureTextFields["registration-password"].value as? String, "Empty")
     }
 
-    func testRegistrationConfirmationPrivacyAndCloseDiscard() {
+    func testRegistrationPasswordPrivacyAndCloseDiscard() {
         launch(orientation: .portrait, textSize: .large)
         app.buttons["Create Account"].tap()
         let password = app.secureTextFields["registration-password"]
-        let confirmation = app.secureTextFields["registration-confirmation"]
         XCTAssertTrue(password.waitForExistence(timeout: 5))
         password.tap()
         password.typeText("Synthetic1")
-        confirmation.tap()
-        confirmation.typeText("Synthetic1")
-
         app.buttons["Show Password"].tap()
-        XCTAssertTrue(confirmation.exists, "Revealing the password must leave confirmation masked.")
-        app.buttons["Show Confirm Password"].tap()
         XCTAssertEqual(app.textFields["registration-password"].value as? String, "Password entered")
-        XCTAssertEqual(app.textFields["registration-confirmation"].value as? String, "Password entered")
+        XCTAssertFalse(app.textFields["registration-confirmation"].exists)
+        XCTAssertFalse(app.buttons["Show Confirm Password"].exists)
         app.typeText("x")
-        app.buttons["Hide Confirm Password"].tap()
+        app.buttons["Hide Password"].tap()
         app.typeText(XCUIKeyboardKey.delete.rawValue)
-        XCTAssertTrue(app.buttons["Hide Password"].exists,
-                      "Masking confirmation must leave the password visibility unchanged.")
-        app.buttons["Show Confirm Password"].tap()
+        XCTAssertEqual(password.value as? String, "Password entered")
+        app.buttons["Show Password"].tap()
 
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(app.buttons["Show Password"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Show Confirm Password"].exists)
         XCTAssertEqual(password.value as? String, "Password entered")
-        XCTAssertEqual(confirmation.value as? String, "Password entered")
 
         app.buttons["Close"].tap()
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
@@ -254,9 +248,7 @@ final class AuthLayoutTests: XCTestCase {
         app.buttons["Create Account"].tap()
         XCTAssertTrue(password.waitForExistence(timeout: 5))
         XCTAssertEqual(password.value as? String, "Empty")
-        XCTAssertEqual(confirmation.value as? String, "Empty")
         XCTAssertTrue(app.buttons["Show Password"].exists)
-        XCTAssertTrue(app.buttons["Show Confirm Password"].exists)
         // No submission: this checks simulator lifecycle and accessibility values,
         // not VoiceOver speech or exact input (covered by native-field unit tests).
     }
@@ -290,7 +282,7 @@ final class AuthLayoutTests: XCTestCase {
                 app.buttons["Create Account"].tap()
                 XCTAssertTrue(password.waitForExistence(timeout: 5))
                 XCTAssertEqual(password.value as? String, "Empty")
-                XCTAssertEqual(app.secureTextFields["registration-confirmation"].value as? String, "Empty")
+                XCTAssertFalse(app.secureTextFields["registration-confirmation"].exists)
             }
             XCTAssertTrue(app.buttons["Show Password"].exists)
         }
@@ -303,9 +295,9 @@ final class AuthLayoutTests: XCTestCase {
         for _ in 0..<12 where !open.isHittable { scroll.swipeUp() }
         open.tap()
         XCTAssertTrue(app.buttons["registration-submit"].waitForExistence(timeout: 5))
-        let confirmation = app.secureTextFields["registration-confirmation"]
-        for _ in 0..<12 where !confirmation.isHittable { scroll.swipeUp() }
-        confirmation.tap()
+        let password = app.secureTextFields["registration-password"]
+        for _ in 0..<12 where !password.isHittable { scroll.swipeUp() }
+        password.tap()
         waitForVisibleKey(app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "done")).firstMatch)
         let submit = app.buttons["registration-submit"]
         for _ in 0..<12 where !isFullyVisible(submit) { swipeVisibleContentUp(scroll) }
@@ -319,8 +311,10 @@ final class AuthLayoutTests: XCTestCase {
 
     private func launch(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory) {
         XCUIDevice.shared.orientation = orientation
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", textSize.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", textSize.rawValue]
         app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 10),
+                      "Requires DEBUG + CI_SMOKE_TESTING; never interact without the offline boundary.")
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.otherElements["daily-card"].exists)
         XCTAssertFalse(app.textFields["Email"].exists,
