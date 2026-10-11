@@ -241,7 +241,7 @@ and remaining approval gates.
 
 See [release readiness](../docs/release-readiness.md) for configuration, archive
 requirements and credential safeguards. Older archives are not the current RC.
-`project.yml` prepares version `1.1`, build `2`. This does not change the frozen
+`project.yml` prepares version `1.1`, build `3`. This does not change the frozen
 V1 `1.0 (1)` artifact or establish a signed, uploaded, or accepted V1.1 candidate.
 Recheck build-number availability before any separately approved upload.
 
