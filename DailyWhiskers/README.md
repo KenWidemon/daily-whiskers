@@ -4,7 +4,7 @@ Daily Whiskers is an iOS SwiftUI app that shows one curated cat card per day, wi
 
 Documentation entry point: [documentation map](../docs/README.md).
 For current remaining work, use only the [release checklist](../docs/release-checklist.md);
-dated QA reports preserve evidence rather than separate roadmaps.
+testing guidance preserves scoped evidence and open risks, not separate roadmaps.
 
 ## Current Behavior
 - The daily card opens immediately without sign-in, including while Firebase restores
@@ -14,7 +14,7 @@ dated QA reports preserve evidence rather than separate roadmaps.
   signed-in users. Privacy and Support are always available.
 - Optional auth UI supports:
   - Sign In (email/password)
-  - Create Account (email/password)
+  - Dedicated Create Account form (email/password/confirmation)
   - Forgot password (uses the entered email; no password required)
   - Debug-only "Use Test Account"
 - Daily content is selected deterministically from local date:
@@ -22,9 +22,148 @@ dated QA reports preserve evidence rather than separate roadmaps.
 - Daily content refreshes when app returns to foreground and local day changed.
 - Signed-in Settings offers password-confirmed permanent account deletion.
 - Closing auth returns to the same daily card and discards unfinished credentials.
+  While an account sheet is active, its underlying Settings menu is hidden from
+  accessibility; dismissal restores Settings focus only when no replacement sheet
+  is active. This avoids requesting background focus during account presentation.
   Close/swipe dismissal is disabled while an auth request is running. Successful
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
+
+## Sign In Password Visibility
+
+Sign In starts masked. Its trailing Show/Hide Password control retains the native
+field, typed value, selection and editing focus without submitting a request.
+It exposes the current action and Hidden/Visible state to accessibility; password
+fields expose only Empty/Password entered on focus, including while revealed.
+The password masks on inactivity, auth requests and navigation; dismissing auth
+clears the draft. Returning-user validation remains a six-character minimum, with
+no new-account character rules. Both forms share the native fields and visibility
+control, with explicit existing/new-password AutoFill traits.
+
+The [combined physical acceptance procedure](../docs/testing.md#account-form-acceptance)
+keeps DW-005 and DW-006 results separate and retains outstanding/deferred checks.
+
+Automated results and remaining DW-006 acceptance limits are summarized in
+[testing](../docs/testing.md#dw-006-development-evidence). Detailed execution
+and review discussion belongs in [DW-006](https://github.com/KenWidemon/daily-whiskers/issues/55)
+and [PR #70](https://github.com/KenWidemon/daily-whiskers/pull/70).
+
+## Sharing Today's Card
+
+The daily toolbar offers **Share Today's Card** to guests and signed-in users.
+It captures the displayed card when tapped, so a foreground/day change cannot
+replace an in-flight export. The system share sheet receives a freshly rendered
+image and a plain-text quote/vibe companion; the user chooses a destination and
+confirms sending. There is no account requirement, upload, tracking, or automatic
+posting in the app's sharing path. UIKit presents from the card screen's window
+root, with the Share button as the iPad popover anchor. Preview metadata uses only
+the local export and branding, without a URL or network preview lookup.
+
+The packaged app declares an add-only Photos purpose for a user-selected save
+from the system sheet. It does not request photo-library reading or prompt for
+access when opening the share sheet. Destination availability and successful
+saving still require device acceptance; a purpose string alone is not proof.
+
+The portrait image uses the bundled artwork in full, measured quote text, an
+optional vibe, and subtle Daily Whiskers branding. Rendering is offline at 1080
+pixels wide, scale 1, standard color range, with a maximum height of 2400 pixels
+(under 10 MiB for the RGBA canvas, excluding source/encoding overhead). Text grows
+the image vertically rather than shrinking or clipping. Unsupported future text
+that exceeds the bound fails with a retryable error. Content additions must pass
+the sharing tests and visual review.
+
+The app holds one export in memory, creates no temporary share files, and releases
+its image reference when the sheet completes or is dismissed. UIKit/destination
+apps manage any copies they create. A new bitmap excludes source image metadata;
+only artwork, quote, vibe, and branding are exported, without account identifiers,
+internal card IDs, date/location metadata, or Settings controls. Rendering or
+activity errors offer retry; cancellation leaves the daily card usable.
+
+Before release, confirm that the bundled artwork and quotes permit redistribution
+through user sharing. Implementation and tests do not establish those rights.
+See the [sharing acceptance procedure](../docs/testing.md#sharing-todays-card).
+
+## Dedicated Registration
+
+Create Account opens its own form without submitting Sign In credentials. Only
+trimmed email is prefilled. Sign In's password is cleared on entry; registration
+passwords are cleared when leaving that form or dismissing auth. Registration
+keeps its input for correction after a failed request, without persisting or
+logging credentials. Password fields support AutoFill and independent visibility
+controls, and mask again when the app becomes inactive. Sign In uses the same
+visibility control with existing-password AutoFill, while registration keeps
+new-password AutoFill and its generation rules.
+
+Registration validates email, password length and character types, and exact confirmation
+before calling Firebase. Passwords are never trimmed. Empty/invalid submissions
+show accessible feedback; navigation is available with empty Sign In fields.
+Both forms retain one request lock and existing progress/error announcements.
+Close and Back are disabled while a request runs; success closes auth through the
+existing session listener and leaves the daily card in place.
+
+Ken selected an Apple Account-style baseline for new accounts on September 28,
+2026: at least eight characters, with an uppercase ASCII letter (A–Z), a lowercase
+ASCII letter (a–z), and a number (0–9). Symbols and other Unicode characters are
+allowed but not required. The existing maximum of 4096 remains. Registration
+validation, visible guidance, and native [Password AutoFill rules](https://developer.apple.com/documentation/security/customizing-password-autofill-rules) use this baseline.
+This is the selected length/character baseline, not a claim to reproduce Apple's
+complete account security system or its common-password screening.
+
+Length uses UTF-16 units to match [Firebase's reference policy validator](https://github.com/firebase/firebase-js-sdk/blob/main/packages/auth/src/core/auth/password_policy_impl.ts),
+and confirmation compares exact UTF-8 input without Unicode normalization.
+Sign In retains its existing validation so older accounts remain usable.
+
+**Backend alignment remains pending.** The live Firebase `getPasswordPolicy`
+response was rechecked October 2, 2026 UTC: minimum 6, maximum 4096, no required
+character classes, enforcement `ENFORCE`; `forceUpgradeOnSignin` was not returned.
+The new baseline is enforced by this registration form, not yet by Firebase.
+Before shipping it as a service-wide
+policy, configure Firebase's new-password requirements to minimum 8, uppercase,
+lowercase, and numeric required; retain maximum 4096 and optional symbols.
+Review existing-release/password-reset compatibility and preserve existing-user
+sign-in before applying that live change. No Firebase settings were changed.
+
+The frozen V1 source (`v1.0.0-rc.1`, `20ae9cd`) enables both Sign In and
+Create Account at six characters, with no complexity guidance. A stricter server
+policy therefore changes V1 behavior immediately: previously eligible registration
+input can fail, and its `weakPassword` message incorrectly recommends six characters.
+Other unmapped service errors produce generic retry feedback. V1.1 has the new
+guidance and a policy-neutral backend rejection message, but cannot repair already
+installed V1 clients. Neither client implements an in-app password reset completion
+screen: it requests email and shows neutral confirmation; the email action handler
+owns the new-password entry and error presentation. Its behavior under the proposed
+policy still requires an authorized end-to-end check, not an inference from email
+request success.
+
+Safest rollout: retain the current server policy until the compatible client and
+reset flow are accepted and available, or Ken explicitly accepts the older-client
+registration impact. Before any separately approved change, capture the full current
+console configuration. In Firebase Authentication > Settings > Password policy,
+propose minimum **8**, maximum **4096**, uppercase/lowercase/numeric **required**,
+non-alphanumeric **optional**, and retain enforcement. Keep forced password upgrade
+on sign-in **off**; verify the console value explicitly because the read response
+omitted it. [Firebase's password-policy guidance](https://firebase.google.com/docs/auth/ios/password-auth#recommended_set_a_password_policy)
+warns that forcing upgrade can block existing users. Do not change providers or
+other security settings as part of this rollout.
+
+After approval, read back the policy and have the owner verify a pre-existing
+six-character account can still sign in on V1 and V1.1, new registration rejects
+noncompliant input and accepts compliant input, and the real reset link reports
+requirements and completes successfully. Account creation, reset email, and password
+entry each need the appropriate deliberate owner authorization; credentials and
+links stay out of evidence. Any rollback to the captured policy is also a separately
+approved security change, not an automatic response to a failing check.
+
+Registration tests use injected operations and synthetic credentials, not live
+account creation. The interaction suite covers navigation, credential isolation,
+local validation, visibility/background masking, and large-text reachability.
+Physical VoiceOver and password-manager/AutoFill checks remain necessary; UI
+hierarchy assertions do not prove speech, focus, or password-manager integration.
+
+Verification and remaining DW-005 acceptance limits are summarized in
+[testing](../docs/testing.md#dw-005-development-evidence). Detailed execution
+discussion belongs in [DW-005](https://github.com/KenWidemon/daily-whiskers/issues/54)
+and [PR #69](https://github.com/KenWidemon/daily-whiskers/pull/69).
 
 ## Account and Privacy Readiness
 
@@ -87,13 +226,15 @@ independently verify disabled state or token behavior. Do not reuse that account
 
 The English App Store copy and screenshot storyboard are in the
 [listing record](../docs/app-store-listing.md). Approved metadata and six final
-screenshots are saved in the App Store Connect version 1.0 draft. No build upload
-or App Review submission has occurred.
+screenshots are saved in App Store Connect. V1 build 1.0 (1) was uploaded and
+submitted; use the release checklist for the latest owner-reported resubmission
+and remaining approval gates.
 
 See [release readiness](../docs/release-readiness.md) for configuration, archive
-requirements and historical signing evidence. Older archives are not the current RC.
-`project.yml` is the source of truth for the initial version `1.0`, build `1`.
-Increment the build number before subsequent distribution uploads.
+requirements and credential safeguards. Older archives are not the current RC.
+`project.yml` prepares version `1.1`, build `2`. This does not change the frozen
+V1 `1.0 (1)` artifact or establish a signed, uploaded, or accepted V1.1 candidate.
+Recheck build-number availability before any separately approved upload.
 
 ## Content Pipeline
 Primary content file:
@@ -116,13 +257,10 @@ Load-time integrity checks:
 - if no valid cards remain, app uses a built-in fallback card
 
 Image import details:
-- see `DailyWhiskers/Resources/CAT_IMAGE_IMPORT.md`
+- See [content pipeline](../docs/content-pipeline.md).
 
 ## Tests
-- Step 4B behavior and manual acceptance checks are recorded in
-  [Accessibility and interaction QA](../docs/accessibility-interaction-qa.md).
-- Step 4A layout changes and verification limits are recorded in
-  [Visual readability QA](../docs/visual-readability-qa.md).
+- Repeatable acceptance checks and evidence limits: [testing](../docs/testing.md).
 - Unit tests live in `DailyWhiskersTests/`.
 - Current suite validates:
   - JSON decode path
@@ -134,6 +272,16 @@ Image import details:
   - bundled manifest and asset integrity, including the fallback image
   - foreground refresh state across month/year/leap-day boundaries and missed days
   - time-zone selection and daylight-saving transitions
+
+Run the unit suite on an available dedicated simulator after configuring Firebase
+and regenerating the project (CI uses the fake fixture described below):
+
+```sh
+xcodebuild test -project DailyWhiskers.xcodeproj \
+  -scheme DailyWhiskers \
+  -destination 'platform=iOS Simulator,id=YOUR_QA_SIMULATOR_ID' \
+  -parallel-testing-enabled NO -onlyUsePackageVersionsFromResolvedFile
+```
 
 ## Continuous Integration
 
@@ -161,8 +309,8 @@ heading anchors across tracked documentation. Tools parse Markdown without
 executing embedded content or fetching external URLs. External URL availability
 is outside this deterministic gate. Paths and symlinks cannot leave the checkout.
 The formatting rules preserve existing prose conventions; this is not a rewrite
-of the documentation. CI also lints both `.yml` and `.yaml` workflows and tests
-classification, gate results, and the link checker.
+of the documentation. CI also lints workflows and tests classification, gate
+results, and the link checker.
 
 ```sh
 python3 -m unittest discover -s ci -p 'test_*.py' -v
@@ -193,8 +341,42 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-build and unit suite with signing disabled. It does not replace live auth,
-interaction, physical accessibility, or release acceptance.
+unit suite, four offline UI smoke tests, and an unsigned Release build for
+`generic/platform=iOS Simulator`. Release compiles and packages simulator code;
+it is not a signed archive, device build, distribution or physical acceptance.
+
+The smoke suite selects only `RegressionSmokeTests` from the interaction scheme:
+guest daily content/relaunch, account tools open/dismiss, local reset and
+registration validation/navigation, and repeated registration editing after Back,
+Close and process relaunch. It uses existing accessible identifiers and
+bounded state waits, without retries, credentials, email or live account changes.
+Only the smoke Debug command adds `CI_SMOKE_TESTING`; together with `DEBUG` and
+`--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
+rejects every backend auth operation. The visible offline marker is asserted by
+the tests. Ordinary Debug and Release builds exclude this code. The Release
+check also rejects binaries containing the smoke seam's symbols/marker/argument.
+The existing larger `AuthLayoutTests` suite remains separate and unchanged.
+
+Each stage records start, completion, exit code and duration before the next
+stage. Unit, smoke and Release checks run independently after successful package
+resolution, so one failure does not hide the other results. An always-run evidence
+check rejects missing/unreadable result bundles, zero tests, failures and skips.
+Summaries use `xcresulttool get test-results summary`, which includes both XCTest
+and Swift Testing; they report test cases separately from per-device executions
+including dynamic parameters. Console XCTest totals are not combined or used as
+a substitute. Source head, tested checkout (including synthetic PR merge), event
+SHA, Xcode/Swift/SDK, observed simulator/runtime, counts, stage outcomes/durations,
+and artifact links identify the evidence. Raw failure details remain in the
+result bundles/logs instead of copying potential account data into summaries.
+
+Overall summaries run even on dependency failure and explain docs-only app skips.
+For a docs-only PR, inspect the CI Gate summary for both source and tested merge
+SHAs, the docs classification, and explicit not-applicable app counts, duration,
+toolchain/device evidence and artifacts. A skipped app job alone does not prove
+that this summary was published or establish an app test pass.
+Interrupted stages and unavailable results never claim a pass. Original command
+failures remain failures even if summary generation succeeds. Hard cancellation
+or runner loss can prevent summaries/artifacts entirely; missing CI is not green.
 
 ### SwiftPM cache and lock enforcement
 
@@ -220,7 +402,7 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout remains 30 minutes; smaller jobs have explicit timeouts.
+The app timeout is 45 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with seven-day retention. Hard termination can prevent artifact upload; missing
@@ -262,8 +444,8 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 ```
 
 Use the normal signed development build and a local Firebase configuration.
-The existing `DailyWhiskers` unit-test scheme and CI job are unchanged. The UI
-suite restores portrait orientation and passes text size as a launch argument,
+The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects only the
+separate offline smoke class; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
 Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air
@@ -271,7 +453,7 @@ Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air
 unresolved and was explicitly deferred for V1 after an owner-reported physical
 scrolling pass. Keep that test and its assertions unchanged. The new validation
 check is tracked separately;
-see [interaction QA](../docs/accessibility-interaction-qa.md). This optional scheme
+see [testing](../docs/testing.md). This optional scheme
 is not yet a fully green phone acceptance gate.
 
 ## Public Privacy and Support
@@ -292,7 +474,7 @@ statuses updated as work proceeds; skipped items are not automatically waived.
 Local archive/export steps and Apple account handoff:
 [Distribution readiness](../docs/distribution-readiness.md).
 
-Performance findings and remaining device checks: [Step 5 QA](../docs/performance-qa.md).
+Performance risks and scoped evidence: [testing](../docs/testing.md#v1-deferrals-and-performance-evidence).
 
 Branch roles:
 - `main`: stable release branch.

@@ -32,6 +32,14 @@ struct DistributionConfigurationTests {
         #expect(value.boolValue == false)
     }
 
+    @Test("Sharing declares add-only Photos access without requesting library reading")
+    func photosAddOnlyPurpose() throws {
+        let info = try packagedInfo()
+        let purpose = try #require(info["NSPhotoLibraryAddUsageDescription"] as? String)
+        #expect(!purpose.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(info["NSPhotoLibraryUsageDescription"] == nil)
+    }
+
     @Test("iPhone keeps portrait and both landscape orientations")
     func iPhoneOrientations() throws {
         let info = try packagedInfo()

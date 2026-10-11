@@ -3,8 +3,8 @@ import UIKit
 
 struct AuthView: View {
     private enum Field: Hashable { case email, password }
-    private enum AccessibilityTarget: Hashable { case error, reset }
-    @FocusState private var focusedField: Field?
+    private enum AccessibilityTarget: Hashable { case error, reset, createAccount }
+    @State private var focusedField: Field?
     @AccessibilityFocusState private var accessibilityTarget: AccessibilityTarget?
 #if DEBUG
     private enum TestAccount {
@@ -16,13 +16,17 @@ struct AuthView: View {
 #endif
 
     @EnvironmentObject private var router: AppRouter
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var email: String = ""
     @State private var password: String = ""
+    @State private var passwordVisible = false
     @State private var resetFocusRequestID: UUID?
+    @State private var showingRegistration = false
+    @State private var signInFocusRequestID: UUID?
     @StateObject private var request = AuthRequestState(announce: { operation in
         let announcement = NSAttributedString(
             string: operation.announcement,
@@ -62,7 +66,16 @@ struct AuthView: View {
             GeometryReader { geometry in
                 ScrollViewReader { scroll in
                     ScrollView {
-                        loginContent(scroll: scroll)
+                        Group {
+                            if showingRegistration {
+                                CreateAccountView(email: email, request: request, scroll: scroll) {
+                                    showingRegistration = false
+                                    signInFocusRequestID = UUID()
+                                }
+                            } else {
+                                loginContent(scroll: scroll)
+                            }
+                        }
                             .frame(maxWidth: 520)
                             .padding(.vertical, 28)
                             .frame(maxWidth: .infinity)
@@ -70,6 +83,13 @@ struct AuthView: View {
                     }
                     .accessibilityIdentifier("auth-form")
                     .scrollDismissesKeyboard(.interactively)
+                    .task(id: signInFocusRequestID) {
+                        guard signInFocusRequestID != nil, !showingRegistration else { return }
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        scroll.scrollTo("auth-create", anchor: .center)
+                        accessibilityTarget = .createAccount
+                    }
                     .task(id: resetFocusRequestID) {
                         guard let requestID = resetFocusRequestID else { return }
                         // Native alert dismissal restores focus before our explicit target.
@@ -101,6 +121,8 @@ struct AuthView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close") {
                     focusedField = nil
+                    password = ""
+                    passwordVisible = false
                     dismiss()
                 }
                 .disabled(isWorking)
@@ -130,7 +152,19 @@ struct AuthView: View {
             if field != nil { resetFocusRequestID = nil }
         }
         .onChange(of: request.operation) { _, operation in
-            if operation != nil { resetFocusRequestID = nil }
+            if operation != nil {
+                resetFocusRequestID = nil
+                passwordVisible = false
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { passwordVisible = false }
+        }
+        .onDisappear {
+            focusedField = nil
+            email = ""
+            password = ""
+            passwordVisible = false
         }
     }
 
@@ -158,49 +192,26 @@ struct AuthView: View {
             .padding(.bottom, 10)
 
             VStack(spacing: 14) {
-                // Email
-                TextField("Email", text: $email, prompt: Text("Email").foregroundStyle(Color(white: 0.38)))
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .submitLabel(.next)
-                    .focused($focusedField, equals: .email)
-                    .onSubmit { if !isWorking { focusedField = .password } }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .font(.body)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .frame(minHeight: 54)
-                    .background(fieldBackground)
-                    .overlay(fieldBorder)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
-                    .accessibilityLabel("Email")
-                    .accessibilityHint("Enter the email for your account.")
-                    .id(Field.email)
+                AuthTextField(label: "Email", text: $email, isFocused: focus(.email),
+                              isEnabled: !isWorking, contentType: .emailAddress,
+                              identifier: "sign-in-email", accessibilityHint: "Enter the email for your account.") {
+                    if !isWorking { focusedField = .password }
+                }
+                .modifier(AuthFieldStyle())
+                .id(Field.email)
 
-                // Password
-                SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(Color(white: 0.38)))
-                    .textContentType(.password)
-                    .submitLabel(.done)
-                    .focused($focusedField, equals: .password)
-                    .onSubmit {
+                HStack(spacing: 8) {
+                    AuthTextField(label: "Password", text: $password, isFocused: focus(.password),
+                                  isSecure: !passwordVisible, isEnabled: !isWorking,
+                                  contentType: .password, identifier: "sign-in-password",
+                                  accessibilityHint: "Enter your password.", returnKey: .done) {
                         guard canSubmit else { return }
                         Task { await handleEmailSignIn() }
                     }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .font(.body)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .frame(minHeight: 54)
-                    .background(fieldBackground)
-                    .overlay(fieldBorder)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.025), radius: 8, y: 3)
-                    .accessibilityLabel("Password")
-                    .accessibilityHint("Enter your password.")
-                    .id(Field.password)
+                    PasswordVisibilityButton(isVisible: $passwordVisible, isEnabled: !isWorking)
+                }
+                .modifier(AuthFieldStyle())
+                .id(Field.password)
             }
             .padding(.horizontal, 26)
             .padding(.top, 6)
@@ -263,9 +274,15 @@ struct AuthView: View {
 
                 // Secondary: Create Account (outline)
                 Button {
-                    Task { await handleEmailCreateAccount() }
+                    guard !isWorking else { return }
+                    focusedField = nil
+                    resetFocusRequestID = nil
+                    password = ""
+                    passwordVisible = false
+                    request.clearFeedback()
+                    showingRegistration = true
                 } label: {
-                    Text(request.operation == .createAccount ? "Creating Account..." : "Create Account")
+                    Text("Create Account")
                         .font(.headline)
                         .foregroundStyle(Color(red: 0.55, green: 0.29, blue: 0.08))
                         .frame(maxWidth: .infinity)
@@ -281,9 +298,10 @@ struct AuthView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .padding(.horizontal, 26)
-                .saturation(canSubmit ? 1 : 0.25)
-                .disabled(!canSubmit)
-                .accessibilityHint("Creates a new account with your email and password.")
+                .disabled(isWorking)
+                .accessibilityHint("Opens the optional Create Account form.")
+                .accessibilityFocused($accessibilityTarget, equals: .createAccount)
+                .id("auth-create")
             }
             .padding(.top, 10)
 
@@ -361,15 +379,11 @@ struct AuthView: View {
         )
     }
 
-    private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.white.opacity(0.65))
-            .shadow(color: Color.black.opacity(0.03), radius: 8, y: 3)
-    }
-
-    private var fieldBorder: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .stroke(Color.black.opacity(0.06), lineWidth: 1)
+    private func focus(_ field: Field) -> Binding<Bool> {
+        Binding(get: { focusedField == field }, set: { focused in
+            if focused { focusedField = field }
+            else if focusedField == field { focusedField = nil }
+        })
     }
 
     private var canSubmit: Bool {
@@ -388,16 +402,6 @@ struct AuthView: View {
         focusedField = nil
         await request.perform(.signIn) {
             try await router.signInWithEmail(
-                email: AuthRequestState.normalizedEmail(email), password: password
-            )
-        }
-    }
-
-    private func handleEmailCreateAccount() async {
-        guard canSubmit else { return }
-        focusedField = nil
-        await request.perform(.createAccount) {
-            try await router.createEmailAccount(
                 email: AuthRequestState.normalizedEmail(email), password: password
             )
         }

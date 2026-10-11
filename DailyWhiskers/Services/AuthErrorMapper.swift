@@ -49,7 +49,7 @@ enum AuthErrorMapper {
         case .emailAlreadyInUse:
             return "An account already exists for that email."
         case .weakPassword:
-            return "Password is too weak. Use at least 6 characters."
+            return "Password doesn’t meet the account requirements. Check the requirements and try again."
         case .networkError:
             return "Network error. Check your connection and try again."
         case .tooManyRequests:

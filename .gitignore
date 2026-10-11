@@ -14,6 +14,6 @@ build/
 GoogleService-Info.plist
 DailyWhiskers/Resources/GoogleService-Info.plist
 
-# CI documentation tools and Python cache
-ci/checks/node_modules/
+# CI documentation tools and Python bytecode
+node_modules/
 __pycache__/
