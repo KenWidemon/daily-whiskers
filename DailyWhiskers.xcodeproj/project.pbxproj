@@ -335,7 +335,6 @@
 				};
 			};
 			buildConfigurationList = C1BC387146486851D6C2BE8E /* Build configuration list for PBXProject "DailyWhiskers" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -348,6 +347,7 @@
 				34B6E3564F690162B791D947 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = FDAFDF466C071B497103475E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -451,7 +451,7 @@
 				CODE_SIGN_ENTITLEMENTS = DailyWhiskers/DailyWhiskers.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = HYU33CNQ69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Daily Whiskers";
@@ -466,7 +466,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.kenwidemon.dailywhiskers;
 				PRODUCT_NAME = DailyWhiskers;
 				SDKROOT = iphoneos;
@@ -482,7 +482,7 @@
 				CODE_SIGN_ENTITLEMENTS = DailyWhiskers/DailyWhiskers.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = HYU33CNQ69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Daily Whiskers";
@@ -497,7 +497,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.kenwidemon.dailywhiskers;
 				PRODUCT_NAME = DailyWhiskers;
 				SDKROOT = iphoneos;

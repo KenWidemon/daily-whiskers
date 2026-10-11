@@ -125,4 +125,11 @@ configuration. Keep force-push/deletion safeguards intact, document the exceptio
 repair and prove the check, then restore enforcement and read it back. Never
 silently rename a required job, remove protection, or treat missing checks as green.
 
+CI-only propagation to RC/main uses a narrowly scoped PR based on each target.
+Copy the workflow and its required CI tools without promoting application code,
+dependency changes, or unrelated development documentation. Keep the immutable
+candidate tag, version/build, artifact hashes, and release evidence unchanged;
+a new CI commit does not relabel or rebuild the distributed candidate. Review
+and merge approval remain separate from protection activation.
+
 Candidate and promotion history is recorded once in [distribution provenance](distribution-readiness.md).
