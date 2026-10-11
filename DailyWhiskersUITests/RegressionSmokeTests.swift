@@ -54,20 +54,17 @@ final class RegressionSmokeTests: XCTestCase {
             tapInForm(app.buttons["Create Account"])
             let email = app.textFields["registration-email"]
             let password = app.secureTextFields["registration-password"]
-            let confirmation = app.secureTextFields["registration-confirmation"]
             XCTAssertTrue(email.waitForExistence(timeout: 5))
             XCTAssertEqual(email.value as? String, "Email")
             XCTAssertEqual(password.value as? String, "Empty")
-            XCTAssertEqual(confirmation.value as? String, "Empty")
+            XCTAssertFalse(app.secureTextFields["registration-confirmation"].exists)
             tapInForm(email)
             email.typeText("repeat@example.invalid")
             tapInForm(password)
             password.typeText("Synthetic-Repeat-1")
-            tapInForm(confirmation)
-            confirmation.typeText("Synthetic-Repeat-1")
+            tapInForm(email)
             tapInForm(password)
             XCTAssertEqual(password.value as? String, "Password entered")
-            XCTAssertEqual(confirmation.value as? String, "Password entered")
             // These are ordinary synthetic edits through production controls.
             // They do not establish password-provider or strong-password success.
             switch attempt {
@@ -89,6 +86,32 @@ final class RegressionSmokeTests: XCTestCase {
             }
         }
         // Never submits a registration or invokes a live authentication service.
+    }
+
+    func testSinglePasswordDoneReachesOnlyOfflineBoundary() {
+        openSignIn()
+        tapInForm(app.buttons["Create Account"])
+        let email = app.textFields["registration-email"]
+        let password = app.secureTextFields["registration-password"]
+        tapInForm(email)
+        email.typeText("single@example.invalid")
+        tapInForm(password)
+        password.typeText("Synthetic-Single-1")
+        XCTAssertFalse(app.secureTextFields["registration-confirmation"].exists)
+        XCTAssertFalse(app.textFields["registration-confirmation"].exists)
+        XCTAssertFalse(app.buttons["Show Confirm Password"].exists)
+        let done = app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "done")).firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(done.isHittable)
+        done.tap()
+        // setUp requires the offline marker before interacting. A valid form
+        // reaches the existing fail-closed seam, never Firebase or fake success.
+        XCTAssertTrue(app.staticTexts["Something went wrong. Please try again."].waitForExistence(timeout: 5))
+        XCTAssertEqual(password.value as? String, "Password entered")
+        XCTAssertTrue(app.buttons["registration-submit"].isEnabled)
+        tapInForm(app.buttons["Back to Sign In"])
+        XCTAssertTrue(app.buttons["Forgot password?"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.secureTextFields["sign-in-password"].value as? String, "Empty")
     }
 
     private func openSignIn() {
