@@ -9,20 +9,27 @@ approved replacement. Dates below identify recorded checks, not fresh reruns.
 The accepted V1.1 source is version `1.1 (3)` from
 [PR #92](https://github.com/KenWidemon/daily-whiskers/pull/92), not the later
 documentation commit. The following artifact checks were performed October 11,
-2026; local artifacts were not rehashed during the October 12 documentation update
-because the Mac was unavailable.
+2026. On October 12, the saved local verification receipts were compared with the
+approved tag annotation; the archive and IPA files were not rehashed.
 
 | Identity | Recorded value |
 | --- | --- |
 | Source commit | `f5413459e9b215a42816662e634ed8df3e7a53ad` |
 | Source tree | `10ceb8376e4b4596d4e638712854c6703bb719c9` |
-| Candidate tag | `v1.1.0-rc.2` approved; creation pending an annotated-tag-capable tool |
+| Candidate tag | Immutable annotated `v1.1.0-rc.2`, created and remote-verified October 12, 2026 |
+| Tag object | `55387285d0536c7a916ca3e24ebe1bf464e1c26c` |
 | Archive toolchain | Xcode 27.0 (27A266a), iPhoneOS SDK 27.0, locked dependencies |
 | App/archive/dSYM UUID | `E66CD026-1560-3032-9EA6-E4CAB6A2B1A1` (arm64) |
 | Original export IPA SHA-256 | `ea35d517a73391d1eec357103226f316612dd29b576f2a4447c11374c9598b7c` |
 | Uploaded package IPA SHA-256 | `a0e7a59b47706958fd08487b6a1bd6a2f7c7fee49bf620910209ca130f3ebf9f` |
 | Original archive file-manifest SHA-256 | `553fc7938563443b50b9c8f0a2091d1623e6979de248b48479b206c4fb3d7e02` |
 | Apple build/upload identifier | `57062d5e-9d0b-4ab8-a486-91e4e1e56d80` |
+
+Remote tag readback verified that `v1.1.0-rc.2` peels to the source commit above,
+whose tree matches the recorded source tree. Its annotation preserves the approved
+version/build, artifact hashes and acceptance limits. The tag identifies the
+existing build-3 artifact; the later documentation commits are not archive sources.
+The same readback confirmed the build-2 tag object and target below were unchanged.
 
 [Exact RC CI](https://github.com/KenWidemon/daily-whiskers/actions/runs/38173753851)
 passed 96 unit cases / 146 executions, five offline smoke cases, unsigned Release

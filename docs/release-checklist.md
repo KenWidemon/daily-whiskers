@@ -34,8 +34,11 @@ identifies the existing uploaded artifact; this documentation does not replace i
   [058da61](https://github.com/KenWidemon/daily-whiskers-site/commit/058da61a0b3eade7831ed30fa76b353343487693)
   deployed successfully; public HTML matched committed source on October 12.
   Existing email/User ID and SDK diagnostic disclosures were retained.
-- **Repository preparation in progress.** The build-3 candidate tag is approved
-  but not yet created; annotated-tag tooling is unavailable. Evidence PR review,
+- **Candidate tag verified; evidence PR review pending.** Annotated
+  `v1.1.0-rc.2` was created and remote-verified October 12 at the exact accepted
+  build-3 source; the immutable build-2 tag is unchanged. See
+  [tag provenance](distribution-readiness.md#v11-candidate-provenance).
+  [Draft evidence PR #93](https://github.com/KenWidemon/daily-whiskers/pull/93),
   main promotion and develop synchronization remain pending. Preserve V1/build-2
   provenance and require exact-head checks and separate merge approval.
 - **App Review submission and public release are not approved.** Saved metadata,
