@@ -4,11 +4,70 @@ Current release status belongs in the [release checklist](release-checklist.md).
 This document preserves candidate provenance and the procedure for a separately
 approved replacement. Dates below identify recorded checks, not fresh reruns.
 
+## V1.1 Candidate Provenance
+
+The accepted V1.1 source is version `1.1 (3)` from
+[PR #92](https://github.com/KenWidemon/daily-whiskers/pull/92), not the later
+documentation commit. The following artifact checks were performed October 11,
+2026; local artifacts were not rehashed during the October 12 documentation update
+because the Mac was unavailable.
+
+| Identity | Recorded value |
+| --- | --- |
+| Source commit | `f5413459e9b215a42816662e634ed8df3e7a53ad` |
+| Source tree | `10ceb8376e4b4596d4e638712854c6703bb719c9` |
+| Candidate tag | `v1.1.0-rc.2` approved; creation pending an annotated-tag-capable tool |
+| Archive toolchain | Xcode 27.0 (27A266a), iPhoneOS SDK 27.0, locked dependencies |
+| App/archive/dSYM UUID | `E66CD026-1560-3032-9EA6-E4CAB6A2B1A1` (arm64) |
+| Original export IPA SHA-256 | `ea35d517a73391d1eec357103226f316612dd29b576f2a4447c11374c9598b7c` |
+| Uploaded package IPA SHA-256 | `a0e7a59b47706958fd08487b6a1bd6a2f7c7fee49bf620910209ca130f3ebf9f` |
+| Original archive file-manifest SHA-256 | `553fc7938563443b50b9c8f0a2091d1623e6979de248b48479b206c4fb3d7e02` |
+| Apple build/upload identifier | `57062d5e-9d0b-4ab8-a486-91e4e1e56d80` |
+
+[Exact RC CI](https://github.com/KenWidemon/daily-whiskers/actions/runs/38173753851)
+passed 96 unit cases / 146 executions, five offline smoke cases, unsigned Release
+simulator build and CI Gate, with zero failures, skips or expected failures.
+The PR-head run also passed. CI used Xcode 26.6; it did not produce the signed
+Xcode 27.0 distribution artifact.
+
+Archive/export verification checked production Firebase configuration, identity,
+Associated Domains, privacy manifests, encryption Boolean, diagnostic exclusions,
+strict/deep signatures and matching app/dSYM UUIDs. Distribution used the existing
+certificate `3CA55E826F7FC17DB76841664FEFF499906013BD` and profile
+`eea6eaeb-6137-482b-96f5-97cbca8c7ca2`. Both expire September 10, 2027,
+01:31:50 UTC (September 9, 21:31:50 EDT).
+
+Apple validation succeeded October 11 at 21:44:54 UTC; upload succeeded without
+errors at 21:47:46 UTC and returned `PROCESSING`. Organizer repackaged separately:
+the original export is 74,379,740 bytes; the upload package is 74,379,739 bytes.
+The preserved upload package matched Apple's logged MD5 and size, not a
+server-side SHA-256. All 50 executable sections and the UUID matched the archive;
+all non-executable resources matched the verified export. Original archive,
+86 frozen build-2 files and 42 V1 files were unchanged at that verification.
+
+Private evidence is retained in the build-3 artifact directory
+`v11-artifacts/1.1-3-f5413459-20261011/provenance/`, including
+`archive-verification.json`, `ipa-verification.json` and
+`validation-upload-verification.json`. These are existing private receipts, not
+files to commit. Upload acceptance alone did not establish processing completion;
+subsequent selection and acceptance are recorded in the
+[release checklist](release-checklist.md#v11-build-3-release-preparation).
+
+### Preserve Build 2 and V1
+
+Immutable `v1.1.0-rc.1` remains version `1.1 (2)`, source
+`4d2956448d80ddc8cf08a430989370552b316874`, tree
+`a379bf01116cb63a8fcd4a1e18370929376dca72`, annotated tag object
+`ee52ec4c32bf1695e41a5a49e1e775c60ccbec92`. Its verified export SHA-256 is
+`298c81ef75ef35f29c6b17a277f81649094d1d6baa5b0f8019d37a0d85d0ba79`.
+Do not move that tag, overwrite either candidate, or rebuild/re-upload build 3
+for documentation or ancestry bookkeeping. The V1 records below remain historical.
+
 ## Scope and Identity
 
 - App Store Connect app ID: `6809050612`.
 - Bundle ID: `com.example.kenwidemon.dailywhiskers`; team: `HYU33CNQ69`.
-- Submitted candidate: version/build `1.0 (1)`, iOS 17 minimum, iPhone and iPad.
+- Historical V1 submitted candidate: version/build `1.0 (1)`, iOS 17 minimum, iPhone and iPad.
 - Build ID: `544c2ff8-c06c-4e03-84db-6bb8dc46b920`.
 - `project.yml` is configuration source. Real Firebase configuration stays ignored;
   never distribute `ci/firebase-test-config.plist`.

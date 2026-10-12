@@ -5,6 +5,36 @@ Use [app README](../DailyWhiskers/README.md#tests) for test commands and
 is a repeatable protocol plus scoped evidence, not a second backlog or release gate.
 Development tests do not retroactively validate the frozen V1 binary.
 
+## V1.1 Build 3 Acceptance
+
+Scope: accepted `1.1 (3)`, source
+`f5413459e9b215a42816662e634ed8df3e7a53ad`, with artifact identity in
+[distribution provenance](distribution-readiness.md#v11-candidate-provenance).
+Ken's acceptance was reconfirmed through the release coordinator October 12, 2026.
+This documentation-only update ran no new app tests, builds or physical checks.
+
+- Scoped accessibility/layout acceptance is complete by owner report, with a
+  screenshot-reviewed, owner-accepted nonblocking Close-control overlap.
+  Do not convert that exception into a passed no-overlap assertion, weaken the
+  existing layout tests, or infer blanket accessibility certification.
+- Apple Passwords Fill (#85) and popup-dismissal manual-password loss (#86) remain
+  open accepted risks deferred to V1.2. Single-password containment is not proof
+  of a provider fix. Preserve the separate retest protocol below.
+- Dedicated reviewer sign-in and logout to guest were owner-confirmed October 12
+  at 22:02–22:03 UTC. No credentials were collected by this documentation task.
+  Do not infer account-deletion, reset-delivery or every provider outcome from
+  this successful sign-in.
+- The supplied acceptance summary does not identify a complete per-check device,
+  OS, text-size and orientation matrix. Those details remain unspecified here;
+  historical V1/development devices must not be attributed to build 3.
+- Prior exact-RC CI passed 96 unit cases / 146 executions and five smoke cases,
+  with zero failures/skips/expected failures, plus unsigned Release and CI Gate.
+  This is retained automated evidence, separate from owner-reported acceptance.
+
+The [release checklist](release-checklist.md#v11-build-3-release-preparation)
+owns current gates and approval status. The procedures and historical development
+evidence below remain useful without overriding this candidate's scoped decision.
+
 ## Automated Checks
 
 - `DailyWhiskers` scheme: unit tests for auth request locking/errors/routing,
