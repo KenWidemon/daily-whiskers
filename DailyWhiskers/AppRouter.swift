@@ -14,6 +14,12 @@ final class AppRouter: ObservableObject {
     private var authHandle: AuthStateDidChangeListenerHandle?
 
     init() {
+#if DEBUG && CI_SMOKE_TESTING
+        if CISmokeMode.isEnabled {
+            authState = .signedOut
+            return
+        }
+#endif
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
             self.authState = user.map { .signedIn(uid: $0.uid) } ?? .signedOut
@@ -27,10 +33,16 @@ final class AppRouter: ObservableObject {
     }
 
     func signInWithEmail(email: String, password: String) async throws {
+#if DEBUG && CI_SMOKE_TESTING
+        try CISmokeMode.rejectAuthOperation()
+#endif
         _ = try await Auth.auth().signIn(withEmail: email, password: password)
     }
 
     func createEmailAccount(email: String, password: String) async throws {
+#if DEBUG && CI_SMOKE_TESTING
+        try CISmokeMode.rejectAuthOperation()
+#endif
         _ = try await Auth.auth().createUser(withEmail: email, password: password)
     }
 
@@ -46,14 +58,23 @@ final class AppRouter: ObservableObject {
     }
 
     func signOut() throws {
+#if DEBUG && CI_SMOKE_TESTING
+        try CISmokeMode.rejectAuthOperation()
+#endif
         try Auth.auth().signOut()
     }
 
     func sendPasswordReset(email: String) async throws {
+#if DEBUG && CI_SMOKE_TESTING
+        try CISmokeMode.rejectAuthOperation()
+#endif
         try await Auth.auth().sendPasswordReset(withEmail: email)
     }
 
     func deleteAccount(password: String) async throws {
+#if DEBUG && CI_SMOKE_TESTING
+        try CISmokeMode.rejectAuthOperation()
+#endif
         let auth = Auth.auth()
         guard let user = auth.currentUser, let email = user.email else {
             throw AccountDeletionError.sessionChanged

@@ -3,7 +3,7 @@
 **Current tooling; dated approval evidence.** Six September 12 compositions were
 approved and uploaded. That approval applies to those exact exports, not a future
 render. September 14 RC-source simulator comparison passed for all six captures;
-exact shipping-build device acceptance remains open. See the
+shipping-build acceptance is tracked separately. See the
 [RC comparison](../../docs/distribution-readiness.md#rc-source-screenshot-comparison-september-14-2026),
 [listing record](../../docs/app-store-listing.md)
 and [release checklist](../../docs/release-checklist.md). Temporary projects and
