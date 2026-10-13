@@ -1,4 +1,51 @@
-# V1 Manual Release Checklist
+# Manual Release Checklist
+
+## V1.1 Build 3 Release Preparation
+
+Updated October 12, 2026. Ken accepted `1.1 (3)` from exact RC
+`f5413459e9b215a42816662e634ed8df3e7a53ad` for release preparation with the
+explicit exceptions below. [Candidate provenance](distribution-readiness.md#v11-candidate-provenance)
+identifies the existing uploaded artifact; this documentation does not replace it.
+
+- **Scoped physical acceptance complete by owner report.** Build-3 accessibility
+  and layout checks were accepted. After screenshot review, Ken accepted the
+  remaining Close-control overlap as nonblocking. This is an explicit exception,
+  not a claim that overlap is absent or every accessibility scenario passes.
+  [Testing scope](testing.md#v11-build-3-acceptance) preserves the evidence limits.
+- **Password risks remain open and deferred to V1.2.**
+  [#85](https://github.com/KenWidemon/daily-whiskers/issues/85) covers Apple
+  Passwords Fill; [#86](https://github.com/KenWidemon/daily-whiskers/issues/86)
+  covers manual-password loss on strong-password popup dismissal.
+  Single-password registration contains the cross-field trigger; neither issue
+  is proven fixed or closed by build-3 acceptance.
+- **Reviewer access confirmed by owner report.** On October 12 at 22:02–22:03 UTC,
+  Ken confirmed dedicated reviewer-account sign-in and logout back to guest on
+  the accepted candidate. Keep credentials only in the dedicated secure fields;
+  do not use this account for deletion tests.
+- **Metadata saved; submission not started.** The October 12 App Store Connect
+  browser readback reported version 1.1 in Prepare for Submission, build 1.1(3)
+  selected, manual release and approved review notes intact, with no visible
+  warnings. Submission validation was not invoked. This was the release
+  coordinator's browser evidence, not an observation by the documentation worker.
+- **Privacy clarification published.** Ken approved reviewer notes explaining
+  optional guest sharing and the matching
+  [public privacy-policy clarification](https://kenwidemon.github.io/daily-whiskers-site/privacy/).
+  Support-site commit
+  [058da61](https://github.com/KenWidemon/daily-whiskers-site/commit/058da61a0b3eade7831ed30fa76b353343487693)
+  deployed successfully; public HTML matched committed source on October 12.
+  Existing email/User ID and SDK diagnostic disclosures were retained.
+- **Candidate tag verified; evidence PR review pending.** Annotated
+  `v1.1.0-rc.2` was created and remote-verified October 12 at the exact accepted
+  build-3 source; the immutable build-2 tag is unchanged. See
+  [tag provenance](distribution-readiness.md#v11-candidate-provenance).
+  [Draft evidence PR #93](https://github.com/KenWidemon/daily-whiskers/pull/93),
+  main promotion and develop synchronization remain pending. Preserve V1/build-2
+  provenance and require exact-head checks and separate merge approval.
+- **App Review submission and public release are not approved.** Saved metadata,
+  successful upload, acceptance and this PR do not authorize either action.
+  Recheck the selected artifact and remaining gates before the next approval.
+
+## Historical V1 Status
 
 Canonical V1 release gates. Preserve item numbers and explicit deferrals.
 Updated September 28, 2026. **Ken reports the requested Guideline 2.1 material is

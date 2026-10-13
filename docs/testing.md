@@ -5,25 +5,58 @@ Use [app README](../DailyWhiskers/README.md#tests) for test commands and
 is a repeatable protocol plus scoped evidence, not a second backlog or release gate.
 Development tests do not retroactively validate the frozen V1 binary.
 
+## V1.1 Build 3 Acceptance
+
+Scope: accepted `1.1 (3)`, source
+`f5413459e9b215a42816662e634ed8df3e7a53ad`, with artifact identity in
+[distribution provenance](distribution-readiness.md#v11-candidate-provenance).
+Ken's acceptance was reconfirmed through the release coordinator October 12, 2026.
+This documentation-only update ran no new app tests, builds or physical checks.
+
+- Scoped accessibility/layout acceptance is complete by owner report, with a
+  screenshot-reviewed, owner-accepted nonblocking Close-control overlap.
+  Do not convert that exception into a passed no-overlap assertion, weaken the
+  existing layout tests, or infer blanket accessibility certification.
+- Apple Passwords Fill (#85) and popup-dismissal manual-password loss (#86) remain
+  open accepted risks deferred to V1.2. Single-password containment is not proof
+  of a provider fix. Preserve the separate retest protocol below.
+- Dedicated reviewer sign-in and logout to guest were owner-confirmed October 12
+  at 22:02–22:03 UTC. No credentials were collected by this documentation task.
+  Do not infer account-deletion, reset-delivery or every provider outcome from
+  this successful sign-in.
+- The supplied acceptance summary does not identify a complete per-check device,
+  OS, text-size and orientation matrix. Those details remain unspecified here;
+  historical V1/development devices must not be attributed to build 3.
+- Prior exact-RC CI passed 96 unit cases / 146 executions and five smoke cases,
+  with zero failures/skips/expected failures, plus unsigned Release and CI Gate.
+  This is retained automated evidence, separate from owner-reported acceptance.
+
+The [release checklist](release-checklist.md#v11-build-3-release-preparation)
+owns current gates and approval status. The procedures and historical development
+evidence below remain useful without overriding this candidate's scoped decision.
+
 ## Automated Checks
 
 - `DailyWhiskers` scheme: unit tests for auth request locking/errors/routing,
   deletion ordering, registration policy/state, content decode/integrity/fallbacks,
   deterministic selection/rollover and packaged privacy/distribution configuration.
-- `DailyWhiskersInteraction` scheme: opt-in signed-out simulator flows. Use a
+- `DailyWhiskersInteraction` scheme: opt-in offline simulator auth flows using
+  `DEBUG`, `CI_SMOKE_TESTING` and the asserted offline launch marker. Use a
   dedicated simulator and an on-screen software keyboard. An offscreen keyboard
   accessibility tree does not satisfy the tappable-key precondition.
 - Interaction checks cover guest dismissal/relaunch, keyboard/landscape reachability,
   repeated validation, Sign In visibility/editing/lifecycle, and registration
-  navigation/credential isolation/visibility, independent confirmation visibility,
-  both registration passwords masking on background, and Close/swipe draft clearing.
+  navigation/credential isolation/visibility, the registration password masking
+  on background, and Close/swipe draft clearing.
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
 - Native-field tests repeat registration mounts, detached-field clearing and
-  synthetic native replacements across focus changes. These checks do not invoke
+  synthetic native replacements across email/password focus changes, intentional
+  select-all deletion and continued manual editing. These checks do not invoke
   a real strong-password provider. The offline UI regression repeats editing
-  after Back, sheet Close and explicit process termination/relaunch.
+  after Back, sheet Close and explicit process termination/relaunch. A valid
+  single-password Done submission must reach only the rejecting offline boundary.
 - Keep the known largest-text Sign In landscape assertion and keyboard precondition
   intact. A skipped/deferred test is not a pass; report exact selected tests/results.
 
@@ -68,17 +101,17 @@ individual runs in the linked issues, not a new repository session log.
 ### Identify the Build
 
 Record source commit (and any uncommitted changes), app version/build, installation
-source, device, iOS version, and password manager used. Build the DW-006 task branch
-for this round; an older DW-005 binary cannot validate the new Sign In control.
+source, device, iOS version, and password manager used. Use the candidate that
+contains the behavior under test; an older binary cannot validate a new control.
 Use a controlled account for explicitly chosen live checks. Never put passwords,
 reset links, or account addresses in the evidence. Automated tests use synthetic
 input and injected operations; they do not prove live auth or password-manager use.
 
 ### Native Input Synchronization
 
-Native-field unit coverage includes synthetic pending input in both registration
-fields before editing callbacks, unrelated SwiftUI refreshes, stable AutoFill
-traits, selection/end-editing callbacks, visibility with a pending edit, explicit
+Native-field unit coverage includes synthetic pending input in generic paired
+fields and the current email/password form before editing callbacks, unrelated
+SwiftUI refreshes, stable AutoFill traits, selection/end-editing callbacks, visibility with a pending edit, explicit
 model clearing and view dismantling. Native edits must survive a refresh; explicit
 model replacements and discarded forms must not be restored by queued work.
 Programmatic secure-entry caret restoration must not publish a temporary cleared
@@ -100,11 +133,11 @@ is tracked separately in [#86](https://github.com/KenWidemon/daily-whiskers/issu
 Its real provider callback ordering and relationship to #85 remain unproven.
 Synthetic native restoration and deliberate deletion checks do not establish
 physical popup-cancellation behavior. Test that manual input survives dismissal
-and confirmation editing without suppressing intentional clearing. Both defects
-remain open; development integration does not establish release acceptance.
+and repeated email/password focus changes without suppressing intentional clearing.
+Both defects remain open; development integration does not establish release acceptance.
 
 Registration's email account identifier uses `.username` content semantics with an
-explicit `.emailAddress` keyboard, independently of the password fields'
+explicit `.emailAddress` keyboard, independently of the password field’s
 `.newPassword` content semantics. This follows Apple's [field tagging guidance](https://developer.apple.com/documentation/security/enabling-password-autofill-on-a-text-input-view).
 The keyboard must remain email-friendly when content semantics change.
 
@@ -116,8 +149,27 @@ and hosted-file changes require their own authorized configuration work.
 
 For a provider-specific failure, record the provider and device separately. A
 successful fill with another provider does not establish Apple Passwords acceptance.
-Confirm generated input reaches both registration fields and remains editable
+Confirm generated input reaches the registration password field and remains editable
 through focus/visibility changes, without submitting merely to test AutoFill.
+
+### Single-Password Registration Retest
+
+Use a newly identified candidate; the frozen two-field RC cannot validate this
+change. Confirmation removal is containment of the cross-field trigger, not a
+physical fix claim for #85 or #86. On iPhone and iPad, without submitting:
+
+1. Dismiss Apple’s strong-password popup with Password empty, enter a synthetic
+   password manually, then repeat Email → Password focus changes and popup dismissal.
+   Confirm existing input survives and manual editing remains possible each time.
+2. Separately exercise Apple Passwords Fill (#85), recording provider outcome
+   independently of manual-entry and popup-dismissal outcomes.
+3. Check Show/Hide, caret/range editing, select-all deletion to empty and re-entry.
+   Background must mask; Back, Close and swipe dismissal must discard the draft.
+4. Check VoiceOver privacy/order and reachable controls with the keyboard open at
+   largest text, phone landscape and iPad portrait/landscape/narrow layouts.
+5. Only with separate authorization, validate controlled account creation and
+   email-reset recovery. Removing confirmation increases typo risk; optional
+   visual review does not replace a nonvisual confirmation check.
 
 ### Shared Physical Session
 
@@ -127,12 +179,12 @@ row passed, failed, not run, or explicitly deferred; record who observed it.
 | Check | DW-006 Sign In | DW-005 Create Account |
 | --- | --- | --- |
 | Entry and guest access | Settings opens optional Sign In with a masked, empty password. Close/swipe returns to the same daily card. | Create Account opens a separate form without a request; only email is prefilled. |
-| Visibility and editing | Type, move the caret into the middle, select a range, toggle both ways, replace the selection, and keep typing. Value, selection, focus and keyboard stay intact. Dismiss the keyboard, refocus the masked password at a middle caret or selection, and type: the edit stays at that location. Toggle also works without focusing the field. | Repeat for password and confirmation independently. |
-| Privacy lifecycle | Reveal, switch apps/lock and return: masked with input retained. Close/swipe and reopen: masked with draft discarded. Going to registration and back also clears/masks the Sign In password. | Reveal both, background and return: masked. Back or Close discards both registration passwords. |
-| AutoFill | Fill an existing credential with the named manager. Reveal/hide and edit without losing it or unexpectedly offering a new password. | Generate/fill a compliant new password and confirmation with the named manager; confirm both remain editable. Do not submit merely to test AutoFill. |
-| VoiceOver controls/privacy | Fields and Show/Hide action and Hidden/Visible state are identified; focusing either masked or revealed password does not read its contents. Navigate away/back and edit; no focus trap. | Repeat for both password controls and Back/Close. |
-| Local validation | Existing six-character passwords remain eligible; invalid email/short input cannot sign in. Forgot password with empty/invalid email gives accessible feedback repeatedly. | Invalid email, minimum eight, ASCII uppercase/lowercase/digit and exact confirmation each block submission with accessible feedback and error focus. |
-| Largest accessibility text | With keyboard open, scroll to password, visibility control, reset and primary/navigation actions in portrait and landscape. Check clipping, overlap and 44-point targets. | Repeat for all three fields, both visibility controls, submit and Back. |
+| Visibility and editing | Type, move the caret into the middle, select a range, toggle both ways, replace the selection, and keep typing. Value, selection, focus and keyboard stay intact. Dismiss the keyboard, refocus the masked password at a middle caret or selection, and type: the edit stays at that location. Toggle also works without focusing the field. | Repeat for the single registration password. |
+| Privacy lifecycle | Reveal, switch apps/lock and return: masked with input retained. Close/swipe and reopen: masked with draft discarded. Going to registration and back also clears/masks the Sign In password. | Reveal, background and return: masked with input retained. Back or Close discards the registration password. |
+| AutoFill | Fill an existing credential with the named manager. Reveal/hide and edit without losing it or unexpectedly offering a new password. | Generate/fill a compliant new password with the named manager; confirm it remains editable. Do not submit merely to test AutoFill. |
+| VoiceOver controls/privacy | Fields and Show/Hide action and Hidden/Visible state are identified; focusing either masked or revealed password does not read its contents. Navigate away/back and edit; no focus trap. | Repeat for Password, Show/Hide and Back/Close; confirmation is absent. |
+| Local validation | Existing six-character passwords remain eligible; invalid email/short input cannot sign in. Forgot password with empty/invalid email gives accessible feedback repeatedly. | Invalid email, minimum eight, ASCII uppercase/lowercase/digit each block submission with accessible feedback and error focus. |
+| Largest accessibility text | With keyboard open, scroll to password, visibility control, reset and primary/navigation actions in portrait and landscape. Check clipping, overlap and 44-point targets. | Repeat for email/password, Show/Hide, submit and Back, including iPad narrow layouts. |
 | Pending request and failure | With an owner-controlled request, verify progress speech, disabled duplicate actions/dismissal, accessible backend/network failure and retry. | Repeat registration request checks; creating a real account is a separate deliberate test action. |
 | Success and recovery | Controlled successful sign-in returns to the same daily card. Verify reset behavior only with deliberate authorization to send an email. | Controlled registration success follows the existing session route to the daily card. |
 

@@ -6,13 +6,26 @@ import Testing
 @Suite("Dedicated registration")
 @MainActor
 struct RegistrationTests {
+    @Test("One password is sufficient and submitted without alteration")
+    func singlePasswordRegistration() async {
+        let request = AuthRequestState()
+        let form = RegistrationForm(email: "cat@example.invalid", password: " Synthetic1 ")
+        var calls = 0
+        await request.createAccount(form: form) { email, password in
+            calls += 1
+            #expect(email == "cat@example.invalid")
+            #expect(password.utf8.elementsEqual(form.password.utf8))
+        }
+        #expect(calls == 1)
+        #expect(request.errorMessage == nil)
+    }
+
     @Test("Invalid input never creates an account", arguments: [
         RegistrationForm(),
-        RegistrationForm(email: "cat@", password: "Abcdef12", confirmation: "Abcdef12"),
-        RegistrationForm(email: "cat@example.com", password: "short", confirmation: "short"),
-        RegistrationForm(email: "cat@example.com", password: String(repeating: "x", count: 4097), confirmation: ""),
-        RegistrationForm(email: "cat@example.com", password: "Abcdef12", confirmation: ""),
-        RegistrationForm(email: "cat@example.com", password: "Abcdef12", confirmation: "ABCDEF12")
+        RegistrationForm(email: "cat@", password: "Abcdef12"),
+        RegistrationForm(email: "cat@example.com", password: "short"),
+        RegistrationForm(email: "cat@example.com", password: String(repeating: "x", count: 4097)),
+        RegistrationForm(email: "cat@example.com", password: "")
     ])
     func invalidInput(_ form: RegistrationForm) async {
         var calls = 0
@@ -35,7 +48,7 @@ struct RegistrationTests {
     ])
     func missingCharacterClass(_ password: String, _ message: String) async {
         let request = AuthRequestState()
-        let form = RegistrationForm(email: "cat@example.com", password: password, confirmation: password)
+        let form = RegistrationForm(email: "cat@example.com", password: password)
         await request.createAccount(form: form) { _, _ in Issue.record("Invalid password reached backend") }
         #expect(request.errorMessage == message)
         #expect(!request.isWorking)
@@ -43,14 +56,14 @@ struct RegistrationTests {
 
     @Test("Seven characters are rejected even with all required character types")
     func belowMinimum() {
-        let form = RegistrationForm(email: "cat@example.com", password: "Abcdef1", confirmation: "Abcdef1")
+        let form = RegistrationForm(email: "cat@example.com", password: "Abcdef1")
         #expect(form.validationError == "Use at least 8 characters for your password.")
     }
 
     @Test("Backend policy rejection never recommends the old six-character minimum")
     func backendPolicyRejection() async {
         let request = AuthRequestState()
-        let form = RegistrationForm(email: "cat@example.com", password: "Abcdef12", confirmation: "Abcdef12")
+        let form = RegistrationForm(email: "cat@example.com", password: "Abcdef12")
         await request.createAccount(form: form) { _, _ in
             throw NSError(domain: AuthErrorDomain, code: AuthErrorCode.weakPassword.rawValue)
         }
@@ -61,24 +74,34 @@ struct RegistrationTests {
     @Test("Policy length boundaries", arguments: [8, 4096])
     func boundaries(_ length: Int) {
         let password = "Aa1" + String(repeating: "a", count: length - 3)
-        #expect(RegistrationForm(email: "cat@example.com", password: password, confirmation: password).validationError == nil)
+        #expect(RegistrationForm(email: "cat@example.com", password: password).validationError == nil)
     }
 
-    @Test("Unicode length follows Firebase and confirmation compares exact input")
-    func unicodePasswords() {
+    @Test("Unicode length and exact password bytes are preserved")
+    func unicodePasswords() async {
         let emoji = "Aa12" + String(repeating: "🐈", count: 2)
-        #expect(RegistrationForm(email: "cat@example.com", password: emoji, confirmation: emoji).validationError == nil)
+        #expect(RegistrationForm(email: "cat@example.com", password: emoji).validationError == nil)
         let composed = "Abcde12é"
         let decomposed = "Abcde12e\u{301}"
-        #expect(composed == decomposed) // Swift equality treats these as equivalent.
-        #expect(RegistrationForm(email: "cat@example.com", password: composed, confirmation: decomposed).validationError != nil)
+        #expect(composed == decomposed) // Swift equality hides byte differences.
+        #expect(!composed.utf8.elementsEqual(decomposed.utf8))
+        var calls = 0
+        for password in [composed, decomposed] {
+            let form = RegistrationForm(email: "cat@example.com", password: password)
+            #expect(form.validationError == nil)
+            await AuthRequestState().createAccount(form: form) { _, submitted in
+                calls += 1
+                #expect(submitted.utf8.elementsEqual(password.utf8))
+            }
+        }
+        #expect(calls == 2)
     }
 
     @Test("Registration normalizes only email and releases the lock after success")
     func successfulRegistration() async {
         let request = AuthRequestState()
         request.errorMessage = "Previous error"
-        let form = RegistrationForm(email: " \nCat@example.com ", password: " Secret1 ", confirmation: " Secret1 ")
+        let form = RegistrationForm(email: " \nCat@example.com ", password: " Secret1 ")
         var calls = 0
         await request.createAccount(form: form) { email, password in
             calls += 1
@@ -95,7 +118,7 @@ struct RegistrationTests {
     @Test("Failure and repeated invalid retries are accessible and retryable")
     func retry() async {
         let request = AuthRequestState()
-        let valid = RegistrationForm(email: "cat@example.com", password: "Abcdef12", confirmation: "Abcdef12")
+        let valid = RegistrationForm(email: "cat@example.com", password: "Abcdef12")
         await request.createAccount(form: valid) { _, _ in
             throw NSError(domain: AuthErrorDomain, code: AuthErrorCode.networkError.rawValue)
         }
@@ -123,7 +146,7 @@ struct RegistrationTests {
     @Test("Registration cannot be submitted twice while its first request is suspended")
     func duplicateRegistration() async {
         let request = AuthRequestState()
-        let form = RegistrationForm(email: "cat@example.com", password: "Abcdef12", confirmation: "Abcdef12")
+        let form = RegistrationForm(email: "cat@example.com", password: "Abcdef12")
         var finish: CheckedContinuation<Void, Never>?
         var first: Task<Void, Never>?
         await withCheckedContinuation { started in
@@ -144,17 +167,16 @@ struct RegistrationTests {
         #expect(!request.isWorking)
     }
 
-    @Test("Masking preserves input; leaving registration clears both passwords")
+    @Test("Masking preserves input; leaving registration clears the password")
     func transientCredentials() {
-        var form = RegistrationForm(email: "cat@example.com", password: "Abcdef12", confirmation: "Abcdef12")
-        #expect(!form.passwordVisible && !form.confirmationVisible)
+        var form = RegistrationForm(email: "cat@example.com", password: "Abcdef12")
+        #expect(!form.passwordVisible)
         form.passwordVisible = true
-        form.confirmationVisible = true
         form.maskPasswords()
-        #expect(form.password == "Abcdef12" && form.confirmation == "Abcdef12")
-        #expect(!form.passwordVisible && !form.confirmationVisible)
+        #expect(form.password == "Abcdef12")
+        #expect(!form.passwordVisible)
         form.clearPasswords()
-        #expect(form.password.isEmpty && form.confirmation.isEmpty)
-        #expect(!form.passwordVisible && !form.confirmationVisible)
+        #expect(form.password.isEmpty)
+        #expect(!form.passwordVisible)
     }
 }

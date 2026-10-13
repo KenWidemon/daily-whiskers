@@ -39,8 +39,8 @@ struct AuthTextFieldTests {
             try await settle()
             let email = try #require(field("registration-email", in: window))
             let password = try #require(field("registration-password", in: window))
-            let confirmation = try #require(field("registration-confirmation", in: window))
-            for input in [email, password, confirmation] {
+            #expect(field("registration-confirmation", in: window) == nil)
+            for input in [email, password] {
                 #expect(!retired.contains { $0 === input })
                 #expect(input.text?.isEmpty != false)
                 #expect(!input.isFirstResponder)
@@ -53,27 +53,32 @@ struct AuthTextFieldTests {
             try await settle()
             // Synthetic native replacement exercises the bridge, not the
             // system password provider or its strong-password panel.
-            for input in [password, confirmation] {
-                #expect(input.textContentType == .newPassword)
-                #expect(input.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
-                #expect(input.isSecureTextEntry)
-                input.text = "Synthetic-Repeat-1"
-                input.delegate?.textFieldDidChangeSelection?(input)
-            }
+            #expect(password.textContentType == .newPassword)
+            #expect(password.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
+            #expect(password.isSecureTextEntry)
+            password.text = "Synthetic-Repeat-1"
+            password.delegate?.textFieldDidChangeSelection?(password)
             try await settle()
-            #expect(confirmation.becomeFirstResponder())
+            #expect(email.becomeFirstResponder())
             try await settle()
             #expect(password.becomeFirstResponder())
             try await settle()
             #expect(field("registration-password", in: window) === password)
-            #expect(field("registration-confirmation", in: window) === confirmation)
             #expect(password.text == "Synthetic-Repeat-1")
-            #expect(confirmation.text == "Synthetic-Repeat-1")
             let oldCoordinator = try #require(password.delegate as? AuthTextField.Coordinator)
+            // Manual deletion must still clear the model, and editing must
+            // continue after repeated focus changes in the actual form.
+            password.selectedTextRange = password.textRange(from: password.beginningOfDocument, to: password.endOfDocument)
+            password.deleteBackward()
+            #expect(password.text?.isEmpty != false)
+            #expect(oldCoordinator.parent.text.isEmpty)
+            password.insertText("Synthetic-Reentered-2")
+            try await settle()
+            #expect(oldCoordinator.parent.text == "Synthetic-Reentered-2")
             probe.showingRegistration = false
             try await settle()
             #expect(field("registration-password", in: window) == nil)
-            for input in [email, password, confirmation] {
+            for input in [email, password] {
                 #expect(input.delegate == nil)
                 #expect(input.text == "")
                 #expect(!input.isFirstResponder)
@@ -81,11 +86,11 @@ struct AuthTextFieldTests {
             // An already queued callback from a dismantled form must be inert.
             password.text = "Synthetic-Late-2"
             oldCoordinator.changed(password)
-            retired += [email, password, confirmation]
+            retired += [email, password]
         }
     }
 
-    @Test("The real registration form tags its account identifier and both new-password fields")
+    @Test("The real registration form has one new-password field with Done")
     func registrationFormTraits() async throws {
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let previous = scene.windows.first { $0.isKeyWindow }
@@ -103,12 +108,12 @@ struct AuthTextFieldTests {
         #expect(email.textContentType == .username)
         #expect(email.keyboardType == .emailAddress)
         #expect(!email.isSecureTextEntry)
-        for identifier in ["registration-password", "registration-confirmation"] {
-            let password = try #require(field(identifier, in: window))
-            #expect(password.textContentType == .newPassword)
-            #expect(password.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
-            #expect(password.isSecureTextEntry)
-        }
+        let password = try #require(field("registration-password", in: window))
+        #expect(field("registration-confirmation", in: window) == nil)
+        #expect(password.textContentType == .newPassword)
+        #expect(password.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
+        #expect(password.isSecureTextEntry)
+        #expect(password.returnKeyType == .done)
     }
 
     @Test("Email account identifiers use username semantics with an email keyboard")
@@ -386,7 +391,7 @@ struct AuthTextFieldTests {
         #expect(host.model.password == " Ax1z ")
     }
 
-    @Test("A view refresh preserves and synchronizes pending native input in both registration fields")
+    @Test("A generic two-field view refresh preserves pending native input")
     func pendingNativeFillSurvivesRefresh() async throws {
         let host = try HostedRegistrationFields()
         defer { host.close() }
@@ -415,31 +420,31 @@ struct AuthTextFieldTests {
         #expect(host.model.confirmation == synthetic)
     }
 
-    @Test("Production State form bindings retain native two-field replacement with delegates active")
+    @Test("Production State form bindings retain native email/password replacement with delegates active")
     func stateFormRetainsNativeReplacement() async throws {
         let host = try HostedStateRegistrationFields()
         defer { host.close() }
         try await host.settle()
         let password = try #require(host.field("state-password"))
-        let confirmation = try #require(host.field("state-confirmation"))
+        let email = try #require(host.field("state-email"))
         let synthetic = "Synthetic-State-42"
         // Exercise live delegates and projected members of one @State value.
         // These native operations still do not simulate a password provider.
         password.text = synthetic
-        confirmation.text = synthetic
+        email.text = synthetic
         password.sendActions(for: .editingChanged)
-        confirmation.sendActions(for: .editingChanged)
+        email.sendActions(for: .editingChanged)
         host.probe.revision += 1
         try await host.settle()
-        let nativeValuesMatch = password.text == synthetic && confirmation.text == synthetic
-        let modelValuesMatch = host.probe.form.password == synthetic && host.probe.form.confirmation == synthetic
+        let nativeValuesMatch = password.text == synthetic && email.text == synthetic
+        let modelValuesMatch = host.probe.form.password == synthetic && host.probe.form.email == synthetic
         #expect(nativeValuesMatch)
         #expect(modelValuesMatch)
 
         host.probe.clearRequest += 1
         try await host.settle()
-        let nativeDraftDiscarded = password.text == "" && confirmation.text == ""
-        let modelDraftDiscarded = host.probe.form.password.isEmpty && host.probe.form.confirmation.isEmpty
+        let nativeDraftDiscarded = password.text == "" && email.text == synthetic
+        let modelDraftDiscarded = host.probe.form.password.isEmpty && host.probe.form.email == synthetic
         #expect(nativeDraftDiscarded)
         #expect(modelDraftDiscarded)
     }
@@ -450,14 +455,14 @@ struct AuthTextFieldTests {
         defer { host.close() }
         try await host.settle()
         let password = try #require(host.field("state-password"))
-        let confirmation = try #require(host.field("state-confirmation"))
+        let email = try #require(host.field("state-email"))
         let synthetic = "Synthetic-State-Pending-42"
         password.text = synthetic
-        confirmation.text = synthetic
+        email.text = synthetic
         host.probe.revision += 1
         try await host.settle()
-        let nativeValuesMatch = password.text == synthetic && confirmation.text == synthetic
-        let modelValuesMatch = host.probe.form.password == synthetic && host.probe.form.confirmation == synthetic
+        let nativeValuesMatch = password.text == synthetic && email.text == synthetic
+        let modelValuesMatch = host.probe.form.password == synthetic && host.probe.form.email == synthetic
         #expect(nativeValuesMatch)
         #expect(modelValuesMatch)
     }
@@ -525,10 +530,10 @@ private struct StateRegistrationHarness: View {
                           isSecure: !form.passwordVisible, contentType: .newPassword,
                           identifier: "state-password", accessibilityHint: "Refresh \(probe.revision)",
                           passwordRules: RegistrationForm.passwordRules, onSubmit: {})
-            AuthTextField(label: "Confirm Password", text: $form.confirmation, isFocused: focus(2),
-                          isSecure: !form.confirmationVisible, contentType: .newPassword,
-                          identifier: "state-confirmation", accessibilityHint: "Refresh \(probe.revision)",
-                          passwordRules: RegistrationForm.passwordRules, onSubmit: {})
+            AuthTextField(label: "Email", text: $form.email, isFocused: focus(2),
+                          contentType: .username, keyboardType: .emailAddress,
+                          identifier: "state-email", accessibilityHint: "Refresh \(probe.revision)",
+                          onSubmit: {})
         }
         .onChange(of: form) { _, updated in probe.form = updated }
         .onChange(of: probe.clearRequest) { _, _ in
