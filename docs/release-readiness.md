@@ -68,3 +68,19 @@ account action. See the [canonical release checklist](release-checklist.md).
   number and renewed relevant checks; do not change the immutable RC1 tag.
 - Development registration policy changes are not permission to alter live Firebase
   settings. See [DW-005 acceptance limits](testing.md#dw-005-development-evidence).
+
+## Rehearsal Security Boundary
+
+The [offline release rehearsal](distribution-readiness.md#offline-release-policy-rehearsal)
+uses synthetic configuration and inspection records. Never supply real Firebase
+configuration, credentials, archives or IPAs to its fixtures or public reports.
+Its `release_eligible=false` result is unconditional. Fixture signature/profile
+claims are not a check of current signing assets, and its temporary ledger does
+not reserve a build in App Store Connect.
+
+The rehearsal workflow has only a read-only repository token, no environment or
+release secrets, and no signing/upload adapter. Keep production adapters and
+credential/environment settings out of this stage. Future privileged work needs
+separate ownership and settings approval, private artifact storage and verified
+package-specific approval. Existing automatic signing/export remains the manual
+path; the rehearsal does not enable provisioning or change distribution settings.
