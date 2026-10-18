@@ -325,8 +325,15 @@ final class AuthLayoutTests: XCTestCase {
     private func openOptionalSignIn() {
         app.buttons["Settings"].tap()
         let signIn = app.buttons["Sign In"]
+        // Native menu rows scroll at accessibility sizes in compact landscape.
+        let menu = app.collectionViews.firstMatch
+        for _ in 0..<4 where !signIn.exists || !signIn.isHittable {
+            guard menu.exists else { break }
+            menu.swipeUp()
+        }
         XCTAssertTrue(signIn.waitForExistence(timeout: 10),
                       "Run on a signed-out QA simulator; this test never signs out a user.")
+        XCTAssertTrue(signIn.isHittable)
         XCTAssertFalse(app.buttons["Log Out"].exists)
         XCTAssertFalse(app.buttons["Delete Account"].exists)
         signIn.tap()

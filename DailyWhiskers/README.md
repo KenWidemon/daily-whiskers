@@ -29,6 +29,80 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
 
+## Saved Cards
+
+The monochrome heart-eyes cat toolbar button captures the displayed card and adds
+a checkmark when saved. Its SwiftUI vector uses the toolbar's primary foreground color.
+It has no visible text label; accessibility announces **Save Card** with the
+**Saved** or **Not saved** value and a hint describing the next action.
+Tapping again removes the card. Saved cards appear in a guest-accessible, newest-first
+collection labeled **On this device**, with uncropped artwork tiles on a centered,
+adaptive grid. Accessibility text sizes use one column and complete quote labels.
+Reopen the full card, share its
+retained version, or deliberately remove it with the secondary destructive action.
+Saving an identical version again
+keeps its original position; different artwork or quote versions remain separate.
+Ordering uses a monotonic insertion sequence, independent of wall-clock changes.
+
+On narrow portrait screens at ordinary text sizes, Today and saved detail compact
+quote spacing and measure the text before proportionally fitting the complete
+artwork into the remaining height. Text is never truncated or scaled down to fit.
+Accessibility sizes, landscape and exceptionally long content retain scrolling;
+iPad keeps the larger presentation. The export layout is independent of this
+viewport adjustment. Today and saved detail use the same card renderer, including
+the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
+artwork, quote, vibe and archetype directly; navigation and Share remain separate screen controls. **Saved Card Options** beside
+Share contains the destructive **Remove from Saved Cards** action and offers
+**Save Card** after removal while the detail stays open. Dismissing the menu changes
+nothing. No persistent removal footer reserves card space, so matched device/text
+conditions use the same available card size. Both surfaces include the same
+vertical quote-panel padding.
+
+The collection belongs to the installation, independent of sign-in, logout or
+account deletion. **Settings > Clear Saved Cards** requires confirmation and
+removes favorites without clearing the current card or retained day selections.
+Daily Whiskers does not upload or sync this collection. Normal device backups may
+include it; restore depends on the user's available backup/settings. An older
+backup can restore cards removed later. Clear does not erase existing OS backups.
+
+`CardRepository` serializes SQLite operations in Application Support. Schema 1
+contains artwork BLOBs, immutable snapshots, favorites, and an unused reference
+ledger for later daily/bonus persistence. Snapshot/artwork/favorite writes commit
+atomically with foreign keys, rollback journaling and FULL synchronization. Errors
+preserve prior committed state and offer Retry. There is no destructive reset for
+unknown schemas. The first migration creates schema 1 transactionally; no released
+Favorites schema precedes it. Future migrations must preserve all four tables in
+one transaction. `backup(to:)` produces a consistent SQLite copy for restoration
+checks; it is not an app cloud backup feature.
+
+Snapshot identity uses stable card ID plus a SHA-256 content revision over
+versioned, length-prefixed UTF-8 displayed fields, exact quote identity/revision,
+and a fixed sRGB RGBA8 pixel digest including dimensions. It excludes occurrence,
+date, image name, manifest order and styling. Existing single quotes use a stable
+`legacy:<cardID>` quote ID and exact-text checksum revision; explicit quote
+identities can be supplied later without changing old snapshots. No quote rotation
+or daily/bonus selection behavior is introduced here.
+
+Original PNG bytes are stored once per checksum, verified on import/read and
+never re-resolved through a mutable asset name. The current display and save
+capture use the same packaged original bytes. A missing/corrupt saved card remains
+visible with an unavailable/retry state; it never substitutes current artwork.
+Cleanup retains snapshots referenced by favorites, future date records or an
+active repository share lease. The UI also holds a complete immutable card during
+an open detail/share/retry. Thumbnails are generated only for visible rows and
+kept in memory; there is no durable thumbnail cache. Exports remain memory-only.
+
+The build includes `DailyWhiskers/CardOriginals` as a folder resource, preserving
+source PNG bytes without asset-catalog processing. Manifest validation, Today,
+previews, capture and sharing all use this one artwork source. The asset catalog
+contains only the app icon. Future artwork integration must keep image names
+stable and copy exact accepted originals; verify packaged checksums after a clean
+build. Never recompress retained originals or bundle historical collections as a
+retention strategy. Readback supports upright, single-frame images up to 4096
+pixels per dimension. Measure bundle size and memory on each release candidate.
+
+See [Saved Cards acceptance](../docs/testing.md#saved-cards).
+
 ## Sign In Password Visibility
 
 Sign In starts masked. Its trailing Show/Hide Password control retains the native
@@ -51,7 +125,7 @@ and [PR #70](https://github.com/KenWidemon/daily-whiskers/pull/70).
 ## Sharing Today's Card
 
 The daily toolbar offers **Share Today's Card** to guests and signed-in users.
-It captures the displayed card when tapped, so a foreground/day change cannot
+It captures the displayed immutable card when tapped, so a foreground/day change cannot
 replace an in-flight export. The system share sheet receives a freshly rendered
 image and a plain-text quote/vibe companion; the user chooses a destination and
 confirms sending. There is no account requirement, upload, tracking, or automatic
@@ -261,7 +335,8 @@ Load-time integrity checks:
 - JSON decode success
 - required fields non-empty
 - duplicate `id` rejected
-- `imageName` must exist in Assets catalog
+- `imageName` must resolve to `CardOriginals/<imageName>.png` through the shared
+  `BundledCardArtwork` loader
 - invalid cards are dropped with integrity logging
 - if no valid cards remain, app uses a built-in fallback card
 
@@ -350,15 +425,19 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, five offline UI smoke tests, and an unsigned Release build for
+unit suite, five offline smoke tests plus five Saved Cards tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-The smoke suite selects only `RegressionSmokeTests` from the interaction scheme:
+The required offline UI stage selects `RegressionSmokeTests` and `SavedCardsTests`
+from the interaction scheme. The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
-offline boundary. It uses existing accessible identifiers and
+offline boundary. The five Saved Cards tests cover save/relaunch/reopen/share,
+remove/resave and confirmed clear, largest-text portrait/landscape reachability,
+ordinary-phone full-card fit, and paired Today/Saved geometry and options.
+Both classes use existing accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and
 `--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
@@ -464,8 +543,8 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 
 Use the fake `ci/firebase-test-config.plist` copied to the app resource location,
 as in CI; this command builds an unsigned simulator app.
-The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects only the
-separate offline smoke class; the broader UI suite restores portrait orientation and passes text size as a launch argument,
+The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects the
+offline smoke and Saved Cards classes; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
 Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air

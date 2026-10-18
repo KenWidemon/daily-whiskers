@@ -136,7 +136,7 @@ struct DailyContentProvider {
             }
 
             guard resolveImage(normalizedCard.imageName) else {
-                logger.error("Card id \(normalizedCard.id, privacy: .public) references missing image asset \(normalizedCard.imageName, privacy: .public). Card was dropped.")
+                logger.error("Card id \(normalizedCard.id, privacy: .public) references missing original artwork \(normalizedCard.imageName, privacy: .public). Card was dropped.")
                 continue
             }
 
@@ -171,7 +171,7 @@ struct DailyContentProvider {
 
     private static func hasImageNamed(_ imageName: String, in bundle: Bundle) -> Bool {
         #if canImport(UIKit)
-        UIImage(named: imageName, in: bundle, compatibleWith: nil) != nil
+        BundledCardArtwork.image(named: imageName, bundle: bundle) != nil
         #else
         true
         #endif

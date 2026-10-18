@@ -4,13 +4,22 @@ import UIKit
 /// A value captured from the displayed card, never a new date-based selection.
 struct DailyCardShareSnapshot {
     let imageName: String
+    let retainedArtwork: Data?
     let quote: String
     let vibe: String?
 
     init(card: DailyCard) {
+        retainedArtwork = nil
         imageName = card.imageName
         quote = card.quote
         vibe = card.vibe.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+    }
+
+    init(retained: RetainedCard) {
+        imageName = ""
+        retainedArtwork = retained.artwork
+        quote = retained.snapshot.quote
+        vibe = retained.snapshot.vibe.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
     }
 
     var companionText: String {
@@ -83,7 +92,13 @@ struct DailyCardShareRenderer {
 
     static func render(_ snapshot: DailyCardShareSnapshot) throws -> DailyCardShareExport {
         let layout = try layout(for: snapshot)
-        guard let artwork = UIImage(named: snapshot.imageName) else {
+        let resolvedArtwork: UIImage?
+        if let bytes = snapshot.retainedArtwork {
+            resolvedArtwork = UIImage(data: bytes)
+        } else {
+            resolvedArtwork = BundledCardArtwork.image(named: snapshot.imageName)
+        }
+        guard let artwork = resolvedArtwork else {
             throw DailyCardShareError.missingArtwork
         }
         let format = UIGraphicsImageRendererFormat()
@@ -133,6 +148,14 @@ final class DailyCardShareState: ObservableObject {
     func start(card: DailyCard) async {
         guard !isRendering, export == nil else { return }
         snapshot = DailyCardShareSnapshot(card: card)
+        await prepare()
+    }
+
+    func start(retained: RetainedCard) async {
+        guard !isRendering, export == nil else { return }
+        do { try retained.snapshot.validate(artwork: retained.artwork) }
+        catch { hasError = true; return }
+        snapshot = DailyCardShareSnapshot(retained: retained)
         await prepare()
     }
 

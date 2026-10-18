@@ -16,14 +16,18 @@ struct DailyWhiskersApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(router)
-                .overlay(alignment: .bottom) {
 #if DEBUG && CI_SMOKE_TESTING
+                // Reserve space for the offline marker so it cannot cover collection actions.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
                     if CISmokeMode.isEnabled {
                         Text("Offline CI smoke")
+                            .font(.system(size: 10))
+                            .dynamicTypeSize(.medium)
                             .accessibilityIdentifier("ci-smoke-offline")
+                            .allowsHitTesting(false)
                     }
-#endif
                 }
+#endif
         }
     }
 }

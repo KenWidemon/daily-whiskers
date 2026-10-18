@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0F5E1ECEF920643B487D8D9C /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */; };
+		1DA6C767D871A1C3FB0E3B63 /* CardSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43378ED4D8343E90FA4172F9 /* CardSnapshot.swift */; };
 		276EE718ADC57DFA01C01944 /* DailyCardSharingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58213BE5DC630CFD8AAE54D7 /* DailyCardSharingTests.swift */; };
 		2CB6685E4ADCACE263908D10 /* DailyCardShareVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5A00AB2CA2FF6E7570945E /* DailyCardShareVisualTests.swift */; };
 		2D805E3223046C50C726377B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */; };
@@ -23,6 +24,8 @@
 		522BFB60B1697E81A62552A6 /* RegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFBD3027DD0B62D15A268CE6 /* RegistrationTests.swift */; };
 		561E2DB3B877C881173146F0 /* AppLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */; };
 		56AE73B694EF284EF905B300 /* DailyCardShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB34E2AA257C7E47FBD1E1C /* DailyCardShareSheet.swift */; };
+		623DDE801205B0054ACE34EB /* CardOriginals in Resources */ = {isa = PBXBuildFile; fileRef = 94FC2C09A0682D4A019328DF /* CardOriginals */; };
+		6BB1EAB6291C6BC7051FE67C /* SavedCardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04D99579F22A0C0C91CAA1 /* SavedCardsTests.swift */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
 		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
 		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
@@ -30,12 +33,15 @@
 		805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */; };
 		82F618CC970E50084BA0C31C /* DailyWhiskersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0132BD83383C6288582604 /* DailyWhiskersView.swift */; };
 		83B0850A81AE9CBC45AB9BBB /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60951A29666D6A385849E3B9 /* AppLinks.swift */; };
+		84B1C72054BAD80BA25C7570 /* CardRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0070D782136E21AFF84504B /* CardRepositoryTests.swift */; };
 		89B37D1BA44949853DBCA640 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDA5B8412ED5644FF9CCB41F /* FirebaseCore */; };
 		92D586A23DF660B86659F157 /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6302C5A2119F79DB268403C8 /* AccountDeletion.swift */; };
 		97541400AECE4EE282643696 /* RegistrationForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B97AB401382BD895210910 /* RegistrationForm.swift */; };
 		A96ADC159D474084E2A0E5B7 /* DailyCardShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05B8D7684FF38A5DB599AB0E /* DailyCardShare.swift */; };
 		ADBAEB0C266B0C5FD2B786A9 /* DailyRitualCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */; };
 		BB7086367503C7C5F0386502 /* CreateAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894E64BBBF94F39B0C8F6606 /* CreateAccountView.swift */; };
+		BEF9A841335C3162FF754822 /* SavedCardsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8BCFB9ABD33507B1057301A /* SavedCardsModel.swift */; };
+		BF9906A9E8E9F844EFC9404A /* SavedCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B855390DFC2BC3329298E53 /* SavedCardsView.swift */; };
 		C33DC8EEDC7752E9207AB715 /* RegressionSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68AA9E4C7B8F961542B011C /* RegressionSmokeTests.swift */; };
 		C51D070C09345696846DF8CD /* daily_whiskers_content.json in Resources */ = {isa = PBXBuildFile; fileRef = D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */; };
 		C5D233D5912ED2D866AF3D74 /* AuthErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */; };
@@ -46,6 +52,7 @@
 		D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */; };
 		DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */; };
 		DB93C04A5505B24D31DE77A3 /* CISmokeMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A7C09369FF1213FE30C6AD /* CISmokeMode.swift */; };
+		E1CF72364EDF41EAAF15EC6A /* CardRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9C8ED8CE1F7DD2C33643F20 /* CardRepository.swift */; };
 		E635F7E9117F2C3131E12A10 /* DailyCardShareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C45D9D6F32B2D6B67457CD6 /* DailyCardShareTests.swift */; };
 		FF5AAA73BBA1EA62DEC795E5 /* DailyWhiskersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */; };
 		FFF2684C59692E2FEDB6672E /* GuestAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5038272DE90C96D54A69B211 /* GuestAccessTests.swift */; };
@@ -71,6 +78,7 @@
 /* Begin PBXFileReference section */
 		03D49C6335115DC858536C84 /* AuthLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthLayoutTests.swift; sourceTree = "<group>"; };
 		05B8D7684FF38A5DB599AB0E /* DailyCardShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyCardShare.swift; sourceTree = "<group>"; };
+		0D04D99579F22A0C0C91CAA1 /* SavedCardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedCardsTests.swift; sourceTree = "<group>"; };
 		0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTextFieldTests.swift; sourceTree = "<group>"; };
 		0FBA1D67F9BBA070EDC581FD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		14427E6E78184E5322A7BE40 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -81,6 +89,7 @@
 		2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
 		2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRecoveryTests.swift; sourceTree = "<group>"; };
 		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
+		43378ED4D8343E90FA4172F9 /* CardSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardSnapshot.swift; sourceTree = "<group>"; };
 		5038272DE90C96D54A69B211 /* GuestAccessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestAccessTests.swift; sourceTree = "<group>"; };
 		58213BE5DC630CFD8AAE54D7 /* DailyCardSharingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyCardSharingTests.swift; sourceTree = "<group>"; };
 		594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLinksTests.swift; sourceTree = "<group>"; };
@@ -94,8 +103,10 @@
 		7AB9B3D8EFFFDE7079EE55D8 /* DailyWhiskersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWhiskersApp.swift; sourceTree = "<group>"; };
 		88A7C09369FF1213FE30C6AD /* CISmokeMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CISmokeMode.swift; sourceTree = "<group>"; };
 		894E64BBBF94F39B0C8F6606 /* CreateAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateAccountView.swift; sourceTree = "<group>"; };
+		8B855390DFC2BC3329298E53 /* SavedCardsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedCardsView.swift; sourceTree = "<group>"; };
 		8DB34E2AA257C7E47FBD1E1C /* DailyCardShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyCardShareSheet.swift; sourceTree = "<group>"; };
 		917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Daily_Whiskers_App_Icon_FINAL_cropped.png; sourceTree = "<group>"; };
+		94FC2C09A0682D4A019328DF /* CardOriginals */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CardOriginals; path = DailyWhiskers/CardOriginals; sourceTree = SOURCE_ROOT; };
 		988EDE1EBBAC22AF0B241EB3 /* DailyWhiskers.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyWhiskers.entitlements; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -103,12 +114,15 @@
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
 		BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRequestState.swift; sourceTree = "<group>"; };
 		CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthErrorMapper.swift; sourceTree = "<group>"; };
+		D0070D782136E21AFF84504B /* CardRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardRepositoryTests.swift; sourceTree = "<group>"; };
 		D8314ADBA3AF0500FF7FB707 /* daily_whiskers_content.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = daily_whiskers_content.json; sourceTree = "<group>"; };
 		DDD341276C2FFBEB534D41BA /* AuthTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTextField.swift; sourceTree = "<group>"; };
 		E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentCorrectnessTests.swift; sourceTree = "<group>"; };
+		E8BCFB9ABD33507B1057301A /* SavedCardsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedCardsModel.swift; sourceTree = "<group>"; };
 		EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistributionConfigurationTests.swift; sourceTree = "<group>"; };
 		EFBD3027DD0B62D15A268CE6 /* RegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationTests.swift; sourceTree = "<group>"; };
 		F2DF0399E6F73432BDB3FDC4 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		F9C8ED8CE1F7DD2C33643F20 /* CardRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardRepository.swift; sourceTree = "<group>"; };
 		FAEBF90CA567AEF2C4445900 /* DailyContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContent.swift; sourceTree = "<group>"; };
 		FD5A00AB2CA2FF6E7570945E /* DailyCardShareVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyCardShareVisualTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -142,6 +156,7 @@
 				594255CBC134967C0DD2DAC2 /* AppLinksTests.swift */,
 				2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */,
 				0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */,
+				D0070D782136E21AFF84504B /* CardRepositoryTests.swift */,
 				1C45D9D6F32B2D6B67457CD6 /* DailyCardShareTests.swift */,
 				FD5A00AB2CA2FF6E7570945E /* DailyCardShareVisualTests.swift */,
 				E130B3B06498EA79D16E6D5C /* DailyContentCorrectnessTests.swift */,
@@ -164,6 +179,7 @@
 				2A0132BD83383C6288582604 /* DailyWhiskersView.swift */,
 				2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */,
 				F2DF0399E6F73432BDB3FDC4 /* RootView.swift */,
+				8B855390DFC2BC3329298E53 /* SavedCardsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -174,6 +190,7 @@
 				03D49C6335115DC858536C84 /* AuthLayoutTests.swift */,
 				58213BE5DC630CFD8AAE54D7 /* DailyCardSharingTests.swift */,
 				A68AA9E4C7B8F961542B011C /* RegressionSmokeTests.swift */,
+				0D04D99579F22A0C0C91CAA1 /* SavedCardsTests.swift */,
 			);
 			path = DailyWhiskersUITests;
 			sourceTree = "<group>";
@@ -185,9 +202,11 @@
 				60951A29666D6A385849E3B9 /* AppLinks.swift */,
 				CD2F8EE26379E10FD61092EB /* AuthErrorMapper.swift */,
 				BE944A65D6C97787066F2FE8 /* AuthRequestState.swift */,
+				F9C8ED8CE1F7DD2C33643F20 /* CardRepository.swift */,
 				05B8D7684FF38A5DB599AB0E /* DailyCardShare.swift */,
 				2A07AEDA494FA9003F15B79B /* DailyContentProvider.swift */,
 				73B97AB401382BD895210910 /* RegistrationForm.swift */,
+				E8BCFB9ABD33507B1057301A /* SavedCardsModel.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -207,6 +226,7 @@
 		EF4BC92A5E83B9EFB48A9D04 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				43378ED4D8343E90FA4172F9 /* CardSnapshot.swift */,
 				FAEBF90CA567AEF2C4445900 /* DailyContent.swift */,
 			);
 			path = Models;
@@ -215,6 +235,7 @@
 		F918C8C6861DF7D081E8EACF = {
 			isa = PBXGroup;
 			children = (
+				94FC2C09A0682D4A019328DF /* CardOriginals */,
 				FB93A48E3F6CB53E768018CD /* DailyWhiskers */,
 				79A038FFD12432178B834B4F /* DailyWhiskersTests */,
 				A8E6564DFB0B5946BC6D9882 /* DailyWhiskersUITests */,
@@ -364,6 +385,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CFDD6E26B17247BDD93EF1A5 /* Assets.xcassets in Resources */,
+				623DDE801205B0054ACE34EB /* CardOriginals in Resources */,
 				79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */,
 				30F2A0CC5B8FBA01EE0D0288 /* GoogleService-Info.plist in Resources */,
 				2D805E3223046C50C726377B /* PrivacyInfo.xcprivacy in Resources */,
@@ -381,6 +403,7 @@
 				34BACE37C29F827F30C2DF5D /* AuthLayoutTests.swift in Sources */,
 				276EE718ADC57DFA01C01944 /* DailyCardSharingTests.swift in Sources */,
 				C33DC8EEDC7752E9207AB715 /* RegressionSmokeTests.swift in Sources */,
+				6BB1EAB6291C6BC7051FE67C /* SavedCardsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,6 +415,7 @@
 				561E2DB3B877C881173146F0 /* AppLinksTests.swift in Sources */,
 				3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */,
 				DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */,
+				84B1C72054BAD80BA25C7570 /* CardRepositoryTests.swift in Sources */,
 				E635F7E9117F2C3131E12A10 /* DailyCardShareTests.swift in Sources */,
 				2CB6685E4ADCACE263908D10 /* DailyCardShareVisualTests.swift in Sources */,
 				D76730476306438336958945 /* DailyContentCorrectnessTests.swift in Sources */,
@@ -414,6 +438,8 @@
 				4753D3BC4ED66FB984FE51D3 /* AuthTextField.swift in Sources */,
 				CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */,
 				DB93C04A5505B24D31DE77A3 /* CISmokeMode.swift in Sources */,
+				E1CF72364EDF41EAAF15EC6A /* CardRepository.swift in Sources */,
+				1DA6C767D871A1C3FB0E3B63 /* CardSnapshot.swift in Sources */,
 				BB7086367503C7C5F0386502 /* CreateAccountView.swift in Sources */,
 				A96ADC159D474084E2A0E5B7 /* DailyCardShare.swift in Sources */,
 				56AE73B694EF284EF905B300 /* DailyCardShareSheet.swift in Sources */,
@@ -425,6 +451,8 @@
 				0F5E1ECEF920643B487D8D9C /* DeleteAccountView.swift in Sources */,
 				97541400AECE4EE282643696 /* RegistrationForm.swift in Sources */,
 				4AD1999233F7FB7DD753194F /* RootView.swift in Sources */,
+				BEF9A841335C3162FF754822 /* SavedCardsModel.swift in Sources */,
+				BF9906A9E8E9F844EFC9404A /* SavedCardsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

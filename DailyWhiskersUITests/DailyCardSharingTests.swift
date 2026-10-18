@@ -198,7 +198,15 @@ final class DailyCardSharingTests: XCTestCase {
             if rotateWhilePresented { checkQuoteRemainsReachable() }
         }
         app.buttons["Settings"].tap()
-        XCTAssertTrue(app.buttons["Sign In"].waitForExistence(timeout: 5), "Use a dedicated guest QA simulator.")
+        let signIn = app.buttons["Sign In"]
+        // Native menu rows scroll at accessibility sizes in compact landscape.
+        let menu = app.collectionViews.firstMatch
+        for _ in 0..<4 where !signIn.exists || !signIn.isHittable {
+            guard menu.exists else { break }
+            menu.swipeUp()
+        }
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5), "Use a dedicated guest QA simulator.")
+        XCTAssertTrue(signIn.isHittable)
         // No destination is selected, no account request is submitted, and no card is sent.
     }
 }

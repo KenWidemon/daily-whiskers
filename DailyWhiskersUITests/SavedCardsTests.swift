@@ -1,0 +1,321 @@
+import XCTest
+import UIKit
+
+final class SavedCardsTests: XCTestCase {
+    private var app: XCUIApplication!
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        app = XCUIApplication()
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        clear()
+    }
+    override func tearDownWithError() throws { capture("Final test state"); app.terminate() }
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = name + " accessibility"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+    }
+    private func clear() {
+        app.buttons["Settings"].tap()
+        app.buttons["Clear Saved Cards"].tap()
+        XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
+        let confirm = app.alerts["Clear Saved Cards?"].buttons["Clear Saved Cards"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
+        XCTAssertTrue(app.buttons["save-daily-card"].waitForExistence(timeout: 5))
+    }
+    func testSaveRelaunchReopenShareRemoveAndConfirmedClear() {
+        let save = app.buttons["save-daily-card"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        capture("01 Today saved")
+        app.terminate(); app.launch()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.buttons["open-saved-cards"].tap()
+        let row = app.buttons["saved-card-row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.buttons.matching(identifier: "saved-card-row").count, 1)
+        capture("02 Saved Cards on this device")
+        row.tap()
+        XCTAssertTrue(app.buttons["Share Saved Card"].waitForExistence(timeout: 10))
+        swipeSavedContent()
+        XCTAssertTrue(app.otherElements["saved-card-quote"].exists || app.staticTexts["saved-card-quote"].exists)
+        capture("03 Reopened original full card")
+        app.buttons["Share Saved Card"].tap()
+        let sheet = app.otherElements["ActivityListView"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10))
+        capture("04 Saved card system share")
+        let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: UIDevice.current.userInterfaceIdiom == .pad ? 0.5 : 0.25))
+        XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
+        outside.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 10), .completed)
+        let options = app.buttons["saved-card-options"]
+        XCTAssertTrue(options.waitForExistence(timeout: 5))
+        options.tap()
+        let toggle = app.buttons["saved-card-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.label, "Remove from Saved Cards")
+        XCTAssertGreaterThanOrEqual(toggle.frame.height, 44)
+        capture("05 Saved Card Options")
+        dismissOptions()
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+        options.tap(); toggle.tap()
+        XCTAssertTrue(waitForOptionsValue("Not saved"))
+        capture("06 Removed detail remains readable")
+        options.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.label, "Save Card"); toggle.tap()
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5)); row.tap()
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 10))
+        app.buttons["Settings"].tap(); app.buttons["Clear Saved Cards"].tap()
+        XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
+        capture("06 Explicit clear confirmation")
+        app.alerts["Clear Saved Cards?"].buttons["Cancel"].tap()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        clear()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Not saved"))
+        app.buttons["open-saved-cards"].tap()
+        XCTAssertTrue(app.staticTexts["saved-cards-empty"].waitForExistence(timeout: 5))
+        capture("07 Empty collection")
+    }
+    func testLargestTextSavedCardQuoteAndControlsRemainReachable() {
+        app.buttons["save-daily-card"].tap()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["open-saved-cards"].waitForExistence(timeout: 10))
+        capture("08 Largest text Today controls")
+        app.buttons["open-saved-cards"].tap()
+        let row = app.buttons["saved-card-row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        capture("09 Largest text collection")
+        row.tap()
+        let quote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        // Large swipes can overshoot a tall quote; verify both readable boundaries
+        // with the same toolbar-aware scrolling used by the paired-layout check.
+        let vibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
+        captureScrollableQuote(quote, vibe: vibe, name: "10 Largest text saved card")
+        XCTAssertTrue(app.buttons["saved-card-options"].isHittable)
+        XCTAssertTrue(app.buttons["Share Saved Card"].isHittable)
+    }
+    func testLargestTextLandscapeSavedCardActionsAndVibe() {
+        app.buttons["save-daily-card"].tap()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        app.buttons["open-saved-cards"].tap()
+        app.buttons["saved-card-row"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 10), .completed)
+        let vibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
+        for _ in 0..<10 where !vibe.isHittable { swipeSavedContent() }
+        capture("11 Largest text landscape saved card")
+        XCTAssertTrue(vibe.isHittable)
+        XCTAssertTrue(app.buttons["saved-card-options"].isHittable)
+        XCTAssertTrue(app.buttons["Share Saved Card"].isHittable)
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    private func swipeSavedContent() {
+        // Keep gestures below navigation and above the smoke-test footer.
+        let window = app.windows.firstMatch.frame
+        let top = app.navigationBars.firstMatch.frame.maxY + 12
+        let bottom = app.staticTexts["ci-smoke-offline"].frame.minY - 12
+        XCTAssertGreaterThan(bottom, top)
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(CGVector(dx: window.midX, dy: bottom))
+            .press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: top)))
+    }
+
+    func testOrdinaryPortraitCardFitsWithoutScrolling() {
+        let window = app.windows.firstMatch.frame
+        let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["daily-card-vibe"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        XCTAssertTrue(window.contains(quote.frame))
+        XCTAssertTrue(vibe.isHittable)
+        let displayedQuote = quote.label
+        let displayedVibe = vibe.label
+        let todayBounds = cardBounds(prefix: "daily-card")
+        assertSaveIconToggle(captureName: "CatIcon-Standard")
+        capture("12 Complete portrait Today card")
+        app.buttons["save-daily-card"].tap()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.buttons["open-saved-cards"].tap()
+        app.buttons.matching(identifier: "saved-card-row").firstMatch.tap()
+        let savedQuote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+        let savedVibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
+        let options = app.buttons["saved-card-options"]
+        XCTAssertTrue(savedQuote.waitForExistence(timeout: 10))
+        XCTAssertEqual(savedQuote.label, displayedQuote)
+        XCTAssertEqual(savedVibe.label, displayedVibe)
+        XCTAssertTrue(window.contains(savedQuote.frame))
+        XCTAssertTrue(savedVibe.isHittable)
+        XCTAssertLessThanOrEqual(savedVibe.frame.maxY, app.staticTexts["ci-smoke-offline"].frame.minY)
+        XCTAssertTrue(options.isHittable)
+        assertMatchingBounds(todayBounds, cardBounds(prefix: "saved-card"), name: "Standard matched card geometry")
+        capture("13 Complete portrait saved card")
+        assertOptionsActivation(captureName: "14 Saved Card Options")
+    }
+
+    func testLargestTextPairedGeometryAndOptions() {
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["daily-card-vibe"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        let originalQuote = quote.label, originalVibe = vibe.label
+        let todayBounds = cardBounds(prefix: "daily-card")
+        assertSaveIconToggle(captureName: "CatIcon-AX5")
+        capture("Pair-AX5-Today-Top")
+        captureScrollableQuote(quote, vibe: vibe, name: "Pair-AX5-Today")
+        app.buttons["save-daily-card"].tap()
+        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.buttons["open-saved-cards"].tap()
+        let row = app.buttons.matching(identifier: "saved-card-row").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+        let savedQuote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+        let savedVibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
+        XCTAssertTrue(savedQuote.waitForExistence(timeout: 10))
+        XCTAssertEqual(savedQuote.label, originalQuote)
+        XCTAssertEqual(savedVibe.label, originalVibe)
+        assertMatchingBounds(todayBounds, cardBounds(prefix: "saved-card"), name: "AX5 matched card geometry")
+        capture("Pair-AX5-Saved-Top")
+        captureScrollableQuote(savedQuote, vibe: savedVibe, name: "Pair-AX5-Saved")
+        let options = app.buttons["saved-card-options"]
+        XCTAssertTrue(options.isHittable)
+        XCTAssertTrue(app.buttons["Share Saved Card"].isHittable)
+        assertOptionsActivation(captureName: "Pair-AX5-Options")
+    }
+
+    private func assertSaveIconToggle(captureName: String) {
+        let save = app.buttons["save-daily-card"]
+        XCTAssertEqual(save.label, "Save Card")
+        XCTAssertTrue(save.isHittable)
+        XCTAssertTrue(waitForValue(save, "Not saved"))
+        let before = cardBounds(prefix: "daily-card")
+        let controlFrame = save.frame
+        capture(captureName + "-Unsaved")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        XCTAssertEqual(save.label, "Save Card")
+        XCTAssertEqual(save.frame, controlFrame)
+        XCTAssertTrue(save.isHittable)
+        assertMatchingBounds(before, cardBounds(prefix: "daily-card"), name: captureName + " toggle geometry")
+        capture(captureName + "-Saved")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Not saved"))
+        XCTAssertEqual(save.label, "Save Card")
+        XCTAssertEqual(save.frame, controlFrame)
+        XCTAssertEqual(cardBounds(prefix: "daily-card"), before)
+    }
+
+    private func cardBounds(prefix: String) -> [String: CGRect] {
+        Dictionary(uniqueKeysWithValues: ["frame", "quote", "vibe"].map {
+            ($0, app.descendants(matching: .any)["\(prefix)-\($0)"].firstMatch.frame)
+        })
+    }
+
+    private func assertMatchingBounds(_ today: [String: CGRect], _ saved: [String: CGRect], name: String) {
+        var rows: [[String: Any]] = []
+        for key in ["frame", "quote", "vibe"] {
+            let a = today[key]!, b = saved[key]!
+            XCTAssertGreaterThan(a.width, 0); XCTAssertGreaterThan(a.height, 0)
+            XCTAssertEqual(a.minX, b.minX, accuracy: 1, key + " x")
+            XCTAssertEqual(a.minY, b.minY, accuracy: 1, key + " y")
+            XCTAssertEqual(a.width, b.width, accuracy: 1, key + " width")
+            XCTAssertEqual(a.height, b.height, accuracy: 1, key + " height")
+            rows.append(["element": key, "today": [a.minX,a.minY,a.width,a.height], "saved": [b.minX,b.minY,b.width,b.height]])
+        }
+        let data = try! JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted,.sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    private func assertOptionsActivation(captureName: String) {
+        let options = app.buttons["saved-card-options"]
+        XCTAssertEqual(options.label, "Saved Card Options")
+        XCTAssertTrue(options.isHittable)
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+        let bounds = options.frame
+        let data = try! JSONSerialization.data(withJSONObject: ["x":bounds.minX,"y":bounds.minY,"width":bounds.width,"height":bounds.height], options:[.prettyPrinted,.sortedKeys])
+        let attachment = XCTAttachment(data:data,uniformTypeIdentifier:"public.json")
+        attachment.name = captureName + " native trigger bounds"; attachment.lifetime = .keepAlways; add(attachment)
+        options.tap()
+        let remove = app.buttons["saved-card-toggle"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 5))
+        XCTAssertEqual(remove.label, "Remove from Saved Cards")
+        XCTAssertTrue(remove.isHittable)
+        XCTAssertGreaterThanOrEqual(remove.frame.height, 44)
+        capture(captureName)
+        dismissOptions()
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+    }
+
+    private func dismissOptions() {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["saved-card-toggle"])
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+    }
+
+    private func waitForOptionsValue(_ value: String) -> Bool {
+        let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: app.buttons["saved-card-options"])
+        return XCTWaiter.wait(for: [expected], timeout: 10) == .completed
+    }
+
+    // Verify both boundaries of long quotes through scrolling at their requested size.
+    private func captureScrollableQuote(_ quote: XCUIElement, vibe: XCUIElement, name: String) {
+        let window = app.windows.firstMatch.frame
+        let top = app.navigationBars.firstMatch.frame.maxY + 8
+        let bottom = app.staticTexts["ci-smoke-offline"].frame.minY - 4
+        func drag(_ delta: CGFloat) {
+            let distance = min(abs(delta), bottom - top - 40)
+            let startY = delta > 0 ? bottom - 20 : top + 20
+            let endY = startY + (delta > 0 ? -distance : distance)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.midX, dy: startY))
+                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: endY)),
+                       withVelocity: .slow, thenHoldForDuration: 0.25)
+        }
+        for _ in 0..<12 where abs(quote.frame.minY - (top + 8)) > 12 {
+            let previous = quote.frame.minY
+            drag(previous - (top + 8))
+            if abs(quote.frame.minY - previous) < 1 { break }
+        }
+        XCTAssertGreaterThanOrEqual(quote.frame.minY, top - 4)
+        XCTAssertLessThan(quote.frame.minY, bottom - 40)
+        capture(name + "-Quote-Start")
+        for _ in 0..<12 where vibe.frame.maxY > bottom || vibe.frame.minY < top {
+            drag(max(32, vibe.frame.maxY - (bottom - 4)))
+        }
+        XCTAssertGreaterThan(quote.frame.maxY, top + 40)
+        XCTAssertLessThanOrEqual(quote.frame.maxY, bottom)
+        XCTAssertGreaterThanOrEqual(vibe.frame.minY, top)
+        XCTAssertLessThanOrEqual(vibe.frame.maxY, bottom)
+        XCTAssertTrue(vibe.isHittable)
+        capture(name + "-Quote")
+    }
+
+    private func waitForValue(_ element: XCUIElement, _ value: String) -> Bool {
+        let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
+        return XCTWaiter.wait(for: [expected], timeout: 10) == .completed
+    }
+}
