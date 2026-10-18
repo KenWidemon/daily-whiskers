@@ -22,6 +22,13 @@ struct DailyWhiskersView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
 
+    @StateObject private var savedCards = SavedCardsModel()
+    @State private var capturedInput: DailyCard?
+    @State private var displayedArtwork: UIImage?
+    @State private var displayedSnapshot: RetainedCard?
+    @State private var captureError: String?
+    @State private var confirmingClear = false
+    @AccessibilityFocusState private var saveFocused: Bool
     @State private var contentState = DailyContentState()
     @StateObject private var accountRequest = AuthRequestState()
     @StateObject private var deletionRequest = AuthRequestState()
@@ -29,6 +36,11 @@ struct DailyWhiskersView: View {
     @StateObject private var shareState = DailyCardShareState()
     @AccessibilityFocusState private var shareFocused: Bool
     @AccessibilityFocusState private var settingsFocused: Bool
+
+    private var activeSnapshot: RetainedCard? {
+        guard capturedInput == contentState.currentCard else { return nil }
+        return displayedSnapshot
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,7 +52,7 @@ struct DailyWhiskersView: View {
                             imageName: entry.imageName,
                             quote: entry.quote,
                             vibe: entry.vibe ?? ""
-                        )
+                        ), retainedArtwork: displayedArtwork
                     )
                     .accessibilityIdentifier("daily-card")
                 } else {
@@ -57,12 +69,43 @@ struct DailyWhiskersView: View {
             .onChange(of: scenePhase) { _, newPhase in
                 contentState.scenePhaseDidChange(to: newPhase, at: Date())
             }
+            .task(id: contentState.currentCard) { await captureDisplayedCard() }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink { SavedCardsView(model: savedCards) } label: {
+                        Label("Saved Cards", systemImage: "rectangle.stack")
+                    }.accessibilityIdentifier("open-saved-cards")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        guard let card = contentState.currentCard else { return }
+                        guard let displayedSnapshot = activeSnapshot else { Task { await captureDisplayedCard() }; return }
+                        Task { await savedCards.toggle(displayedSnapshot); saveFocused = true }
+                    } label: {
+                        HeartEyesCatIcon()
+                            .frame(width: 32, height: 32)
+                            .overlay(alignment: .bottomTrailing) {
+                                if activeSnapshot.map({ savedCards.contains($0.snapshot.id) }) == true {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.black, .white)
+                                }
+                            }
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .disabled(activeSnapshot == nil || savedCards.busy || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+                    .accessibilityValue(activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true ? "Saved" : "Not saved")
+                    .accessibilityLabel("Save Card")
+                    .accessibilityHint(activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true ? "Removes this card from Saved Cards." : "Saves this card on this device.")
+                    .accessibilityIdentifier("save-daily-card")
+                    .accessibilityFocused($saveFocused)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        guard let snapshot = activeSnapshot else { return }
                         shareFocused = false
-                        Task { await shareState.start(card: card) }
+                        Task { await shareState.start(retained: snapshot) }
                     } label: {
                         Group {
                             if shareState.isRendering {
@@ -73,7 +116,7 @@ struct DailyWhiskersView: View {
                         }
                         .frame(minWidth: 44, minHeight: 44)
                     }
-                    .disabled(contentState.currentCard == nil || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+                    .disabled(activeSnapshot == nil || accountSheet != nil || shareState.isRendering || shareState.export != nil)
                     .accessibilityLabel(shareState.isRendering ? "Preparing Card" : "Share Today's Card")
                     .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
                     .accessibilityIdentifier("share-daily-card")
@@ -90,6 +133,9 @@ struct DailyWhiskersView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button("Clear Saved Cards", role: .destructive) { confirmingClear = true }
+                            .disabled(savedCards.busy)
+                        Divider()
                         Link("Privacy Policy", destination: AppLinks.privacyPolicy)
                         Link("Support", destination: AppLinks.support)
                         Divider()
@@ -126,6 +172,17 @@ struct DailyWhiskersView: View {
                     .accessibilityHidden(accountSheet != nil)
                 }
             }
+            .modifier(SavedCardsError(model: savedCards))
+            .alert("Clear Saved Cards?", isPresented: $confirmingClear) {
+                Button("Clear Saved Cards", role: .destructive) { Task { await savedCards.clear(); settingsFocused = true } }
+                Button("Cancel", role: .cancel) { settingsFocused = true }
+            } message: {
+                Text("This removes all saved cards from this app. Your current card and daily or bonus selections are kept. Existing device backups are not changed.")
+            }
+            .alert("Couldn't Prepare Card", isPresented: Binding(get: { captureError != nil }, set: { if !$0 { captureError = nil } })) {
+                Button("Try Again") { Task { await captureDisplayedCard() } }
+                Button("Cancel", role: .cancel) { captureError = nil }
+            } message: { Text(captureError ?? "") }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $accountSheet, onDismiss: {
@@ -172,6 +229,23 @@ struct DailyWhiskersView: View {
         .preferredColorScheme(.dark)
     }
 
+    private func captureDisplayedCard() async {
+        displayedSnapshot = nil
+        capturedInput = nil
+        displayedArtwork = nil
+        guard let card = contentState.currentCard else { return }
+        do {
+            let captured = try await CardRepository.shared.capture(card)
+            guard !Task.isCancelled, contentState.currentCard == card else { return }
+            capturedInput = card
+            displayedArtwork = UIImage(data: captured.artwork)
+            displayedSnapshot = captured
+            await savedCards.refresh()
+        } catch {
+            captureError = "The original artwork couldn't be loaded. Please try again."
+        }
+    }
+
     private func logOut() {
         Task {
             await accountRequest.perform(.logout) {
@@ -183,6 +257,55 @@ struct DailyWhiskersView: View {
     private func dismissLogoutError() {
         accountRequest.clearFeedback()
         settingsFocused = true
+    }
+}
+
+/// A template-style vector using the dark toolbar's primary foreground color.
+private struct HeartEyesCatIcon: View {
+    private var drawing: Path {
+        let outline = Path { path in
+            path.move(to: CGPoint(x: 3.5, y: 9))
+            path.addLine(to: CGPoint(x: 3, y: 2))
+            path.addLine(to: CGPoint(x: 9, y: 5.7))
+            path.addQuadCurve(to: CGPoint(x: 15, y: 5.7), control: CGPoint(x: 12, y: 4.3))
+            path.addLine(to: CGPoint(x: 21, y: 2))
+            path.addLine(to: CGPoint(x: 20.5, y: 9))
+            path.addCurve(to: CGPoint(x: 12, y: 22), control1: CGPoint(x: 24, y: 16), control2: CGPoint(x: 19, y: 22))
+            path.addCurve(to: CGPoint(x: 3.5, y: 9), control1: CGPoint(x: 5, y: 22), control2: CGPoint(x: 0, y: 16))
+            path.closeSubpath()
+            path.move(to: CGPoint(x: 8.5, y: 16.5))
+            path.addQuadCurve(to: CGPoint(x: 15.5, y: 16.5), control: CGPoint(x: 12, y: 20.5))
+            for y: CGFloat in [13, 16] {
+                path.move(to: CGPoint(x: 0.8, y: y))
+                path.addLine(to: CGPoint(x: 4.5, y: y + 0.6))
+                path.move(to: CGPoint(x: 23.2, y: y))
+                path.addLine(to: CGPoint(x: 19.5, y: y + 0.6))
+            }
+        }.strokedPath(StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+        let eyes = Path { path in
+            for x: CGFloat in [7.8, 16.2] {
+                path.move(to: CGPoint(x: x, y: 10))
+                path.addCurve(to: CGPoint(x: x - 2.8, y: 10.5),
+                              control1: CGPoint(x: x - 1.8, y: 7.7), control2: CGPoint(x: x - 3.6, y: 9))
+                path.addCurve(to: CGPoint(x: x, y: 14),
+                              control1: CGPoint(x: x - 2.5, y: 11.7), control2: CGPoint(x: x - 0.7, y: 13.3))
+                path.addCurve(to: CGPoint(x: x + 2.8, y: 10.5),
+                              control1: CGPoint(x: x + 0.7, y: 13.3), control2: CGPoint(x: x + 2.5, y: 11.7))
+                path.addCurve(to: CGPoint(x: x, y: 10),
+                              control1: CGPoint(x: x + 3.6, y: 9), control2: CGPoint(x: x + 1.8, y: 7.7))
+                path.closeSubpath()
+            }
+        }
+        // One foreground layer keeps the heart eyes at the same color as the outline.
+        var result = outline
+        result.addPath(eyes)
+        return result
+    }
+
+    var body: some View {
+        drawing.fill(Color.primary)
+            .frame(width: 24, height: 24)
+            .accessibilityHidden(true)
     }
 }
 

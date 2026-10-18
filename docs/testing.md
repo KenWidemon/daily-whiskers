@@ -51,6 +51,9 @@ evidence below remain useful without overriding this candidate's scoped decision
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
+- Required offline UI CI runs all five `RegressionSmokeTests` and all five
+  `SavedCardsTests`, including the complete Favorites lifecycle. Both classes
+  are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
   synthetic native replacements across email/password focus changes, intentional
   select-all deletion and continued manual editing. These checks do not invoke
@@ -363,3 +366,61 @@ On both iPhone and iPad, record the exact SHA/build and OS, then:
 Keep account/regression prerequisites and artwork/quote redistribution approval
 explicit in the linked issue/PR. No physical check or rights approval is implied
 by passing unit tests or opening a draft PR.
+
+## Saved Cards
+
+Use the `CardRepositoryTests` unit suite and `SavedCardsTests` interaction class
+with the same offline smoke compilation/launch gate documented in the app README.
+Keep result bundles, screenshots and accessibility hierarchies privately; report
+the exact source/diff, OS, simulator, selected checks and skips separately from CI.
+
+- Save a displayed guest card, relaunch offline, browse newest-first, reopen and
+  share it. Check the exact quote/vibe and full artwork; no account prompt appears.
+- Check the text-free heart-eyes cat save control beside Share and Settings: its
+  monochrome vector matches their tint, and a checkmark appears when
+  saved, the accessible label remains **Save Card**, and its **Saved/Not saved**
+  value changes. Save and unsave must preserve control and card geometry at
+  standard and largest accessibility text sizes on regular and small phones.
+- Save an identical version twice without changing order. Save another quote or
+  artwork version of the same stable cat ID and verify both versions survive.
+  Reordering/renaming the current pack must not change saved content identity.
+- Replace current artwork, restart, and verify old bytes and actual old exports
+  remain exact. Validate all current packaged original files against source hashes.
+  Confirm the clean app bundle contains one `CardOriginals` folder and the catalog
+  contains only AppIcon. Current and retained share PNGs must match exactly for
+  identical content; exercise the default artwork loader in previews and fallback
+  validation as well as the retained-byte display path. Record unsigned app file
+  bytes separately from App Store download size, and simulator memory separately
+  from physical-device acceptance.
+- Inject a failure after row writes but before commit; prior favorites remain.
+  Exercise interrupted transactions, corrupt/missing BLOBs, schema rejection,
+  initial migration rollback/retry and consistent SQLite backup/restore including
+  future day-selection references. Simulated disk-full errors are not a physical
+  low-storage or power-loss test; record that limit.
+- Unsave one card while leaving its open detail readable; resave it. Confirm clear
+  removes favorites only; cancel retains them. Referenced day content and active
+  share content must survive cleanup. No implicit clear follows auth transitions.
+- Compare Today and saved detail for the same card on the same device and text
+  size. Verify matching themed frame, quote background, Vibe pill and text while
+  retaining distinct navigation and Share/options controls. Compare actual card,
+  quote and Vibe bounds as well as screenshots; shared code alone is not evidence
+  of matching geometry. Open Saved Card Options, dismiss without removing, then
+  remove and resave the open card; confirm the options control's accessible label,
+  state and native activation, and a menu-action height of at least 44 points. Record
+  the system toolbar trigger's bounds separately; do not assume its accessibility
+  rectangle is 44 points high. No removal footer reserves content height. Use the
+  saved snapshot's theme
+  and content even when the current manifest differs.
+- Review phone/tablet, default/largest text, portrait/landscape and Reduce Motion.
+  Check empty and multi-card collections, centered tablet widths, and single-column
+  accessibility layouts. At ordinary text sizes, all bundled cards must fit small
+  iPhone portrait viewports with complete artwork and quote/vibe visible; preserve
+  scrolling when larger text or unusually long content needs it. The secondary
+  removal action retains its complete accessible label and a 44-point touch target.
+  Saved thumbnails/quote excerpts must be usable and the reopened quote/vibe and
+  actions reachable. VoiceOver speech/focus require separate observed acceptance;
+  accessibility hierarchy and hittability assertions do not prove them.
+- Check login, logout and account deletion with separately authorized accounts.
+  The collection remains device-owned; deletion copy points to explicit clear.
+  Review public privacy/support wording before release without treating source
+  documentation changes as publication of those separate sites.

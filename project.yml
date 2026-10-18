@@ -42,9 +42,13 @@ targets:
           - README.md
           - Resources
           - Assets.xcassets
+          - CardOriginals
       - path: DailyWhiskers/Resources
         buildPhase: resources
       - path: DailyWhiskers/Assets.xcassets
+        buildPhase: resources
+      - path: DailyWhiskers/CardOriginals
+        type: folder
         buildPhase: resources
     settings:
       base:
@@ -72,7 +76,6 @@ targets:
       - package: Firebase
         product: FirebaseAuth
     preBuildScripts: []
-    postCompileScripts: []
   DailyWhiskersTests:
     type: bundle.unit-test
     platform: iOS

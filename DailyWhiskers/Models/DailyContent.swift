@@ -1,6 +1,6 @@
 import Foundation
 
-struct DailyCard: Decodable {
+struct DailyCard: Decodable, Sendable, Equatable {
     let id: String
     let archetype: String
     let imageName: String

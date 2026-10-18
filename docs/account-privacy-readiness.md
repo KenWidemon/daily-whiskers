@@ -49,8 +49,11 @@ Reassess after app, SDK, backend or business-scope changes.
   exposed shared account was not used, and no password was collected in chat.
 
 Firebase Auth is the only account store used by the checked-in app. There is no
-Firestore, Storage, custom backend, uploaded photo, favorite, or synced history
-implementation to clean up. Revisit deletion scope if those features are added;
+Firestore, Storage, custom backend, uploaded photo, or synced history
+implementation to clean up. The device-owned Saved Cards collection survives
+logout and account deletion. Its separate Settings > Clear Saved Cards action
+requires confirmation; the deletion sheet explains this distinction. Revisit
+deletion scope if account-owned storage is added;
 Firebase Auth deletion alone would not delete unrelated service data.
 
 ## Data Inventory
@@ -61,13 +64,14 @@ Firebase Auth deletion alone would not delete unrelated service data.
 | Password | Submitted to Firebase Auth; transient form/request values | Describe authentication handling; never claim passwords stay only on device |
 | Auth session | Firebase SDK persistence | Explain persistent sign-in and deletion/logout |
 | Daily cards and local date | Bundled assets/JSON and deterministic on-device selection | No content upload or per-user content record found |
-| Shared card | Locally rendered bundled artwork, quote, optional vibe, branding, and plain-text companion passed to the system share sheet | No account identifiers or source metadata; no app upload/tracking; user chooses the destination and confirms sending |
+| Saved Cards | Device-owned SQLite snapshots, original artwork and favorite membership in Application Support | No app upload or sync; normal OS backups may include the collection; explicit clear affects the current installation, not existing backups |
+| Shared card | Locally rendered bundled or retained artwork, quote, optional vibe, branding, and plain-text companion passed to the system share sheet | No account identifiers or source metadata; no app upload/tracking; user chooses the destination and confirms sending |
 | SDK diagnostics | Firebase Auth 11.15.0 manifest declares unlinked other diagnostic data for analytics | Include SDK behavior in final App Store answers |
 
 Only FirebaseCore and FirebaseAuth products are declared by the app target. A
 package-resolution listing alone is not proof that every Firebase product is
 linked or enabled. No app-level Analytics/Crashlytics, ad tracking, custom
-networking, or user-content storage calls were found in this source audit.
+networking, or cloud user-content storage calls were found in this source audit.
 On September 8, 2026, the owner confirmed the data-use scope is "only Firebase
 email/password authentication." Scope confirmation is complete. Firebase Console
 settings, external integrations, and server-side systems were not independently
