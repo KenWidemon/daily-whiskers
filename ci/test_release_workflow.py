@@ -31,12 +31,26 @@ class RehearsalWorkflowTests(unittest.TestCase):
         self.assertNotRegex(text, r"run:.*\$\{\{")
 
     def test_actual_preflight_rejects_moving_dirty_mismatched_and_injected_inputs(self):
+        self.assert_preflight(ROOT)
+
+    def test_actual_preflight_in_depth_one_checkout(self):
+        with tempfile.TemporaryDirectory(prefix="dw-release-shallow-fixture-") as temporary:
+            shallow = Path(temporary) / "shallow"
+            subprocess.run(["git", "clone", "--quiet", "--depth", "1", ROOT.as_uri(), str(shallow)],
+                           check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(subprocess.check_output(
+                ["git", "rev-parse", "--is-shallow-repository"], cwd=shallow, text=True).strip(), "true")
+            self.assertEqual(subprocess.check_output(
+                ["git", "rev-list", "--count", "HEAD"], cwd=shallow, text=True).strip(), "1")
+            self.assert_preflight(shallow)
+
+    def assert_preflight(self, source):
         text = WORKFLOW.read_text()
         step = text.split("- name: Verify controller and candidate identities", 1)[1].split("- name:", 1)[0]
         script = textwrap.dedent(step.split("run: |\n", 1)[1]).strip()
         with tempfile.TemporaryDirectory(prefix="dw-release-git-fixture-") as temporary:
             repo = Path(temporary) / "checkout"
-            subprocess.run(["git", "clone", "--quiet", "--no-hardlinks", str(ROOT), str(repo)], check=True,
+            subprocess.run(["git", "clone", "--quiet", "--no-hardlinks", str(source), str(repo)], check=True,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
             base = dict(os.environ, GITHUB_REF="refs/heads/codex/develop", GITHUB_SHA=sha,
@@ -49,8 +63,15 @@ class RehearsalWorkflowTests(unittest.TestCase):
             tag = f"object {sha}\ntype commit\ntag fixture\ntagger Fixture <fixture@example.invalid> 1 +0000\n\nfixture\n"
             tag_object = subprocess.check_output(["git", "mktag"], input=tag, cwd=repo, text=True).strip()
             self.assertEqual(execute(TAG_OBJECT=tag_object), 0)
-            earlier = subprocess.check_output(["git", "rev-parse", "HEAD^"], cwd=repo, text=True).strip()
-            self.assertNotEqual(execute(TAG_OBJECT=tag_object, CANDIDATE_SHA=earlier), 0)
+            # A distinct candidate must exist even when the source has no parent history.
+            # This private commit object creates no branch/tag and never leaves the fixture.
+            other_candidate = subprocess.check_output(
+                ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                 "commit-tree", f"{sha}^{{tree}}"], input="Synthetic candidate fixture\n",
+                cwd=repo, text=True).strip()
+            self.assertNotEqual(other_candidate, sha)
+            self.assertEqual(execute(CANDIDATE_SHA=other_candidate), 0)
+            self.assertNotEqual(execute(TAG_OBJECT=tag_object, CANDIDATE_SHA=other_candidate), 0)
             for updates in ({"GITHUB_REF": "refs/pull/1/merge"}, {"CONTROLLER_SHA": "f" * 40},
                             {"CANDIDATE_SHA": "codex/develop"}, {"CANDIDATE_SHA": "$(touch escaped)"},
                             {"CANDIDATE_SHA": "f" * 40}, {"TAG_OBJECT": sha}, {"TAG_OBJECT": "../../outside"}):
