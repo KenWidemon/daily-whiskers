@@ -28,7 +28,8 @@ def test_counts(summary):
         counts["executions"] = sum(d[k] for d in devices for k in run_keys)
     counts["result"] = summary.get("result", "unknown")
     counts["valid_pass"] = (counts["totalTestCount"] > 0 and counts["result"] == "Passed"
-                            and counts["failedTests"] == 0 and counts["skippedTests"] == 0)
+                            and counts["failedTests"] == 0 and counts["skippedTests"] == 0
+                            and counts["expectedFailures"] == 0)
     return counts
 
 

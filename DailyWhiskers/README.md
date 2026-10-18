@@ -371,7 +371,11 @@ marker before interaction, including now-valid single-password submissions.
 Each stage records start, completion, exit code and duration before the next
 stage. Unit, smoke and Release checks run independently after successful package
 resolution, so one failure does not hide the other results. An always-run evidence
-check rejects missing/unreadable result bundles, zero tests, failures and skips.
+check rejects missing/unreadable result bundles and zero tests. Required unit and
+UI smoke suites must report zero ordinary failures, skips and expected failures,
+even when the aggregate result is `Passed`. Missing or invalid top-level count
+fields fail evidence validation; they are not interpreted as zero. Summaries retain
+the expected-failure count when rejecting a suite.
 Summaries use `xcresulttool get test-results summary`, which includes both XCTest
 and Swift Testing; they report test cases separately from per-device executions
 including dynamic parameters. Console XCTest totals are not combined or used as
