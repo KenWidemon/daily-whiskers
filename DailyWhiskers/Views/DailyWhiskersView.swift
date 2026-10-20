@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 enum AccountSheet: String, Identifiable {
     case signIn, deletion
@@ -21,8 +22,14 @@ enum AccountSheet: String, Identifiable {
 struct DailyWhiskersView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var textSize
 
     @StateObject private var savedCards = SavedCardsModel()
+    @State private var bonusCard: RetainedCard?
+    @State private var bonusDay = BonusDay(date: Date())
+    @State private var openingBonus = false
+    @State private var bonusError: String?
+    private let dayCheck = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     @State private var capturedInput: DailyCard?
     @State private var displayedArtwork: UIImage?
     @State private var displayedSnapshot: RetainedCard?
@@ -38,6 +45,7 @@ struct DailyWhiskersView: View {
     @AccessibilityFocusState private var settingsFocused: Bool
 
     private var activeSnapshot: RetainedCard? {
+        if let bonusCard { return bonusCard }
         guard capturedInput == contentState.currentCard else { return nil }
         return displayedSnapshot
     }
@@ -45,7 +53,12 @@ struct DailyWhiskersView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if let entry = contentState.currentCard {
+                if let bonusCard, let image = UIImage(data: bonusCard.artwork) {
+                    DailyRitualCardView(data: DailyCardData(archetype: bonusCard.snapshot.archetype,
+                        imageName: "", quote: bonusCard.snapshot.quote, vibe: bonusCard.snapshot.vibe ?? ""),
+                        retainedArtwork: image, accessibilityPrefix: "bonus-card")
+                        .accessibilityIdentifier("bonus-card")
+                } else if let entry = contentState.currentCard {
                     DailyRitualCardView(
                         data: DailyCardData(
                             archetype: entry.archetype,
@@ -67,10 +80,36 @@ struct DailyWhiskersView: View {
                 contentState.refresh(at: Date(), force: true)
             }
             .onChange(of: scenePhase) { _, newPhase in
-                contentState.scenePhaseDidChange(to: newPhase, at: Date())
+                if newPhase == .active { refreshDay() }
             }
+            .onReceive(dayCheck) { _ in refreshDay() }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshDay() }
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshDay() }
             .task(id: contentState.currentCard) { await captureDisplayedCard() }
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Menu {
+                        if bonusCard != nil {
+                            Button("Return to Today", systemImage: "sun.max") { bonusCard = nil }
+                        } else {
+                            Button("Open Bonus Card", systemImage: "sparkles") { Task { await openBonus() } }
+                            Text("One per day, on this device.")
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(bonusCard == nil ? "Today" : "Bonus").lineLimit(1)
+                            // Leave room for the readable state label on compact phones
+                            // at accessibility sizes; the menu keeps its full spoken hint.
+                            if !textSize.isAccessibilitySize {
+                                Image(systemName: "chevron.down").font(.caption2).accessibilityHidden(true)
+                            }
+                        }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+                    }
+                    .accessibilityLabel(bonusCard == nil ? "Today, Card Menu" : "Bonus Card, Card Menu")
+                    .accessibilityHint(bonusCard == nil ? "Open your optional daily bonus." : "Return to today's card.")
+                    .accessibilityIdentifier("card-menu")
+                    .disabled(openingBonus || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink { SavedCardsView(model: savedCards) } label: {
                         Label("Saved Cards", systemImage: "rectangle.stack")
@@ -117,7 +156,7 @@ struct DailyWhiskersView: View {
                         .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(activeSnapshot == nil || accountSheet != nil || shareState.isRendering || shareState.export != nil)
-                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : "Share Today's Card")
+                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Share Today's Card" : "Share Bonus Card"))
                     .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
                     .accessibilityIdentifier("share-daily-card")
                     .accessibilityFocused($shareFocused)
@@ -183,6 +222,10 @@ struct DailyWhiskersView: View {
                 Button("Try Again") { Task { await captureDisplayedCard() } }
                 Button("Cancel", role: .cancel) { captureError = nil }
             } message: { Text(captureError ?? "") }
+            .alert("Bonus Card Unavailable", isPresented: Binding(get: { bonusError != nil }, set: { if !$0 { bonusError = nil } })) {
+                Button("Try Again") { Task { await openBonus() } }
+                Button("Return to Today", role: .cancel) { bonusError = nil; bonusCard = nil }
+            } message: { Text(bonusError ?? "") }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $accountSheet, onDismiss: {
@@ -229,12 +272,52 @@ struct DailyWhiskersView: View {
         .preferredColorScheme(.dark)
     }
 
+    private func refreshDay() {
+        let now = Date()
+        let day = BonusDay(date: now)
+        if day.key != bonusDay.key { bonusCard = nil }
+        bonusDay = day
+        contentState.refresh(at: now)
+    }
+
+    private func openBonus() async {
+        guard !openingBonus else { return }
+        refreshDay()
+        openingBonus = true
+        bonusError = nil
+        let requestedDay = bonusDay
+        defer { openingBonus = false }
+        do {
+            let selected: RetainedCard
+            if let retained = try await CardRepository.shared.retainedBonus(on: requestedDay) {
+                selected = retained
+            } else {
+                guard capturedInput == contentState.currentCard, let today = displayedSnapshot else {
+                    throw BonusCardError.todayUnavailable
+                }
+                selected = try await CardRepository.shared.bonus(on: requestedDay, today: today,
+                    candidates: DailyContentProvider().bonusCandidates)
+            }
+            refreshDay()
+            guard requestedDay.key == bonusDay.key, !Task.isCancelled else { return }
+            bonusCard = selected
+            await savedCards.refresh()
+        } catch {
+            bonusError = (error as? LocalizedError)?.errorDescription ?? "Your bonus couldn't be opened. Please try again; your daily selection is kept."
+        }
+    }
+
     private func captureDisplayedCard() async {
         displayedSnapshot = nil
         capturedInput = nil
         displayedArtwork = nil
         guard let card = contentState.currentCard else { return }
         do {
+            #if DEBUG && CI_SMOKE_TESTING
+            if CISmokeMode.isEnabled && ProcessInfo.processInfo.arguments.contains("--ci-smoke-today-artwork-unavailable") {
+                throw CardStorageError.unavailable
+            }
+            #endif
             let captured = try await CardRepository.shared.capture(card)
             guard !Task.isCancelled, contentState.currentCard == card else { return }
             capturedInput = card

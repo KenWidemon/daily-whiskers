@@ -19,7 +19,8 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   - Debug-only "Use Test Account"
 - Daily content is selected deterministically from local date:
   - `YYYYMMDD % cards.count`
-- Daily content refreshes when app returns to foreground and local day changed.
+- Daily content refreshes on foreground, significant clock changes and local-day
+  notifications; a 30-second foreground check also detects midnight.
 - Signed-in Settings offers password-confirmed permanent account deletion.
 - Closing auth returns to the same daily card and discards unfinished credentials.
   While an account sheet is active, its underlying Settings menu is hidden from
@@ -28,6 +29,43 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   Close/swipe dismissal is disabled while an auth request is running. Successful
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
+
+## Bonus Card
+
+The navigation bar's **Today** menu offers **Open Bonus Card**, an optional complete
+cat-and-quote moment for guests and signed-in users. **Bonus > Return to Today**
+restores the unchanged daily card. Both use the shared full-card renderer and the
+same monochrome Save control; bonus sharing uses the existing export pipeline.
+There is no quota upgrade, account requirement, cloud sync or date-browsing UI.
+
+The allowance key is a Gregorian `YYYY-MM-DD` in the current local time zone; the
+zone is recorded as provenance but is not part of identity. Each first successful
+request atomically retains the selected content and date reference. Relaunch opens
+Today; opening Bonus again retrieves the exact retained version. Navigation retains
+the open bonus, while changing local date returns the main view to Today. Revisiting
+a date after travel or a clock change reopens its original bonus; crossing into a
+previously unused date permits that date's one bonus. This is a local calendar policy,
+not a rolling 24-hour allowance or a mechanism to prevent manual clock changes.
+
+New selections use the validated bundled pack and exclude Today's stable cat ID,
+exact quote and decoded artwork pixels. Candidates rank by a date-and-ID SHA-256
+hash, preferring those absent from the seven most recently issued bonus records
+(by issuance order, not date order). Quote and pixel comparisons prevent aliases
+from bypassing recent avoidance. If all valid alternatives are recent, a recent
+alternative is allowed; Today's artwork and quote are never relaxed. Missing or
+invalid candidates are skipped. No distinct valid option or a failed write leaves
+the allowance unused. Corrupt retained content stays unavailable with retry and a
+return to Today; it is never silently replaced. After a content-pack update,
+preservation of an existing date's exact bonus takes precedence over reselection.
+An intact retained bonus can reopen even if Today or the current pack is unavailable.
+Unreadable recent metadata is ignored for avoidance, and damaged retained versions
+are skipped as new candidates; neither grants a reroll of the original date.
+
+The permanent ledger survives clearing Favorites and account transitions. It stores
+one reference per used date and deduplicates artwork/snapshots using the existing
+repository. A device backup may include it. Removing the app's data or restoring an
+older backup can lose later date references; there is no server-side enforcement.
+See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
 ## Saved Cards
 
@@ -66,8 +104,8 @@ include it; restore depends on the user's available backup/settings. An older
 backup can restore cards removed later. Clear does not erase existing OS backups.
 
 `CardRepository` serializes SQLite operations in Application Support. Schema 1
-contains artwork BLOBs, immutable snapshots, favorites, and an unused reference
-ledger for later daily/bonus persistence. Snapshot/artwork/favorite writes commit
+contains artwork BLOBs, immutable snapshots, favorites, and a permanent local-date
+ledger for bonus selections. Snapshot/artwork/favorite writes commit
 atomically with foreign keys, rollback journaling and FULL synchronization. Errors
 preserve prior committed state and offer Retry. There is no destructive reset for
 unknown schemas. The first migration creates schema 1 transactionally; no released
@@ -80,14 +118,14 @@ versioned, length-prefixed UTF-8 displayed fields, exact quote identity/revision
 and a fixed sRGB RGBA8 pixel digest including dimensions. It excludes occurrence,
 date, image name, manifest order and styling. Existing single quotes use a stable
 `legacy:<cardID>` quote ID and exact-text checksum revision; explicit quote
-identities can be supplied later without changing old snapshots. No quote rotation
-or daily/bonus selection behavior is introduced here.
+identities can be supplied later without changing old snapshots. Bonus selection uses these same retained snapshots; no independent quote rotation
+is introduced.
 
 Original PNG bytes are stored once per checksum, verified on import/read and
 never re-resolved through a mutable asset name. The current display and save
 capture use the same packaged original bytes. A missing/corrupt saved card remains
 visible with an unavailable/retry state; it never substitutes current artwork.
-Cleanup retains snapshots referenced by favorites, future date records or an
+Cleanup retains snapshots referenced by favorites, date records or an
 active repository share lease. The UI also holds a complete immutable card during
 an open detail/share/retry. Thumbnails are generated only for visible rows and
 kept in memory; there is no durable thumbnail cache. Exports remain memory-only.

@@ -64,7 +64,7 @@ actor CardRepository {
                     try execute("CREATE TABLE artwork(checksum TEXT PRIMARY KEY, bytes BLOB NOT NULL)")
                     try execute("CREATE TABLE snapshot(id TEXT PRIMARY KEY, metadata BLOB NOT NULL, artwork_checksum TEXT NOT NULL REFERENCES artwork(checksum))")
                     try execute("CREATE TABLE favorite(sequence INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_id TEXT NOT NULL UNIQUE REFERENCES snapshot(id), quote TEXT NOT NULL)")
-                    // Reserved reference ledger for #88. No day selection/allowance behavior here.
+                    // Permanent local-date references preserve bonus allowance and exact content.
                     try execute("CREATE TABLE day_selection(local_date TEXT NOT NULL, slot TEXT NOT NULL, snapshot_id TEXT NOT NULL REFERENCES snapshot(id), time_zone TEXT NOT NULL, PRIMARY KEY(local_date,slot))")
                     try execute("PRAGMA user_version=1")
                 }
@@ -91,21 +91,95 @@ actor CardRepository {
         try open()
         try card.snapshot.validate(artwork: card.artwork)
         try transaction {
-            // Same pixels/text with a different lossless encoding retain the first exact bytes.
-            if try exists(card.snapshot.id) {
-                _ = try load(card.snapshot.id)
-            } else {
-                try execute("INSERT OR IGNORE INTO artwork VALUES(?,?)", [.text(card.snapshot.artworkChecksum), .data(card.artwork)])
-                let storedArtwork = try prepare("SELECT bytes FROM artwork WHERE checksum=?", [.text(card.snapshot.artworkChecksum)])
-                defer { sqlite3_finalize(storedArtwork) }
-                guard try step(storedArtwork) == SQLITE_ROW,
-                      ArtworkIdentity.checksum(data(storedArtwork, 0)) == card.snapshot.artworkChecksum
-                else { throw CardStorageError.unavailable }
-                try execute("INSERT INTO snapshot VALUES(?,?,?)", [.text(card.snapshot.id),
-                    .data(try JSONEncoder().encode(card.snapshot)), .text(card.snapshot.artworkChecksum)])
-            }
+            try retain(card)
             try execute("INSERT OR IGNORE INTO favorite(snapshot_id,quote) VALUES(?,?)", [.text(card.snapshot.id), .text(card.snapshot.quote)])
         }
+    }
+
+    private func retain(_ card: RetainedCard) throws {
+        // Same pixels/text with a different lossless encoding retain the first exact bytes.
+        if try exists(card.snapshot.id) {
+            _ = try load(card.snapshot.id)
+        } else {
+            try execute("INSERT OR IGNORE INTO artwork VALUES(?,?)", [.text(card.snapshot.artworkChecksum), .data(card.artwork)])
+            let storedArtwork = try prepare("SELECT bytes FROM artwork WHERE checksum=?", [.text(card.snapshot.artworkChecksum)])
+            defer { sqlite3_finalize(storedArtwork) }
+            guard try step(storedArtwork) == SQLITE_ROW,
+              ArtworkIdentity.checksum(data(storedArtwork, 0)) == card.snapshot.artworkChecksum
+            else { throw CardStorageError.unavailable }
+            try execute("INSERT INTO snapshot VALUES(?,?,?)", [.text(card.snapshot.id),
+            .data(try JSONEncoder().encode(card.snapshot)), .text(card.snapshot.artworkChecksum)])
+        }
+    }
+
+    /// Existing selections do not depend on the current content pack or Today's capture.
+    /// An unreadable selection throws instead of granting another selection for that date.
+    func retainedBonus(on day: BonusDay) throws -> RetainedCard? {
+        try open()
+        let existing = try prepare("SELECT snapshot_id FROM day_selection WHERE local_date=? AND slot='bonus'", [.text(day.key)])
+        defer { sqlite3_finalize(existing) }
+        guard try step(existing) == SQLITE_ROW else { return nil }
+        return try load(string(existing, 0))
+    }
+
+    /// The ledger and immutable content commit together, including across repository instances.
+    func bonus(on day: BonusDay, today: RetainedCard, candidates: [DailyCard],
+               artwork: (DailyCard) throws -> Data = { try BundledCardArtwork.bytes(for: $0) }) throws -> RetainedCard {
+        try open()
+        var result: RetainedCard?
+        try transaction {
+            if let existing = try retainedBonus(on: day) {
+                result = existing
+                return
+            }
+            try today.snapshot.validate(artwork: today.artwork)
+            let recent = try prepare("SELECT s.metadata FROM day_selection d JOIN snapshot s ON s.id=d.snapshot_id WHERE d.slot='bonus' ORDER BY d.rowid DESC LIMIT 7")
+            defer { sqlite3_finalize(recent) }
+            var history: [CardSnapshot] = []
+            while try step(recent) == SQLITE_ROW {
+                // Recency is a best-effort preference. A damaged historical record
+                // remains unavailable on its date, but cannot block later dates.
+                if let snapshot = try? JSONDecoder().decode(CardSnapshot.self, from: data(recent, 0)) {
+                    history.append(snapshot)
+                }
+            }
+            // Prefer unseen identities before decoding artwork. A final pixel check also
+            // catches duplicate images with different filenames or stable IDs.
+            let ordered = candidates.sorted { left, right in
+                let leftSeen = history.contains { $0.cardID == left.id || $0.quote == left.quote }
+                let rightSeen = history.contains { $0.cardID == right.id || $0.quote == right.quote }
+                if leftSeen != rightSeen { return !leftSeen }
+                return ArtworkIdentity.checksum(Data((day.key + ":" + left.id).utf8)) <
+                    ArtworkIdentity.checksum(Data((day.key + ":" + right.id).utf8))
+            }
+            var fallback: RetainedCard?
+            for candidate in ordered {
+                guard !candidate.id.isEmpty, !candidate.archetype.isEmpty,
+                      !candidate.quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      candidate.id != today.snapshot.cardID,
+                      candidate.quote != today.snapshot.quote,
+                      let captured = try? CardSnapshot.capture(card: candidate, artwork: artwork(candidate)),
+                      captured.snapshot.artworkPixelDigest != today.snapshot.artworkPixelDigest else { continue }
+                // Do not select a version whose retained bytes/metadata are damaged.
+                // Other valid candidates can still satisfy this new date.
+                if try exists(captured.snapshot.id), (try? load(captured.snapshot.id)) == nil { continue }
+                let seen = history.contains {
+                    $0.cardID == captured.snapshot.cardID || $0.quote == captured.snapshot.quote ||
+                    $0.artworkPixelDigest == captured.snapshot.artworkPixelDigest
+                }
+                if !seen { result = captured; break }
+                if fallback == nil { fallback = captured }
+            }
+            result = result ?? fallback
+            guard let selected = result else { throw BonusCardError.noDistinctContent }
+            try retain(selected)
+            try execute("INSERT INTO day_selection(local_date,slot,snapshot_id,time_zone) VALUES(?,'bonus',?,?)",
+                        [.text(day.key), .text(selected.snapshot.id), .text(day.timeZone)])
+            // Return the repository's first exact encoding if this version was saved before.
+            result = try load(selected.snapshot.id)
+        }
+        guard let result else { throw BonusCardError.noDistinctContent }
+        return result
     }
 
     func capture(_ card: DailyCard) throws -> RetainedCard {
