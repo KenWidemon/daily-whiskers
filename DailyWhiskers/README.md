@@ -176,13 +176,25 @@ from the system sheet. It does not request photo-library reading or prompt for
 access when opening the share sheet. Destination availability and successful
 saving still require device acceptance; a purpose string alone is not proof.
 
-The portrait image uses the bundled artwork in full, measured quote text, an
-optional vibe, and subtle Daily Whiskers branding. Rendering is offline at 1080
-pixels wide, scale 1, standard color range, with a maximum height of 2400 pixels
-(under 10 MiB for the RGBA canvas, excluding source/encoding overhead). Text grows
+The portrait export reuses `RitualCardPresentation`, including the archetype frame,
+ordinary-phone serif quote treatment and Vibe pill. Its natural-height artwork and
+measured text are independent of scroll position, screen size and Dynamic Type.
+The app retains the user's requested text size and scrolling behavior; the export
+uses a stable `.large` typography baseline. Artwork bytes, archetype, quote and
+vibe are frozen before rendering, including retry after a failed share.
+
+The proposed export format (pending owner visual approval) is 1080 pixels wide,
+with a maximum height of 2400 pixels, opaque standard color and scale 1. Text grows
 the image vertically rather than shrinking or clipping. Unsupported future text
-that exceeds the bound fails with a retryable error. Content additions must pass
-the sharing tests and visual review.
+that exceeds the bound fails with a retryable error before allocating the bitmap.
+The packaged `Daily_Whiskers_App_Icon_FINAL_cropped.png` supplies the actual mark.
+A deterministic green-channel alpha mask removes its purple tile and facial
+cutouts, retaining the source silhouette/whiskers as white on transparency; no
+logo geometry is redrawn. This monochrome treatment awaits visual review and appears at
+72 × 72 pixels and 45% opacity, centered below the card with a 48-pixel gap and
+54-pixel bottom inset. This dedicated watermark area cannot overlap artwork or
+quote text. The frame, text and artwork have a 54-pixel outer inset. Content
+additions must pass the sharing tests and visual review.
 
 The app holds one export in memory, creates no temporary share files, and releases
 its image reference when the sheet completes or is dismissed. UIKit/destination

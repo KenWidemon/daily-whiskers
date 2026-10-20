@@ -49,6 +49,9 @@ final class DailyCardShareAnchor: UIView, UIPopoverPresentationControllerDelegat
               let presenter = window?.rootViewController,
               presenter.presentedViewController == nil else { return }
         activeID = export.id
+#if DEBUG && CI_SMOKE_TESTING
+        CISmokeMode.recordSharePayload(export)
+#endif
         let source = DailyCardShareImageSource(image: export.image)
         let controller = UIActivityViewController(activityItems: [source, export.text], applicationActivities: nil)
         controller.completionWithItemsHandler = { [weak self, weak controller] _, _, _, error in

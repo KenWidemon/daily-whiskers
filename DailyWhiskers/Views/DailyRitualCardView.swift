@@ -117,48 +117,9 @@ struct DailyRitualCardView: View {
                 let compact = CardViewportLayout.fitsPortrait(size: geometry.size, textSize: textSize)
                 let padding: CGFloat = compact ? 12 : 28
                 ScrollView {
-                    RitualCard(theme: theme) {
-                        CardViewportLayout(artworkAspectRatio: artwork.map { $0.size.width / $0.size.height } ?? 2 / 3,
-                                           maximumHeight: compact ? geometry.size.height - padding * 2 : nil) {
-                            if let artwork {
-                                Image(uiImage: artwork)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .accessibilityHidden(true)
-                            } else {
-                                Text("Artwork unavailable")
-                                    .foregroundStyle(.white)
-                                    .padding()
-                            }
-                            VStack(spacing: compact ? 8 : 18) {
-                                QuoteBlock(text: data.quote, theme: theme, compact: compact)
-                                    .accessibilityIdentifier("\(accessibilityPrefix)-quote")
-                                if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    VibePill(text: data.vibe.uppercased(), theme: theme, compact: compact)
-                                        .accessibilityIdentifier("\(accessibilityPrefix)-vibe")
-                                }
-                            }
-                            .padding(.horizontal, compact ? 16 : 24)
-                            .padding(.vertical, compact ? 18 : 30)
-                            .frame(maxWidth: .infinity)
-                            .background {
-                                LinearGradient(
-                                    colors: [.black.opacity(0.70), .black.opacity(0.86)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                                .overlay(alignment: .top) {
-                                    LinearGradient(
-                                        colors: [.clear, .black.opacity(0.70)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                    .frame(height: compact ? 0 : 64)
-                                    .offset(y: compact ? 0 : -64)
-                                }
-                            }
-                        }
-                    }
+                    RitualCardPresentation(data: data, artwork: artwork, compact: compact,
+                                           maximumHeight: compact ? geometry.size.height - padding * 2 : nil,
+                                           accessibilityPrefix: accessibilityPrefix)
                     .frame(width: cardWidth)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("\(accessibilityPrefix)-frame")
@@ -170,6 +131,62 @@ struct DailyRitualCardView: View {
             }
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// The card's shared visual content, independent of screen controls and scrolling.
+/// Export uses the ordinary-phone typography with natural, uncropped artwork height.
+struct RitualCardPresentation: View {
+    let data: DailyCardData
+    let artwork: UIImage?
+    var compact: Bool
+    var maximumHeight: CGFloat? = nil
+    var accessibilityPrefix = "card"
+    private var theme: ArchetypeTheme { .forArchetype(data.archetype) }
+
+    var body: some View {
+        RitualCard(theme: theme) {
+            CardViewportLayout(artworkAspectRatio: artwork.map { $0.size.width / $0.size.height } ?? 2 / 3,
+                               maximumHeight: maximumHeight) {
+                if let artwork {
+                    Image(uiImage: artwork)
+                        .resizable()
+                        .scaledToFit()
+                        .accessibilityHidden(true)
+                } else {
+                    Text("Artwork unavailable")
+                        .foregroundStyle(.white)
+                        .padding()
+                }
+                VStack(spacing: compact ? 8 : 18) {
+                    QuoteBlock(text: data.quote, theme: theme, compact: compact)
+                        .accessibilityIdentifier("\(accessibilityPrefix)-quote")
+                    if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        VibePill(text: data.vibe.uppercased(), theme: theme, compact: compact)
+                            .accessibilityIdentifier("\(accessibilityPrefix)-vibe")
+                    }
+                }
+                .padding(.horizontal, compact ? 16 : 24)
+                .padding(.vertical, compact ? 18 : 30)
+                .frame(maxWidth: .infinity)
+                .background {
+                    LinearGradient(
+                        colors: [.black.opacity(0.70), .black.opacity(0.86)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .overlay(alignment: .top) {
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.70)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: compact ? 0 : 64)
+                        .offset(y: compact ? 0 : -64)
+                    }
+                }
+            }
+        }
     }
 }
 

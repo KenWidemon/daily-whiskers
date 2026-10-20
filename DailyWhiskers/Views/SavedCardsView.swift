@@ -143,7 +143,8 @@ struct SavedCardDetail: View {
                     }.frame(minWidth: 44, minHeight: 44)
                 }
                 .disabled(card == nil || share.isRendering || share.export != nil)
-                .accessibilityLabel("Share Saved Card")
+                .accessibilityLabel(share.isRendering ? "Preparing Card" : "Share Saved Card")
+                .accessibilityHint("Shares the retained artwork and quote. You choose where to send it.")
                 .accessibilityFocused($shareFocused)
                 .background {
                     DailyCardShareSheet(export: share.export) { failed in

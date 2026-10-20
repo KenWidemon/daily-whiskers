@@ -3,6 +3,27 @@ import XCTest
 
 @MainActor
 final class DailyCardShareVisualTests: XCTestCase {
+    func testMonochromeLogoForVisualReview() throws {
+        let image = try XCTUnwrap(DailyCardShareRenderer.watermark)
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "Monochrome-approved-logo-transparent"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testRepresentativeThemesForVisualReview() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "daily_whiskers_content", withExtension: "json"))
+        let manifest = try JSONDecoder().decode(DailyContentManifest.self, from: Data(contentsOf: url))
+        for archetype in ["arcane", "forest", "alchemy", "noble", "celestial", "cozy"] {
+            let card = try XCTUnwrap(manifest.cards.first { $0.archetype == archetype })
+            let export = try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card))
+            let attachment = XCTAttachment(image: export.image)
+            attachment.name = "Export-" + archetype
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     func testLongestBundledQuoteExportForVisualReview() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "daily_whiskers_content", withExtension: "json"))
         let manifest = try JSONDecoder().decode(DailyContentManifest.self, from: Data(contentsOf: url))

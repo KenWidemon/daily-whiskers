@@ -43,6 +43,11 @@ struct DailyContentProvider {
             return Self.fallbackCard
         }
 
+#if DEBUG && CI_SMOKE_TESTING
+        if CISmokeMode.isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-longest-card") {
+            return manifest.cards.max { $0.quote.count < $1.quote.count }
+        }
+#endif
         let seed = daySeed(for: date)
         return manifest.cards[seed % manifest.cards.count]
     }
