@@ -424,3 +424,35 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   The collection remains device-owned; deletion copy points to explicit clear.
   Review public privacy/support wording before release without treating source
   documentation changes as publication of those separate sites.
+
+## Bonus Card
+
+Run `BonusCardTests` in the unit scheme for local midnight, time-zone travel,
+repeated dates, DST transitions, retained bytes across relaunch/backup, failed
+commit rollback, corrupt content, exact Today exclusions and recent-seven fallback.
+Corrupt a recent snapshot's metadata: its original date must stay unavailable while
+future dates can select valid content and still avoid readable recent cards.
+Run `DailyWhiskersUITests/BonusCardTests` with the offline smoke build/launch gate
+for guest access, return to Today, reopening after relaunch, Favorites, existing
+share-sheet cancellation and paired portrait previews. Keep original failures and
+screenshots; do not classify a failure as intermittent without evidence.
+The retained-bonus regression relaunches with `--ci-smoke-today-artwork-unavailable`
+to fail Today's capture, then verifies reopening the original bonus, Save, Share
+and return navigation. This injection requires both `DEBUG`/`CI_SMOKE_TESTING` and
+`--ci-smoke`; it is absent from ordinary and Release builds.
+
+Compare Today, Bonus and its saved detail on regular/small iPhone and iPad with
+ordinary and largest text. Preserve complete ordinary-phone artwork/quote/Vibe,
+quote padding, the monochrome heart-eyes Save control and unchanged share export.
+At larger text and in landscape, scroll to both quote boundaries and Vibe; verify
+menu, Save and Share remain reachable. Test foreground midnight and travel on an
+explicitly authorized device without changing the owner's clock/settings as part
+of automation. Current automation tests date policy separately from real clock
+notifications. VoiceOver reading order, speech and focus restoration require
+observed acceptance; hierarchy and hittability alone do not establish them.
+
+A retained date must survive Favorites clearing, navigation and reopening with a
+changed or missing content pack. A corrupt retained snapshot shows an error and
+never consumes a second selection. No content match should produce a usable Today
+and a retryable unavailable message. The known registration-focus risk and deferred
+account checks elsewhere in this guide remain unchanged by bonus-card validation.

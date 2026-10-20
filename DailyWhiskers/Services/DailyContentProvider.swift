@@ -19,17 +19,19 @@ struct DailyContentProvider {
         vibe: "vast"
     )
 
-    init(calendar: Calendar = .current, bundle: Bundle = .main) {
+    init(calendar: Calendar = .autoupdatingCurrent, bundle: Bundle = .main) {
         self.calendar = calendar
         self.manifest = Self.loadManifest(from: bundle)
     }
 
-    init(calendar: Calendar = .current, manifest: DailyContentManifest) {
+    init(calendar: Calendar = .autoupdatingCurrent, manifest: DailyContentManifest) {
         self.calendar = calendar
         self.manifest = manifest.cards.isEmpty
             ? DailyContentManifest(cards: [Self.fallbackCard])
             : manifest
     }
+
+    var bonusCandidates: [DailyCard] { manifest.cards }
 
     func contentForToday() -> DailyCard? {
         content(for: Date())
