@@ -322,11 +322,26 @@ those local references are not durable release evidence. Historical rounds are a
 
 ## Sharing Today's Card
 
-For DW-002, run `DailyCardShareTests` in the unit scheme. Coverage includes a
-snapshot across local midnight, all bundled artwork/quotes plus fallback, text
-measurement and pixel bounds, optional vibe/text companion, PNG metadata,
-render failures/retry, duplicate taps, local preview metadata, and completion/cancellation cleanup.
+Run `DailyCardShareTests` and `DailyCardShareVisualTests` in the unit scheme.
+Coverage includes local midnight, immutable bytes/archetype across content replacement
+and retry, all bundled artwork/quotes plus fallback, daily/saved pixel equality,
+upright artwork pixel comparison, long-quote growth, PNG metadata, optional vibe/text
+companion, render failures/retry, duplicate taps, preview metadata and cleanup.
+Visual attachments cover the longest bundled quote and all six archetypes.
 These checks do not establish physical share-sheet or VoiceOver acceptance.
+
+For DW-017, run `DailyCardSharingTests/testActualExportPayloadsForTodayBonusAndSaved`
+and `testLongestQuoteExportRetryCancelAndLargerText` in the offline interaction
+scheme on iPhone and iPad. They capture paired app/system-sheet screenshots,
+exercise Today/Bonus/Saved navigation, cancellation, injected render error/retry,
+and sharing after scrolling at largest text. With the explicit CI-only
+`--ci-smoke-export-evidence` flag, the exact image/text passed to the activity
+controller is retained under the simulator app's Documents/ShareEvidence directory.
+Inspect those actual payloads for full upright art, complete quote, Vibe, watermark,
+dimensions and metadata; compare matched Today/Bonus/Saved versions byte-for-byte.
+This opt-in evidence hook is compiled only with `DEBUG && CI_SMOKE_TESTING`;
+ordinary Debug/Release exports remain memory-only. Keep raw output outside Git.
+Watermark scale, opacity, placement and export sizing require Ken's visual approval.
 
 The interaction suite checks launch in either orientation, repeated bidirectional
 rotation before sharing, current-window canvas bounds and quote centering, scroll
