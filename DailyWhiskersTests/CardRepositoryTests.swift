@@ -29,21 +29,28 @@ struct CardRepositoryTests {
 
     @Test func savedPresentationMatchesStateAndNextAction() {
         let unsaved = CardSaveState(isSaved: false)
-        #expect(unsaved.symbol == "bookmark")
-        #expect(unsaved.actionSymbol == "bookmark")
         #expect(unsaved.actionLabel == "Save Card")
         #expect(unsaved.value == "Not saved")
         #expect(unsaved.hint == "Saves this card on this device.")
         #expect(unsaved.detailTitle == "Card")
         let saved = CardSaveState(isSaved: true)
-        #expect(saved.symbol == "bookmark.fill")
-        #expect(saved.actionSymbol == "bookmark.slash")
         #expect(saved.actionLabel == "Remove from Saved Cards")
         #expect(saved.value == "Saved")
         #expect(saved.hint == "Removes this card from Saved Cards.")
         #expect(saved.detailTitle == "Saved Card")
-        #expect(UIImage(systemName: saved.symbol) != nil)
-        #expect(UIImage(systemName: unsaved.symbol) != nil)
+    }
+
+    @Test func originalCatArtworkUsesTransparentTemplateAndDistinctSavedBadge() throws {
+        let unsaved = HeartEyesCatIcon.unsavedImage
+        let saved = HeartEyesCatIcon.savedImage
+        for image in [unsaved, saved] {
+            #expect(image.renderingMode == .alwaysTemplate)
+            #expect(image.size == CGSize(width: 32, height: 32))
+            let cg = try #require(image.cgImage)
+            #expect(cg.alphaInfo == .premultipliedLast || cg.alphaInfo == .premultipliedFirst)
+        }
+        // Saving adds a badge without changing the icon's size or replacing the cat.
+        #expect(try #require(unsaved.pngData()) != #require(saved.pngData()))
     }
 
     @Test func clearEligibilityTracksRefreshSaveRemovalAndClear() async throws {

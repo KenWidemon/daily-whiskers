@@ -124,7 +124,7 @@ struct DailyWhiskersView: View {
                         guard let displayedSnapshot = activeSnapshot else { Task { await captureDisplayedCard() }; return }
                         Task { await savedCards.toggle(displayedSnapshot); saveFocused = true }
                     } label: {
-                        Image(systemName: saveState.symbol)
+                        saveState.icon
                             .accessibilityHidden(true)
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
@@ -336,6 +336,80 @@ struct DailyWhiskersView: View {
     private func dismissLogoutError() {
         accountRequest.clearFeedback()
         settingsFocused = true
+    }
+}
+
+/// Original heart-eyes cat vector, shared as a template image so native menus
+/// retain the same artwork as the toolbar and empty-state guidance.
+@MainActor
+enum HeartEyesCatIcon {
+    private static var drawing: Path {
+        let outline = Path { path in
+            path.move(to: CGPoint(x: 3.5, y: 9))
+            path.addLine(to: CGPoint(x: 3, y: 2))
+            path.addLine(to: CGPoint(x: 9, y: 5.7))
+            path.addQuadCurve(to: CGPoint(x: 15, y: 5.7), control: CGPoint(x: 12, y: 4.3))
+            path.addLine(to: CGPoint(x: 21, y: 2))
+            path.addLine(to: CGPoint(x: 20.5, y: 9))
+            path.addCurve(to: CGPoint(x: 12, y: 22), control1: CGPoint(x: 24, y: 16), control2: CGPoint(x: 19, y: 22))
+            path.addCurve(to: CGPoint(x: 3.5, y: 9), control1: CGPoint(x: 5, y: 22), control2: CGPoint(x: 0, y: 16))
+            path.closeSubpath()
+            path.move(to: CGPoint(x: 8.5, y: 16.5))
+            path.addQuadCurve(to: CGPoint(x: 15.5, y: 16.5), control: CGPoint(x: 12, y: 20.5))
+            for y: CGFloat in [13, 16] {
+                path.move(to: CGPoint(x: 0.8, y: y))
+                path.addLine(to: CGPoint(x: 4.5, y: y + 0.6))
+                path.move(to: CGPoint(x: 23.2, y: y))
+                path.addLine(to: CGPoint(x: 19.5, y: y + 0.6))
+            }
+        }.strokedPath(StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+        let eyes = Path { path in
+            for x: CGFloat in [7.8, 16.2] {
+                path.move(to: CGPoint(x: x, y: 10))
+                path.addCurve(to: CGPoint(x: x - 2.8, y: 10.5),
+                              control1: CGPoint(x: x - 1.8, y: 7.7), control2: CGPoint(x: x - 3.6, y: 9))
+                path.addCurve(to: CGPoint(x: x, y: 14),
+                              control1: CGPoint(x: x - 2.5, y: 11.7), control2: CGPoint(x: x - 0.7, y: 13.3))
+                path.addCurve(to: CGPoint(x: x + 2.8, y: 10.5),
+                              control1: CGPoint(x: x + 0.7, y: 13.3), control2: CGPoint(x: x + 2.5, y: 11.7))
+                path.addCurve(to: CGPoint(x: x, y: 10),
+                              control1: CGPoint(x: x + 3.6, y: 9), control2: CGPoint(x: x + 1.8, y: 7.7))
+                path.closeSubpath()
+            }
+        }
+        // One foreground layer keeps the heart eyes at the same color as the outline.
+        var result = outline
+        result.addPath(eyes)
+        return result
+    }
+
+    static let unsavedImage = render(isSaved: false)
+    static let savedImage = render(isSaved: true)
+
+    private static func render(isSaved: Bool) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32), format: format).image { context in
+            let cg = context.cgContext
+            cg.saveGState()
+            cg.translateBy(x: 4, y: 4)
+            cg.addPath(drawing.cgPath)
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillPath()
+            cg.restoreGState()
+            if isSaved {
+                // Keep the original lower-trailing check badge and a clear cutout
+                // behind it; template tinting must not fill the check's negative space.
+                let badge = CGRect(x: 20, y: 20, width: 12, height: 12)
+                cg.setBlendMode(.clear)
+                cg.fillEllipse(in: badge)
+                cg.setBlendMode(.normal)
+                UIImage(systemName: "checkmark.circle.fill",
+                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))?
+                    .withTintColor(.white, renderingMode: .alwaysOriginal).draw(in: badge)
+            }
+        }.withRenderingMode(.alwaysTemplate)
     }
 }
 

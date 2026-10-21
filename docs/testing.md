@@ -391,12 +391,14 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
 
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
-- Check the text-free bookmark save control on Today and Bonus: outline when
-  unsaved, filled when saved, with the same tint as Share and Settings. Its
+- Check the text-free monochrome heart-eyes cat save control on Today and Bonus:
+  clear cat when unsaved, lower-trailing check badge when saved, with the same tint
+  as Share and Settings. Its
   accessible action changes between **Save Card** and **Remove from Saved Cards**,
   and its **Saved/Not saved** value changes. The stacked-card collection navigation
-  stays distinct. Save and unsave must preserve control and card geometry at
-  standard and largest accessibility text sizes on regular and small phones.
+  stays distinct. Verify the same original cat artwork in the saved/remove and
+  unsaved/re-save detail menus and empty collection guidance. Save and unsave must
+  preserve control and card geometry at standard and largest accessibility text sizes on regular and small phones.
 - Save an identical version twice without changing order. Save another quote or
   artwork version of the same stable cat ID and verify both versions survive.
   Reordering/renaming the current pack must not change saved content identity.
@@ -462,7 +464,7 @@ and return navigation. This injection requires both `DEBUG`/`CI_SMOKE_TESTING` a
 
 Compare Today, Bonus and its saved detail on regular/small iPhone and iPad with
 ordinary and largest text. Preserve complete ordinary-phone artwork/quote/Vibe,
-quote padding, the monochrome bookmark Save control and unchanged share export.
+quote padding, the monochrome heart-eyes cat Save control and unchanged share export.
 At larger text and in landscape, scroll to both quote boundaries and Vibe; verify
 menu, Save and Share remain reachable. Test foreground midnight and travel on an
 explicitly authorized device without changing the owner's clock/settings as part

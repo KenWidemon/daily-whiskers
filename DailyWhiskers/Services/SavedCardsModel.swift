@@ -68,10 +68,10 @@ struct SavedCardsError: ViewModifier {
 }
 
 /// Shared visual state and next-action wording for Today, Bonus and retained detail.
+@MainActor
 struct CardSaveState {
     let isSaved: Bool
-    var symbol: String { isSaved ? "bookmark.fill" : "bookmark" }
-    var actionSymbol: String { isSaved ? "bookmark.slash" : "bookmark" }
+    var icon: Image { Image(uiImage: isSaved ? HeartEyesCatIcon.savedImage : HeartEyesCatIcon.unsavedImage) }
     var actionLabel: String { isSaved ? "Remove from Saved Cards" : "Save Card" }
     var value: String { isSaved ? "Saved" : "Not saved" }
     var hint: String { isSaved ? "Removes this card from Saved Cards." : "Saves this card on this device." }

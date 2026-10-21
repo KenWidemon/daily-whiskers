@@ -17,7 +17,8 @@ struct SavedCardsView: View {
                 }
                 if model.records.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: CardSaveState(isSaved: false).symbol).font(.largeTitle).accessibilityHidden(true)
+                        CardSaveState(isSaved: false).icon
+                            .resizable().frame(width: 40, height: 40).accessibilityHidden(true)
                         Text("Save a card to come back to it.")
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -162,8 +163,10 @@ struct SavedCardDetail: View {
                         guard let card else { return }
                         Task { await model.toggle(card); optionsFocused = true }
                     } label: {
-                        Label(saveState.actionLabel, systemImage: saveState.actionSymbol)
+                        Label { Text(saveState.actionLabel) } icon: { saveState.icon }
                     }
+                    .accessibilityValue(saveState.value)
+                    .accessibilityHint(saveState.hint)
                     .accessibilityIdentifier("saved-card-toggle")
                 } label: {
                     Image(systemName: "ellipsis")

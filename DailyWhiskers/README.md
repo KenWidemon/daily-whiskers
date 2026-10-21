@@ -69,9 +69,11 @@ See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
 ## Saved Cards
 
-The monochrome bookmark toolbar button captures the displayed card: an outline
-means not saved and a filled bookmark means saved. The stacked-card button remains
-separate navigation to the collection. The Save control has no visible text label;
+The original monochrome heart-eyes cat toolbar button captures the displayed card:
+the clear cat means not saved, and a lower-trailing check badge means saved. The
+same custom artwork appears in detail save/remove menus and empty-state guidance.
+The stacked-card button remains separate navigation to the collection.
+The Save control has no visible text label;
 accessibility announces **Save Card** or **Remove from Saved Cards**, with the
 **Not saved** or **Saved** value and a hint describing the next action.
 Tapping again removes the card. Saved cards appear in a guest-accessible, newest-first
