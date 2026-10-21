@@ -17,7 +17,7 @@ struct SavedCardsView: View {
                 }
                 if model.records.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: "bookmark").font(.largeTitle).accessibilityHidden(true)
+                        Image(systemName: CardSaveState(isSaved: false).symbol).font(.largeTitle).accessibilityHidden(true)
                         Text("Save a card to come back to it.")
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -104,6 +104,8 @@ struct SavedCardDetail: View {
     @AccessibilityFocusState private var optionsFocused: Bool
     @AccessibilityFocusState private var shareFocused: Bool
 
+    private var saveState: CardSaveState { CardSaveState(isSaved: model.contains(id)) }
+
     var body: some View {
         Group {
             if let card, let image = UIImage(data: card.artwork) {
@@ -128,7 +130,7 @@ struct SavedCardDetail: View {
                 }
             } else { ProgressView("Opening saved card") }
         }
-        .navigationTitle("Saved Card")
+        .navigationTitle(saveState.detailTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: id) { await load() }
         .toolbar {
@@ -143,7 +145,7 @@ struct SavedCardDetail: View {
                     }.frame(minWidth: 44, minHeight: 44)
                 }
                 .disabled(card == nil || share.isRendering || share.export != nil)
-                .accessibilityLabel(share.isRendering ? "Preparing Card" : "Share Saved Card")
+                .accessibilityLabel(share.isRendering ? "Preparing Card" : (saveState.isSaved ? "Share Saved Card" : "Share Card"))
                 .accessibilityHint("Shares the retained artwork and quote. You choose where to send it.")
                 .accessibilityFocused($shareFocused)
                 .background {
@@ -160,8 +162,7 @@ struct SavedCardDetail: View {
                         guard let card else { return }
                         Task { await model.toggle(card); optionsFocused = true }
                     } label: {
-                        Label(model.contains(id) ? "Remove from Saved Cards" : "Save Card",
-                              systemImage: model.contains(id) ? "bookmark.slash" : "bookmark")
+                        Label(saveState.actionLabel, systemImage: saveState.actionSymbol)
                     }
                     .accessibilityIdentifier("saved-card-toggle")
                 } label: {
@@ -170,9 +171,9 @@ struct SavedCardDetail: View {
                         .contentShape(Rectangle())
                 }
                 .disabled(card == nil || model.busy || share.isRendering || share.export != nil)
-                .accessibilityLabel("Saved Card Options")
+                .accessibilityLabel(saveState.isSaved ? "Saved Card Options" : "Card Options")
                 .accessibilityHint("Opens save and remove actions for this card.")
-                .accessibilityValue(model.contains(id) ? "Saved" : "Not saved")
+                .accessibilityValue(saveState.value)
                 .accessibilityIdentifier("saved-card-options")
                 .accessibilityFocused($optionsFocused)
             }

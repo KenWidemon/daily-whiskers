@@ -69,10 +69,11 @@ See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
 ## Saved Cards
 
-The monochrome heart-eyes cat toolbar button captures the displayed card and adds
-a checkmark when saved. Its SwiftUI vector uses the toolbar's primary foreground color.
-It has no visible text label; accessibility announces **Save Card** with the
-**Saved** or **Not saved** value and a hint describing the next action.
+The monochrome bookmark toolbar button captures the displayed card: an outline
+means not saved and a filled bookmark means saved. The stacked-card button remains
+separate navigation to the collection. The Save control has no visible text label;
+accessibility announces **Save Card** or **Remove from Saved Cards**, with the
+**Not saved** or **Saved** value and a hint describing the next action.
 Tapping again removes the card. Saved cards appear in a guest-accessible, newest-first
 collection labeled **On this device**, with uncropped artwork tiles on a centered,
 adaptive grid. Accessibility text sizes use one column and complete quote labels.
@@ -91,13 +92,17 @@ viewport adjustment. Today and saved detail use the same card renderer, includin
 the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
 artwork, quote, vibe and archetype directly; navigation and Share remain separate screen controls. **Saved Card Options** beside
 Share contains the destructive **Remove from Saved Cards** action and offers
-**Save Card** after removal while the detail stays open. Dismissing the menu changes
+**Save Card** after removal while the detail stays open. Its title changes from
+**Saved Card** to **Card** after removal and returns on re-save; Share and options
+labels also reflect whether the card is currently saved. Dismissing the menu changes
 nothing. No persistent removal footer reserves card space, so matched device/text
 conditions use the same available card size. Both surfaces include the same
 vertical quote-panel padding.
 
 The collection belongs to the installation, independent of sign-in, logout or
-account deletion. **Settings > Clear Saved Cards** requires confirmation and
+account deletion. **Settings > Clear Saved Cards** is disabled while the collection is empty or
+storage is busy. Its eligibility updates after saving, removing or clearing cards.
+When enabled, it requires confirmation and
 removes favorites without clearing the current card or retained day selections.
 Daily Whiskers does not upload or sync this collection. Normal device backups may
 include it; restore depends on the user's available backup/settings. An older

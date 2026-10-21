@@ -50,6 +50,10 @@ struct DailyWhiskersView: View {
         return displayedSnapshot
     }
 
+    private var saveState: CardSaveState {
+        CardSaveState(isSaved: activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -120,23 +124,15 @@ struct DailyWhiskersView: View {
                         guard let displayedSnapshot = activeSnapshot else { Task { await captureDisplayedCard() }; return }
                         Task { await savedCards.toggle(displayedSnapshot); saveFocused = true }
                     } label: {
-                        HeartEyesCatIcon()
-                            .frame(width: 32, height: 32)
-                            .overlay(alignment: .bottomTrailing) {
-                                if activeSnapshot.map({ savedCards.contains($0.snapshot.id) }) == true {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .symbolRenderingMode(.palette)
-                                        .foregroundStyle(.black, .white)
-                                }
-                            }
+                        Image(systemName: saveState.symbol)
+                            .accessibilityHidden(true)
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .disabled(activeSnapshot == nil || savedCards.busy || accountSheet != nil || shareState.isRendering || shareState.export != nil)
-                    .accessibilityValue(activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true ? "Saved" : "Not saved")
-                    .accessibilityLabel("Save Card")
-                    .accessibilityHint(activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true ? "Removes this card from Saved Cards." : "Saves this card on this device.")
+                    .accessibilityValue(saveState.value)
+                    .accessibilityLabel(saveState.actionLabel)
+                    .accessibilityHint(saveState.hint)
                     .accessibilityIdentifier("save-daily-card")
                     .accessibilityFocused($saveFocused)
                 }
@@ -173,7 +169,7 @@ struct DailyWhiskersView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Clear Saved Cards", role: .destructive) { confirmingClear = true }
-                            .disabled(savedCards.busy)
+                            .disabled(!savedCards.canClear)
                         Divider()
                         Link("Privacy Policy", destination: AppLinks.privacyPolicy)
                         Link("Support", destination: AppLinks.support)
@@ -340,55 +336,6 @@ struct DailyWhiskersView: View {
     private func dismissLogoutError() {
         accountRequest.clearFeedback()
         settingsFocused = true
-    }
-}
-
-/// A template-style vector using the dark toolbar's primary foreground color.
-private struct HeartEyesCatIcon: View {
-    private var drawing: Path {
-        let outline = Path { path in
-            path.move(to: CGPoint(x: 3.5, y: 9))
-            path.addLine(to: CGPoint(x: 3, y: 2))
-            path.addLine(to: CGPoint(x: 9, y: 5.7))
-            path.addQuadCurve(to: CGPoint(x: 15, y: 5.7), control: CGPoint(x: 12, y: 4.3))
-            path.addLine(to: CGPoint(x: 21, y: 2))
-            path.addLine(to: CGPoint(x: 20.5, y: 9))
-            path.addCurve(to: CGPoint(x: 12, y: 22), control1: CGPoint(x: 24, y: 16), control2: CGPoint(x: 19, y: 22))
-            path.addCurve(to: CGPoint(x: 3.5, y: 9), control1: CGPoint(x: 5, y: 22), control2: CGPoint(x: 0, y: 16))
-            path.closeSubpath()
-            path.move(to: CGPoint(x: 8.5, y: 16.5))
-            path.addQuadCurve(to: CGPoint(x: 15.5, y: 16.5), control: CGPoint(x: 12, y: 20.5))
-            for y: CGFloat in [13, 16] {
-                path.move(to: CGPoint(x: 0.8, y: y))
-                path.addLine(to: CGPoint(x: 4.5, y: y + 0.6))
-                path.move(to: CGPoint(x: 23.2, y: y))
-                path.addLine(to: CGPoint(x: 19.5, y: y + 0.6))
-            }
-        }.strokedPath(StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-        let eyes = Path { path in
-            for x: CGFloat in [7.8, 16.2] {
-                path.move(to: CGPoint(x: x, y: 10))
-                path.addCurve(to: CGPoint(x: x - 2.8, y: 10.5),
-                              control1: CGPoint(x: x - 1.8, y: 7.7), control2: CGPoint(x: x - 3.6, y: 9))
-                path.addCurve(to: CGPoint(x: x, y: 14),
-                              control1: CGPoint(x: x - 2.5, y: 11.7), control2: CGPoint(x: x - 0.7, y: 13.3))
-                path.addCurve(to: CGPoint(x: x + 2.8, y: 10.5),
-                              control1: CGPoint(x: x + 0.7, y: 13.3), control2: CGPoint(x: x + 2.5, y: 11.7))
-                path.addCurve(to: CGPoint(x: x, y: 10),
-                              control1: CGPoint(x: x + 3.6, y: 9), control2: CGPoint(x: x + 1.8, y: 7.7))
-                path.closeSubpath()
-            }
-        }
-        // One foreground layer keeps the heart eyes at the same color as the outline.
-        var result = outline
-        result.addPath(eyes)
-        return result
-    }
-
-    var body: some View {
-        drawing.fill(Color.primary)
-            .frame(width: 24, height: 24)
-            .accessibilityHidden(true)
     }
 }
 

@@ -21,7 +21,13 @@ final class SavedCardsTests: XCTestCase {
     }
     private func clear() {
         app.buttons["Settings"].tap()
-        app.buttons["Clear Saved Cards"].tap()
+        let clear = app.buttons["Clear Saved Cards"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        guard clear.isEnabled else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+            return
+        }
+        clear.tap()
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
         let confirm = app.alerts["Clear Saved Cards?"].buttons["Clear Saved Cards"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
@@ -66,11 +72,16 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(waitForOptionsValue("Saved"))
         options.tap(); toggle.tap()
         XCTAssertTrue(waitForOptionsValue("Not saved"))
+        XCTAssertTrue(app.navigationBars["Card"].waitForExistence(timeout: 5))
+        XCTAssertEqual(options.label, "Card Options")
+        XCTAssertTrue(app.buttons["Share Card"].exists)
         capture("06 Removed detail remains readable")
         options.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.label, "Save Card"); toggle.tap()
         XCTAssertTrue(waitForOptionsValue("Saved"))
+        XCTAssertTrue(app.navigationBars["Saved Card"].waitForExistence(timeout: 5))
+        XCTAssertEqual(options.label, "Saved Card Options")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(row.waitForExistence(timeout: 5)); row.tap()
         XCTAssertTrue(waitForOptionsValue("Saved"))
@@ -87,6 +98,37 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["saved-cards-empty"].waitForExistence(timeout: 5))
         capture("07 Empty collection")
     }
+    func testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear() {
+        let save = app.buttons["save-daily-card"]
+        func checkClear(_ enabled: Bool, captureName: String) {
+            app.buttons["Settings"].tap()
+            let action = app.buttons["Clear Saved Cards"]
+            XCTAssertTrue(action.waitForExistence(timeout: 5))
+            XCTAssertEqual(action.isEnabled, enabled)
+            capture(captureName)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+        }
+        checkClear(false, captureName: "Clear disabled when empty")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        XCTAssertEqual(save.label, "Remove from Saved Cards")
+        checkClear(true, captureName: "Clear enabled with saved card")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Not saved"))
+        checkClear(false, captureName: "Clear disabled after last removal")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        app.buttons["Settings"].tap(); app.buttons["Clear Saved Cards"].tap()
+        let confirmation = app.alerts["Clear Saved Cards?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        checkClear(true, captureName: "Clear stays enabled after cancellation")
+        clear()
+        XCTAssertTrue(waitForValue(save, "Not saved"))
+        checkClear(false, captureName: "Clear disabled after confirmed clear")
+    }
+
     func testLargestTextSavedCardQuoteAndControlsRemainReachable() {
         app.buttons["save-daily-card"].tap()
         XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
@@ -153,7 +195,7 @@ final class SavedCardsTests: XCTestCase {
         let displayedQuote = quote.label
         let displayedVibe = vibe.label
         let todayBounds = cardBounds(prefix: "daily-card")
-        assertSaveIconToggle(captureName: "CatIcon-Standard")
+        assertSaveIconToggle(captureName: "Bookmark-Standard")
         capture("12 Complete portrait Today card")
         app.buttons["save-daily-card"].tap()
         XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
@@ -184,7 +226,7 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(quote.waitForExistence(timeout: 10))
         let originalQuote = quote.label, originalVibe = vibe.label
         let todayBounds = cardBounds(prefix: "daily-card")
-        assertSaveIconToggle(captureName: "CatIcon-AX5")
+        assertSaveIconToggle(captureName: "Bookmark-AX5")
         capture("Pair-AX5-Today-Top")
         captureScrollableQuote(quote, vibe: vibe, name: "Pair-AX5-Today")
         app.buttons["save-daily-card"].tap()
@@ -216,7 +258,7 @@ final class SavedCardsTests: XCTestCase {
         capture(captureName + "-Unsaved")
         save.tap()
         XCTAssertTrue(waitForValue(save, "Saved"))
-        XCTAssertEqual(save.label, "Save Card")
+        XCTAssertEqual(save.label, "Remove from Saved Cards")
         XCTAssertEqual(save.frame, controlFrame)
         XCTAssertTrue(save.isHittable)
         assertMatchingBounds(before, cardBounds(prefix: "daily-card"), name: captureName + " toggle geometry")

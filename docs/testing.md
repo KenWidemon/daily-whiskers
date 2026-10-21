@@ -51,7 +51,7 @@ evidence below remain useful without overriding this candidate's scoped decision
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
-- Required offline UI CI runs all five `RegressionSmokeTests` and all five
+- Required offline UI CI runs all five `RegressionSmokeTests` and all
   `SavedCardsTests`, including the complete Favorites lifecycle. Both classes
   are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
@@ -391,10 +391,11 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
 
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
-- Check the text-free heart-eyes cat save control beside Share and Settings: its
-  monochrome vector matches their tint, and a checkmark appears when
-  saved, the accessible label remains **Save Card**, and its **Saved/Not saved**
-  value changes. Save and unsave must preserve control and card geometry at
+- Check the text-free bookmark save control on Today and Bonus: outline when
+  unsaved, filled when saved, with the same tint as Share and Settings. Its
+  accessible action changes between **Save Card** and **Remove from Saved Cards**,
+  and its **Saved/Not saved** value changes. The stacked-card collection navigation
+  stays distinct. Save and unsave must preserve control and card geometry at
   standard and largest accessibility text sizes on regular and small phones.
 - Save an identical version twice without changing order. Save another quote or
   artwork version of the same stable cat ID and verify both versions survive.
@@ -412,8 +413,11 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   initial migration rollback/retry and consistent SQLite backup/restore including
   future day-selection references. Simulated disk-full errors are not a physical
   low-storage or power-loss test; record that limit.
-- Unsave one card while leaving its open detail readable; resave it. Confirm clear
-  removes favorites only; cancel retains them. Referenced day content and active
+- Unsave one card while leaving its open detail readable; its title must change
+  from **Saved Card** to **Card**, then return on re-save. Confirm Clear is disabled
+  while empty or busy, enabled after saving, and disabled again after removing the
+  last card or confirmed clearing. Clear removes favorites only; cancel retains
+  them and leaves Clear enabled. Referenced day content and active
   share content must survive cleanup. No implicit clear follows auth transitions.
 - Compare Today and saved detail for the same card on the same device and text
   size. Verify matching themed frame, quote background, Vibe pill and text while
@@ -458,7 +462,7 @@ and return navigation. This injection requires both `DEBUG`/`CI_SMOKE_TESTING` a
 
 Compare Today, Bonus and its saved detail on regular/small iPhone and iPad with
 ordinary and largest text. Preserve complete ordinary-phone artwork/quote/Vibe,
-quote padding, the monochrome heart-eyes Save control and unchanged share export.
+quote padding, the monochrome bookmark Save control and unchanged share export.
 At larger text and in landscape, scroll to both quote boundaries and Vibe; verify
 menu, Save and Share remain reachable. Test foreground midnight and travel on an
 explicitly authorized device without changing the owner's clock/settings as part

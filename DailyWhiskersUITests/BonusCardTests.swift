@@ -54,7 +54,9 @@ final class BonusCardTests: XCTestCase {
         capture("02 Bonus portrait")
         let save = app.buttons["save-daily-card"]
         if save.value as? String == "Saved" { save.tap(); saved("Not saved") }
+        XCTAssertEqual(save.label, "Save Card")
         save.tap(); saved("Saved")
+        XCTAssertEqual(save.label, "Remove from Saved Cards")
         XCTAssertEqual(bonusBounds, ["frame", "quote", "vibe"].map { element("bonus-card-" + $0).frame })
         capture("03 Bonus saved unchanged geometry")
         today(); XCTAssertEqual(element("daily-card-quote").label, original)
@@ -84,6 +86,7 @@ final class BonusCardTests: XCTestCase {
         XCTAssertFalse(sheet.frame.contains(outside.screenPoint)); outside.tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)], timeout: 10), .completed)
         save.tap(); saved("Not saved")
+        XCTAssertEqual(save.label, "Save Card")
         today(); XCTAssertEqual(element("daily-card-quote").label, original)
     }
     func testRetainedBonusOpensSavesAndSharesWhenTodayArtworkIsUnavailable() {
