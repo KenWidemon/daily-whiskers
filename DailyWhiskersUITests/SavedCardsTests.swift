@@ -358,6 +358,94 @@ final class SavedCardsTests: XCTestCase {
         capture(name + "-Quote")
     }
 
+    // Deterministic bundled extremes keep layout evidence independent of the date.
+    func testTabletQuotePanelAndAlignedSavedTiles() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad layout regression")
+        var labels: [String] = []
+        for fixture in ["shortest", "longest"] {
+            XCUIDevice.shared.orientation = .portrait
+            app.terminate()
+            app.launchArguments = ["--ci-smoke", "--ci-smoke-\(fixture)-card",
+                                   "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+            app.launch()
+            let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+            XCTAssertTrue(quote.waitForExistence(timeout: 10))
+            labels.append(quote.label)
+            assertCardVisible(prefix: "daily-card")
+            capture("iPad \(fixture) portrait")
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
+            assertCardVisible(prefix: "daily-card")
+            capture("iPad \(fixture) landscape")
+            let save = app.buttons["save-daily-card"]
+            if save.value as? String != "Saved" { save.tap() }
+            XCTAssertTrue(waitForValue(save, "Saved"))
+        }
+        XCUIDevice.shared.orientation = .portrait
+        app.buttons["open-saved-cards"].tap()
+        let rows = app.buttons.matching(identifier: "saved-card-row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.label)), Set(labels))
+        assertAlignedTiles(rows)
+        capture("iPad short and long Saved tiles portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        assertAlignedTiles(rows)
+        capture("iPad short and long Saved tiles landscape")
+        rows.firstMatch.tap()
+        XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
+        assertCardVisible(prefix: "saved-card")
+        capture("iPad longest saved detail landscape")
+
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-longest-card",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["open-saved-cards"].waitForExistence(timeout: 10))
+        XCUIDevice.shared.orientation = .portrait
+        app.buttons["open-saved-cards"].tap()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        let first = rows.element(boundBy: 0), second = rows.element(boundBy: 1)
+        XCTAssertEqual(first.frame.minX, second.frame.minX, accuracy: 1)
+        XCTAssertEqual(first.frame.width, second.frame.width, accuracy: 1)
+        XCTAssertGreaterThan(second.frame.minY, first.frame.maxY)
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.label)), Set(labels))
+        capture("iPad accessibility full quotes single column")
+        first.tap()
+        let quote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        XCTAssertEqual(quote.label, labels.last)
+        captureScrollableQuote(quote, vibe: vibe, name: "iPad longest accessibility portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        captureScrollableQuote(quote, vibe: vibe, name: "iPad longest accessibility landscape")
+    }
+
+    private func assertCardVisible(prefix: String) {
+        let quote = app.descendants(matching: .any)["\(prefix)-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["\(prefix)-vibe"].firstMatch
+        let card = app.descendants(matching: .any)["\(prefix)-frame"].firstMatch
+        XCTAssertTrue(vibe.waitForExistence(timeout: 5))
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = app.staticTexts["ci-smoke-offline"].frame.minY
+        XCTAssertGreaterThanOrEqual(card.frame.minY, top)
+        XCTAssertLessThanOrEqual(card.frame.maxY, bottom)
+        XCTAssertGreaterThanOrEqual(quote.frame.minY, top)
+        XCTAssertLessThanOrEqual(vibe.frame.maxY, bottom)
+        XCTAssertTrue(vibe.isHittable)
+    }
+
+    private func assertAlignedTiles(_ rows: XCUIElementQuery) {
+        let first = rows.element(boundBy: 0).frame, second = rows.element(boundBy: 1).frame
+        XCTAssertEqual(first.minY, second.minY, accuracy: 1)
+        XCTAssertEqual(first.maxY, second.maxY, accuracy: 1)
+        XCTAssertEqual(first.width, second.width, accuracy: 1)
+    }
+
     private func waitForValue(_ element: XCUIElement, _ value: String) -> Bool {
         let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
         return XCTWaiter.wait(for: [expected], timeout: 10) == .completed

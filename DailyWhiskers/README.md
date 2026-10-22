@@ -78,7 +78,8 @@ accessibility announces **Save Card** or **Remove from Saved Cards**, with the
 **Not saved** or **Saved** value and a hint describing the next action.
 Tapping again removes the card. Saved cards appear in a guest-accessible, newest-first
 collection labeled **On this device**, with uncropped artwork tiles on a centered,
-adaptive grid. Accessibility text sizes use one column and complete quote labels.
+adaptive grid. On iPad at ordinary text sizes, each tile reserves three quote lines
+so neighboring tile edges align. Accessibility text sizes use one column and complete quote labels.
 Reopen the full card, share its
 retained version, or deliberately remove it with the secondary destructive action.
 Saving an identical version again
@@ -88,8 +89,10 @@ Ordering uses a monotonic insertion sequence, independent of wall-clock changes.
 On narrow portrait screens at ordinary text sizes, Today and saved detail compact
 quote spacing and measure the text before proportionally fitting the complete
 artwork into the remaining height. Text is never truncated or scaled down to fit.
-Accessibility sizes, landscape and exceptionally long content retain scrolling;
-iPad keeps the larger presentation. The export layout is independent of this
+iPad keeps its larger typography with tighter quote-panel spacing and fits the
+complete artwork into the available portrait or landscape height at ordinary text
+sizes. Accessibility sizes and exceptionally long content retain natural artwork
+height and scrolling; phone landscape also retains scrolling. The export layout is independent of this
 viewport adjustment. Today and saved detail use the same card renderer, including
 the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
 artwork, quote, vibe and archetype directly; navigation and Share remain separate screen controls. **Saved Card Options** beside

@@ -115,10 +115,13 @@ struct DailyRitualCardView: View {
                 let cardWidth = max(0, min(geometry.size.width - 44, 520))
                 let artwork = retainedArtwork ?? BundledCardArtwork.image(named: data.imageName)
                 let compact = CardViewportLayout.fitsPortrait(size: geometry.size, textSize: textSize)
+                let tablet = UIDevice.current.userInterfaceIdiom == .pad
+                let fitsHeight = compact || (tablet && !textSize.isAccessibilitySize)
                 let padding: CGFloat = compact ? 12 : 28
                 ScrollView {
                     RitualCardPresentation(data: data, artwork: artwork, compact: compact,
-                                           maximumHeight: compact ? geometry.size.height - padding * 2 : nil,
+                                           maximumHeight: fitsHeight ? geometry.size.height - padding * 2 : nil,
+                                           tightQuotePanel: tablet,
                                            accessibilityPrefix: accessibilityPrefix)
                     .frame(width: cardWidth)
                     .accessibilityElement(children: .contain)
@@ -141,6 +144,8 @@ struct RitualCardPresentation: View {
     let artwork: UIImage?
     var compact: Bool
     var maximumHeight: CGFloat? = nil
+    // Screen-only iPad spacing; export and phone defaults remain unchanged.
+    var tightQuotePanel = false
     var accessibilityPrefix = "card"
     private var theme: ArchetypeTheme { .forArchetype(data.archetype) }
 
@@ -158,8 +163,8 @@ struct RitualCardPresentation: View {
                         .foregroundStyle(.white)
                         .padding()
                 }
-                VStack(spacing: compact ? 8 : 18) {
-                    QuoteBlock(text: data.quote, theme: theme, compact: compact)
+                VStack(spacing: compact ? 8 : (tightQuotePanel ? 10 : 18)) {
+                    QuoteBlock(text: data.quote, theme: theme, compact: compact, tightSpacing: tightQuotePanel)
                         .accessibilityIdentifier("\(accessibilityPrefix)-quote")
                     if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         VibePill(text: data.vibe.uppercased(), theme: theme, compact: compact)
@@ -167,7 +172,7 @@ struct RitualCardPresentation: View {
                     }
                 }
                 .padding(.horizontal, compact ? 16 : 24)
-                .padding(.vertical, compact ? 18 : 30)
+                .padding(.vertical, compact || tightQuotePanel ? 18 : 30)
                 .frame(maxWidth: .infinity)
                 .background {
                     LinearGradient(
@@ -191,7 +196,7 @@ struct RitualCardPresentation: View {
 }
 
 /// Measures text at its requested Dynamic Type size before fitting uncropped artwork.
-/// Short landscape or accessibility layouts keep their natural height and scroll.
+/// When the measured text leaves too little artwork space, natural height scrolls.
 struct CardViewportLayout: Layout {
     let artworkAspectRatio: CGFloat
     var maximumHeight: CGFloat?
@@ -302,9 +307,10 @@ private struct QuoteBlock: View {
     let text: String
     let theme: ArchetypeTheme
     var compact = false
+    var tightSpacing = false
 
     var body: some View {
-        VStack(spacing: compact ? 0 : 14) {
+        VStack(spacing: compact ? 0 : (tightSpacing ? 6 : 14)) {
             if !compact { HStack {
                 Text("“")
                     .font(.system(.title, design: .serif).weight(.semibold))

@@ -432,6 +432,13 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   rectangle is 44 points high. No removal footer reserves content height. Use the
   saved snapshot's theme
   and content even when the current manifest differs.
+- Run `SavedCardsTests/testTabletQuotePanelAndAlignedSavedTiles` on iPad with the
+  offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
+  spacing, uncropped artwork and visible quote/Vibe without scrolling at ordinary
+  text size. Compare two Saved tile top/bottom edges for unequal quote lengths.
+  Repeat at the largest accessibility size: one column, complete quotes, reachable
+  full detail and Vibe through scrolling. These simulator fixtures never inspect
+  an owner device or its saved collection.
 - Review phone/tablet, default/largest text, portrait/landscape and Reduce Motion.
   Check empty and multi-card collections, centered tablet widths, and single-column
   accessibility layouts. At ordinary text sizes, all bundled cards must fit small

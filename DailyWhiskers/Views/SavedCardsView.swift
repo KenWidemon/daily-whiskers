@@ -36,7 +36,8 @@ struct SavedCardsView: View {
                                 HStack(alignment: .center, spacing: 12) {
                                     Text(record.quote)
                                         .font(.system(.body, design: .serif))
-                                        .lineLimit(textSize.isAccessibilitySize ? nil : 3)
+                                        .modifier(SavedQuoteLines(reserveSpace: UIDevice.current.userInterfaceIdiom == .pad,
+                                                                  accessibilitySize: textSize.isAccessibilitySize))
                                         .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
@@ -198,6 +199,20 @@ struct SavedCardDetail: View {
         } catch {
             guard !Task.isCancelled else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "The original saved content is unavailable. Try again."
+        }
+    }
+}
+
+/// Reserve equal quote areas only on ordinary-size iPad tiles; accessibility
+/// quotes expand completely and the phone keeps its existing natural tile height.
+private struct SavedQuoteLines: ViewModifier {
+    let reserveSpace: Bool
+    let accessibilitySize: Bool
+    func body(content: Content) -> some View {
+        if accessibilitySize {
+            content.lineLimit(nil)
+        } else {
+            content.lineLimit(3, reservesSpace: reserveSpace)
         }
     }
 }

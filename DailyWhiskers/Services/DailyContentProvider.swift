@@ -44,6 +44,9 @@ struct DailyContentProvider {
         }
 
 #if DEBUG && CI_SMOKE_TESTING
+        if CISmokeMode.isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-shortest-card") {
+            return manifest.cards.min { $0.quote.count < $1.quote.count }
+        }
         if CISmokeMode.isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-longest-card") {
             return manifest.cards.max { $0.quote.count < $1.quote.count }
         }
