@@ -432,18 +432,23 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   rectangle is 44 points high. No removal footer reserves content height. Use the
   saved snapshot's theme
   and content even when the current manifest differs.
-- Run `SavedCardsTests/testTabletQuotePanelAndAlignedSavedTiles` on iPad with the
+- Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
   offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
-  spacing, uncropped artwork and visible quote/Vibe without scrolling at ordinary
-  text size. Compare two Saved tile top/bottom edges for unequal quote lengths.
-  Repeat at the largest accessibility size: one column, complete quotes, reachable
+  spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve
+  the artwork size, not merely fit the card bounds. Compare two iPad Saved tile
+  top/bottom edges for unequal quote lengths. Resize an iPad window narrower and
+  wider while a saved detail stays open; content identity and save state must remain.
+  `DailyCardShareVisualTests` compares rendered artwork pixels at identical scale
+  across stacked, wide, narrow and accessibility presentations, and verifies the
+  natural-height scrolling fallback. Repeat at the largest accessibility size:
+  one column, complete quotes, reachable
   full detail and Vibe through scrolling. These simulator fixtures never inspect
   an owner device or its saved collection.
 - Review phone/tablet, default/largest text, portrait/landscape and Reduce Motion.
   Check empty and multi-card collections, centered tablet widths, and single-column
-  accessibility layouts. At ordinary text sizes, all bundled cards must fit small
-  iPhone portrait viewports with complete artwork and quote/vibe visible; preserve
-  scrolling when larger text or unusually long content needs it. The secondary
+  accessibility layouts. Check ordinary phone portrait fit and complete artwork;
+  shorter windows, larger text and unusually long content must scroll instead of
+  shrinking artwork or text. The secondary
   removal action retains its complete accessible label and a 44-point touch target.
   Saved thumbnails/quote excerpts must be usable and the reopened quote/vibe and
   actions reachable. VoiceOver speech/focus require separate observed acceptance;

@@ -334,9 +334,9 @@ final class SavedCardsTests: XCTestCase {
             let distance = min(abs(delta), bottom - top - 40)
             let startY = delta > 0 ? bottom - 20 : top + 20
             let endY = startY + (delta > 0 ? -distance : distance)
-            let origin = app.coordinate(withNormalizedOffset: .zero)
-            origin.withOffset(CGVector(dx: window.midX, dy: startY))
-                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: endY)),
+            let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.width / 2, dy: startY - window.minY))
+                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.width / 2, dy: endY - window.minY)),
                        withVelocity: .slow, thenHoldForDuration: 0.25)
         }
         for _ in 0..<12 where abs(quote.frame.minY - (top + 8)) > 12 {
@@ -359,8 +359,7 @@ final class SavedCardsTests: XCTestCase {
     }
 
     // Deterministic bundled extremes keep layout evidence independent of the date.
-    func testTabletQuotePanelAndAlignedSavedTiles() throws {
-        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad layout regression")
+    func testAdaptiveCardAndSavedTilesAcrossWindowSizes() throws {
         var labels: [String] = []
         for fixture in ["shortest", "longest"] {
             XCUIDevice.shared.orientation = .portrait
@@ -378,8 +377,14 @@ final class SavedCardsTests: XCTestCase {
                 self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
             }, object: nil)
             XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
-            assertCardVisible(prefix: "daily-card")
-            capture("iPad \(fixture) landscape")
+            if app.windows.firstMatch.frame.height >= 800 {
+                assertCardVisible(prefix: "daily-card")
+                XCTAssertGreaterThan(app.descendants(matching: .any)["daily-card-frame"].firstMatch.frame.width, 800)
+            } else {
+                captureScrollableQuote(quote, vibe: app.descendants(matching: .any)["daily-card-vibe"].firstMatch,
+                                       name: "Narrow landscape \(fixture)")
+            }
+            capture("Window \(fixture) landscape")
             let save = app.buttons["save-daily-card"]
             if save.value as? String != "Saved" { save.tap() }
             XCTAssertTrue(waitForValue(save, "Saved"))
@@ -390,15 +395,51 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.label)), Set(labels))
-        assertAlignedTiles(rows)
-        capture("iPad short and long Saved tiles portrait")
+        if app.windows.firstMatch.frame.width >= 660 { assertAlignedTiles(rows) }
+        else { XCTAssertGreaterThan(rows.element(boundBy: 1).frame.minY, rows.element(boundBy: 0).frame.maxY) }
+        capture("Window short and long Saved tiles portrait")
         XCUIDevice.shared.orientation = .landscapeLeft
-        assertAlignedTiles(rows)
-        capture("iPad short and long Saved tiles landscape")
+        // iPad tiles reserve equal quote areas; the phone retains natural tile heights.
+        if UIDevice.current.userInterfaceIdiom == .pad { assertAlignedTiles(rows) }
+        capture("Window short and long Saved tiles landscape")
         rows.firstMatch.tap()
         XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
-        assertCardVisible(prefix: "saved-card")
-        capture("iPad longest saved detail landscape")
+        if app.windows.firstMatch.frame.height >= 800 { assertCardVisible(prefix: "saved-card") }
+        else {
+            captureScrollableQuote(app.descendants(matching: .any)["saved-card-quote"].firstMatch,
+                                   vibe: app.descendants(matching: .any)["saved-card-vibe"].firstMatch,
+                                   name: "Narrow saved detail")
+        }
+        capture("Window longest saved detail landscape")
+
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let full = app.windows.firstMatch.frame
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: full.maxX - 5, dy: full.maxY - 5))
+                .press(forDuration: 0.4, thenDragTo: origin.withOffset(CGVector(dx: full.minX + 650, dy: full.maxY - 100)),
+                       withVelocity: .slow, thenHoldForDuration: 0.4)
+            let narrowed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width < 800
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [narrowed], timeout: 10), .completed)
+            capture("Actual narrow window retained saved card")
+            XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, labels.last)
+            XCTAssertTrue(waitForOptionsValue("Saved"))
+            captureScrollableQuote(app.descendants(matching: .any)["saved-card-quote"].firstMatch,
+                                   vibe: app.descendants(matching: .any)["saved-card-vibe"].firstMatch,
+                                   name: "Actual narrow window")
+            let narrow = app.windows.firstMatch.frame
+            origin.withOffset(CGVector(dx: narrow.maxX - 5, dy: narrow.maxY - 5))
+                .press(forDuration: 0.4, thenDragTo: origin.withOffset(CGVector(dx: full.maxX - 5, dy: full.maxY - 5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.4)
+            let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width > 1000
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 10), .completed)
+            XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, labels.last)
+            XCTAssertTrue(waitForOptionsValue("Saved"))
+            capture("Actual wide window restored saved card")
+        }
 
         app.terminate()
         app.launchArguments = ["--ci-smoke", "--ci-smoke-longest-card",

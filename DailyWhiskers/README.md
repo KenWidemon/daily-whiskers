@@ -86,13 +86,16 @@ Saving an identical version again
 keeps its original position; different artwork or quote versions remain separate.
 Ordering uses a monotonic insertion sequence, independent of wall-clock changes.
 
-On narrow portrait screens at ordinary text sizes, Today and saved detail compact
-quote spacing and measure the text before proportionally fitting the complete
-artwork into the remaining height. Text is never truncated or scaled down to fit.
-iPad keeps its larger typography with tighter quote-panel spacing and fits the
-complete artwork into the available portrait or landscape height at ordinary text
-sizes. Accessibility sizes and exceptionally long content retain natural artwork
-height and scrolling; phone landscape also retains scrolling. The export layout is independent of this
+Compact portrait windows keep the phone quote typography and spacing. Artwork
+uses its natural aspect ratio at the available card width; text is never truncated
+or scaled down to force a fit. The visible window dimensions and measured content
+choose between a stacked card and a wide two-column card. When a stack is too tall
+and there is room for the full-size artwork plus a readable quote panel, artwork
+stays on the left with the full quote and Vibe on the right. Narrow or short windows,
+unusually long content and accessibility text use stacked scrolling instead of
+shrinking artwork. Larger stacked presentations retain the tighter quote spacing.
+Today, Bonus and saved detail reflow without changing the selected content or save
+state. The export layout is independent of this
 viewport adjustment. Today and saved detail use the same card renderer, including
 the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
 artwork, quote, vibe and archetype directly; navigation and Share remain separate screen controls. **Saved Card Options** beside
