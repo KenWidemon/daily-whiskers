@@ -302,16 +302,42 @@ final class SavedCardsTests: XCTestCase {
         let bounds = options.frame
         let data = try! JSONSerialization.data(withJSONObject: ["x":bounds.minX,"y":bounds.minY,"width":bounds.width,"height":bounds.height], options:[.prettyPrinted,.sortedKeys])
         let attachment = XCTAttachment(data:data,uniformTypeIdentifier:"public.json")
-        attachment.name = captureName + " native trigger bounds"; attachment.lifetime = .keepAlways; add(attachment)
-        options.tap()
+        attachment.name = captureName + " trigger accessibility bounds"; attachment.lifetime = .keepAlways; add(attachment)
         let remove = app.buttons["saved-card-toggle"]
-        XCTAssertTrue(remove.waitForExistence(timeout: 5))
-        XCTAssertEqual(remove.label, "Remove from Saved Cards")
-        XCTAssertTrue(remove.isHittable)
-        XCTAssertGreaterThanOrEqual(remove.frame.height, 44)
-        capture(captureName)
-        dismissOptions()
-        XCTAssertTrue(waitForOptionsValue("Saved"))
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        // Half a point inside the 44-point perimeter avoids an exclusive max edge.
+        // Coordinate taps exercise the hit region; AX bounds only locate its center.
+        let edge: CGFloat = 21.5
+        let samples: [(String, CGFloat, CGFloat)] = [
+            ("center", 0, 0), ("top", 0, -edge), ("bottom", 0, edge),
+            ("left", -edge, 0), ("right", edge, 0),
+            ("top-left", -edge, -edge), ("top-right", edge, -edge),
+            ("bottom-left", -edge, edge), ("bottom-right", edge, edge),
+            ("center-after-edges", 0, 0)
+        ]
+        var observations: [[String: Any]] = []
+        defer {
+            let data = try! JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            attachment.name = captureName + " 44-point coordinate taps"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        for (name, dx, dy) in samples {
+            XCTAssertEqual(options.frame, bounds, "Options geometry changed before \(name)")
+            let point = CGPoint(x: bounds.midX + dx, y: bounds.midY + dy)
+            let anchor = origin.screenPoint
+            origin.withOffset(CGVector(dx: point.x - anchor.x, dy: point.y - anchor.y)).tap()
+            let opened = remove.waitForExistence(timeout: 5)
+            observations.append(["sample": name, "x": point.x, "y": point.y, "opened": opened])
+            XCTAssertTrue(opened, "Options did not open at \(name) of the 44-point target: \(point)")
+            XCTAssertEqual(remove.label, "Remove from Saved Cards")
+            XCTAssertTrue(remove.isHittable)
+            XCTAssertGreaterThanOrEqual(remove.frame.height, 44)
+            if name == "center" { capture(captureName) }
+            dismissOptions()
+            XCTAssertTrue(waitForOptionsValue("Saved"))
+        }
     }
 
     private func dismissOptions() {

@@ -427,11 +427,19 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   quote and Vibe bounds as well as screenshots; shared code alone is not evidence
   of matching geometry. Open Saved Card Options, dismiss without removing, then
   remove and resave the open card; confirm the options control's accessible label,
-  state and native activation, and a menu-action height of at least 44 points. Record
-  the system toolbar trigger's bounds separately; do not assume its accessibility
-  rectangle is 44 points high. No removal footer reserves content height. Use the
-  saved snapshot's theme
-  and content even when the current manifest differs.
+  state and activation, and a menu-action height of at least 44 points. The options
+  menu uses explicit button/plain styles to preserve its 44-point label hit region.
+  Run the ordinary-portrait and largest-text paired-geometry tests on iPhone and
+  iPad: coordinate taps at the trigger center and all eight edge/corner samples
+  at offsets of ±21.5 points on each axis must open the menu; dismissal must retain
+  Saved state.
+  Record the trigger's accessibility bounds separately. Those bounds locate the
+  samples but do not prove tappability or VoiceOver behavior. Use freshly created,
+  dedicated simulators and verify their app/data paths before fixture writes;
+  never run the clearing fixtures against an owner's QA container or assume a
+  simulator clone has independent app storage. No removal footer reserves content
+  height. Use the saved snapshot's theme and content even when the current manifest
+  differs.
 - Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
   offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
   spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve

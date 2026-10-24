@@ -174,6 +174,10 @@ struct SavedCardDetail: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
+                // Keep the label's explicit hit region instead of the toolbar's
+                // automatic compact menu trigger.
+                .menuStyle(.button)
+                .buttonStyle(.plain)
                 .disabled(card == nil || model.busy || share.isRendering || share.export != nil)
                 .accessibilityLabel(saveState.isSaved ? "Saved Card Options" : "Card Options")
                 .accessibilityHint("Opens save and remove actions for this card.")
