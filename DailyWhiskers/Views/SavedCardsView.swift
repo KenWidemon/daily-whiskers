@@ -104,7 +104,6 @@ struct SavedCardDetail: View {
     @State private var errorMessage: String?
     @StateObject private var share = DailyCardShareState()
     @AccessibilityFocusState private var optionsFocused: Bool
-    @AccessibilityFocusState private var shareFocused: Bool
 
     private var saveState: CardSaveState { CardSaveState(isSaved: model.contains(id)) }
 
@@ -137,29 +136,16 @@ struct SavedCardDetail: View {
         .task(id: id) { await load() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    guard let card else { return }
-                    Task { await share.start(retained: card) }
-                } label: {
-                    Group {
-                        if share.isRendering { ProgressView() }
-                        else { Image(systemName: "square.and.arrow.up") }
-                    }.frame(minWidth: 44, minHeight: 44)
-                }
-                .disabled(card == nil || share.isRendering || share.export != nil)
-                .accessibilityLabel(share.isRendering ? "Preparing Card" : (saveState.isSaved ? "Share Saved Card" : "Share Card"))
-                .accessibilityHint("Shares the retained artwork and quote. You choose where to send it.")
-                .accessibilityFocused($shareFocused)
-                .background {
-                    DailyCardShareSheet(export: share.export) { failed in
-                        share.completeActivity(failed: failed)
-                        share.sheetDismissed()
-                        shareFocused = true
-                    }.allowsHitTesting(false).accessibilityHidden(true)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button {
+                        guard let card else { return }
+                        Task { await share.start(retained: card) }
+                    } label: {
+                        Label(saveState.isSaved ? "Share Saved Card" : "Share Card",
+                              systemImage: "square.and.arrow.up")
+                    }
+                    .accessibilityHint("Shares the retained artwork and quote. You choose where to send it.")
+                    .accessibilityIdentifier("saved-card-share")
                     Button(role: model.contains(id) ? .destructive : nil) {
                         guard let card else { return }
                         Task { await model.toggle(card); optionsFocused = true }
@@ -179,17 +165,25 @@ struct SavedCardDetail: View {
                 .menuStyle(.button)
                 .buttonStyle(.plain)
                 .disabled(card == nil || model.busy || share.isRendering || share.export != nil)
-                .accessibilityLabel(saveState.isSaved ? "Saved Card Options" : "Card Options")
-                .accessibilityHint("Opens save and remove actions for this card.")
+                .accessibilityLabel(share.isRendering ? "Preparing Card" : (saveState.isSaved ? "Saved Card Options" : "Card Options"))
+                .accessibilityHint("Opens share, save, and remove actions for this card.")
                 .accessibilityValue(saveState.value)
                 .accessibilityIdentifier("saved-card-options")
                 .accessibilityFocused($optionsFocused)
+                // Keep the popover anchor alive when the menu row disappears.
+                .background {
+                    DailyCardShareSheet(export: share.export) { failed in
+                        share.completeActivity(failed: failed)
+                        share.sheetDismissed()
+                        optionsFocused = true
+                    }.allowsHitTesting(false).accessibilityHidden(true)
+                }
             }
         }
         .modifier(SavedCardsError(model: model))
         .alert("Couldn't Share Card", isPresented: $share.hasError) {
             Button("Try Again") { Task { await share.retry() } }
-            Button("Cancel", role: .cancel) { share.finish(); shareFocused = true }
+            Button("Cancel", role: .cancel) { share.finish(); optionsFocused = true }
         } message: { Text("The saved card couldn't be prepared or shared. Please try again.") }
     }
 

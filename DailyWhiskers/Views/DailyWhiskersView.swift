@@ -35,13 +35,12 @@ struct DailyWhiskersView: View {
     @State private var displayedSnapshot: RetainedCard?
     @State private var captureError: String?
     @State private var confirmingClear = false
-    @AccessibilityFocusState private var saveFocused: Bool
+    @AccessibilityFocusState private var cardOptionsFocused: Bool
     @State private var contentState = DailyContentState()
     @StateObject private var accountRequest = AuthRequestState()
     @StateObject private var deletionRequest = AuthRequestState()
     @State private var accountSheet: AccountSheet?
     @StateObject private var shareState = DailyCardShareState()
-    @AccessibilityFocusState private var shareFocused: Bool
     @AccessibilityFocusState private var settingsFocused: Bool
 
     private var activeSnapshot: RetainedCard? {
@@ -120,47 +119,45 @@ struct DailyWhiskersView: View {
                     }.accessibilityIdentifier("open-saved-cards")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        guard let displayedSnapshot = activeSnapshot else { Task { await captureDisplayedCard() }; return }
-                        Task { await savedCards.toggle(displayedSnapshot); saveFocused = true }
+                    Menu {
+                        Button {
+                            guard let snapshot = activeSnapshot else { return }
+                            cardOptionsFocused = false
+                            Task { await shareState.start(retained: snapshot) }
+                        } label: {
+                            Label(bonusCard == nil ? "Share Today's Card" : "Share Bonus Card",
+                                  systemImage: "square.and.arrow.up")
+                        }
+                        .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
+                        .accessibilityIdentifier("share-daily-card")
+                        Button(role: saveState.isSaved ? .destructive : nil) {
+                            guard let snapshot = activeSnapshot else { return }
+                            Task { await savedCards.toggle(snapshot); cardOptionsFocused = true }
+                        } label: {
+                            Label { Text(saveState.actionLabel) } icon: { saveState.icon }
+                        }
+                        .accessibilityValue(saveState.value)
+                        .accessibilityHint(saveState.hint)
+                        .accessibilityIdentifier("save-daily-card")
                     } label: {
-                        saveState.icon
-                            .accessibilityHidden(true)
+                        Image(systemName: "ellipsis")
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
                     .disabled(activeSnapshot == nil || savedCards.busy || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Today's Card Options" : "Bonus Card Options"))
+                    .accessibilityHint("Opens share, save, and remove actions for this card.")
                     .accessibilityValue(saveState.value)
-                    .accessibilityLabel(saveState.actionLabel)
-                    .accessibilityHint(saveState.hint)
-                    .accessibilityIdentifier("save-daily-card")
-                    .accessibilityFocused($saveFocused)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        guard let snapshot = activeSnapshot else { return }
-                        shareFocused = false
-                        Task { await shareState.start(retained: snapshot) }
-                    } label: {
-                        Group {
-                            if shareState.isRendering {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "square.and.arrow.up")
-                            }
-                        }
-                        .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .disabled(activeSnapshot == nil || accountSheet != nil || shareState.isRendering || shareState.export != nil)
-                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Share Today's Card" : "Share Bonus Card"))
-                    .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
-                    .accessibilityIdentifier("share-daily-card")
-                    .accessibilityFocused($shareFocused)
+                    .accessibilityIdentifier("daily-card-options")
+                    .accessibilityFocused($cardOptionsFocused)
+                    // Anchor the share sheet to a control that survives menu dismissal.
                     .background {
                         DailyCardShareSheet(export: shareState.export) { failed in
                             shareState.completeActivity(failed: failed)
                             shareState.sheetDismissed()
-                            shareFocused = true
+                            cardOptionsFocused = true
                         }
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -241,7 +238,7 @@ struct DailyWhiskersView: View {
                 Button("Try Again") { Task { await shareState.retry() } }
                 Button("Cancel", role: .cancel) {
                     shareState.finish()
-                    shareFocused = true
+                    cardOptionsFocused = true
                 }
             } message: {
                 Text("The card couldn't be prepared or shared. Please try again.")

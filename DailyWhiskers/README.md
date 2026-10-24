@@ -69,14 +69,15 @@ See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
 ## Saved Cards
 
-The original monochrome heart-eyes cat toolbar button captures the displayed card:
-the clear cat means not saved, and a lower-trailing check badge means saved. The
-same custom artwork appears in detail save/remove menus and empty-state guidance.
-The stacked-card button remains separate navigation to the collection.
-The Save control has no visible text label;
-accessibility announces **Save Card** or **Remove from Saved Cards**, with the
-**Not saved** or **Saved** value and a hint describing the next action.
-Tapping again removes the card. Saved cards appear in a guest-accessible, newest-first
+Today, Bonus and saved-card details expose Share and Save/Remove in a native
+Options menu. The original monochrome heart-eyes cat artwork stays on the menu's
+save action: clear when unsaved, with a lower-trailing check badge when saved.
+The destructive **Remove from Saved Cards** action becomes **Save Card** after
+removal. The persistent Options trigger exposes the **Saved/Not saved** value and
+returns accessibility focus after saving or dismissing sharing. The stacked-card
+button remains separate collection navigation; Today/Bonus switching and Settings
+remain separate controls. No extra Options menu is added to the collection list.
+Saved cards appear in a guest-accessible, newest-first
 collection labeled **On this device**, with uncropped artwork tiles on a centered,
 adaptive grid. On iPad at ordinary text sizes, each tile reserves three quote lines
 so neighboring tile edges align. Accessibility text sizes use one column and complete quote labels.
@@ -98,8 +99,8 @@ Today, Bonus and saved detail reflow without changing the selected content or sa
 state. The export layout is independent of this
 viewport adjustment. Today and saved detail use the same card renderer, including
 the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
-artwork, quote, vibe and archetype directly; navigation and Share remain separate screen controls. **Saved Card Options** beside
-Share contains the destructive **Remove from Saved Cards** action and offers
+artwork, quote, vibe and archetype directly. **Saved Card Options** contains
+**Share Saved Card**, the destructive **Remove from Saved Cards** action, and offers
 **Save Card** after removal while the detail stays open. Its title changes from
 **Saved Card** to **Card** after removal and returns on re-save; Share and options
 labels also reflect whether the card is currently saved. Dismissing the menu changes
@@ -175,13 +176,14 @@ and [PR #70](https://github.com/KenWidemon/daily-whiskers/pull/70).
 
 ## Sharing Today's Card
 
-The daily toolbar offers **Share Today's Card** to guests and signed-in users.
+The daily Options menu offers **Share Today's Card** (or **Share Bonus Card**)
+to guests and signed-in users.
 It captures the displayed immutable card when tapped, so a foreground/day change cannot
 replace an in-flight export. The system share sheet receives a freshly rendered
 image and a plain-text quote/vibe companion; the user chooses a destination and
 confirms sending. There is no account requirement, upload, tracking, or automatic
 posting in the app's sharing path. UIKit presents from the card screen's window
-root, with the Share button as the iPad popover anchor. Preview metadata uses only
+root, with the persistent Options control as the iPad popover anchor. Preview metadata uses only
 the local export and branding, without a URL or network preview lookup.
 
 The packaged app declares an add-only Photos purpose for a user-selected save
