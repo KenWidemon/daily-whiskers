@@ -109,30 +109,7 @@ struct DailyWhiskersView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                if let bonusCard, let image = UIImage(data: bonusCard.artwork) {
-                    DailyRitualCardView(data: DailyCardData(archetype: bonusCard.snapshot.archetype,
-                        imageName: "", quote: bonusCard.snapshot.quote, vibe: bonusCard.snapshot.vibe ?? ""),
-                        retainedArtwork: image, accessibilityPrefix: "bonus-card")
-                        .accessibilityIdentifier("bonus-card")
-                } else if let entry = contentState.currentCard {
-                    DailyRitualCardView(
-                        data: DailyCardData(
-                            archetype: entry.archetype,
-                            imageName: entry.imageName,
-                            quote: entry.quote,
-                            vibe: entry.vibe ?? ""
-                        ), retainedArtwork: displayedArtwork
-                    )
-                    .accessibilityIdentifier("daily-card")
-                } else {
-                    ZStack {
-                        Color(.systemGroupedBackground).ignoresSafeArea()
-                        Text("No daily content found.")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            cardContent
             .onAppear {
                 contentState.refresh(at: Date(), force: true)
             }
@@ -143,36 +120,7 @@ struct DailyWhiskersView: View {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshDay() }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshDay() }
             .task(id: contentState.currentCard) { await captureDisplayedCard() }
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Menu {
-                        if bonusCard != nil {
-                            Button("Return to Today", systemImage: "sun.max") { bonusCard = nil }
-                        } else {
-                            Button("Open Bonus Card", systemImage: "sparkles") { Task { await openBonus() } }
-                            Text("One per day, on this device.")
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(bonusCard == nil ? "Today" : "Bonus").lineLimit(1)
-                            // Leave room for the readable state label on compact phones
-                            // at accessibility sizes; the menu keeps its full spoken hint.
-                            if !textSize.isAccessibilitySize {
-                                Image(systemName: "chevron.down").font(.caption2).accessibilityHidden(true)
-                            }
-                        }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
-                    }
-                    .accessibilityLabel(bonusCard == nil ? "Today, Card Menu" : "Bonus Card, Card Menu")
-                    .accessibilityHint(bonusCard == nil ? "Open your optional daily bonus." : "Return to today's card.")
-                    .accessibilityIdentifier("card-menu")
-                    .disabled(openingBonus || accountSheet != nil || shareState.isRendering || shareState.export != nil)
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink { SavedCardsView(model: savedCards) } label: {
-                        Label("Saved Cards", systemImage: "rectangle.stack")
-                    }.accessibilityIdentifier("open-saved-cards")
-                }
-            }
+            .toolbar { cardToolbar }
             .background { nativeToolbar.frame(width: 0, height: 0) }
             .modifier(SavedCardsError(model: savedCards))
             .alert("Clear Saved Cards?", isPresented: $confirmingClear) {
@@ -181,11 +129,11 @@ struct DailyWhiskersView: View {
             } message: {
                 Text("This removes all saved cards from this app. Your current card and daily or bonus selections are kept. Existing device backups are not changed.")
             }
-            .alert("Couldn't Prepare Card", isPresented: Binding(get: { captureError != nil }, set: { if !$0 { captureError = nil } })) {
+            .alert("Couldn't Prepare Card", isPresented: captureErrorPresented) {
                 Button("Try Again") { Task { await captureDisplayedCard() } }
                 Button("Cancel", role: .cancel) { captureError = nil }
             } message: { Text(captureError ?? "") }
-            .alert("Bonus Card Unavailable", isPresented: Binding(get: { bonusError != nil }, set: { if !$0 { bonusError = nil } })) {
+            .alert("Bonus Card Unavailable", isPresented: bonusErrorPresented) {
                 Button("Try Again") { Task { await openBonus() } }
                 Button("Return to Today", role: .cancel) { bonusError = nil; bonusCard = nil }
             } message: { Text(bonusError ?? "") }
@@ -216,10 +164,7 @@ struct DailyWhiskersView: View {
             .onChange(of: router.authState) { previous, state in
                 handleAuthStateChange(from: previous, to: state)
             }
-            .alert("Couldn't Log Out", isPresented: Binding(
-                get: { accountSheet == nil && accountRequest.errorMessage != nil },
-                set: { if !$0 { dismissLogoutError() } }
-            )) {
+            .alert("Couldn't Log Out", isPresented: logoutErrorPresented) {
                 Button("Try Again") { logOut() }
                 Button("Cancel", role: .cancel) { dismissLogoutError() }
             } message: {
@@ -227,6 +172,90 @@ struct DailyWhiskersView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var captureErrorPresented: Binding<Bool> {
+        Binding<Bool>(get: { captureError != nil }, set: setCaptureErrorPresented)
+    }
+
+    private func setCaptureErrorPresented(_ isPresented: Bool) {
+        if !isPresented { captureError = nil }
+    }
+
+    private var bonusErrorPresented: Binding<Bool> {
+        Binding<Bool>(get: { bonusError != nil }, set: setBonusErrorPresented)
+    }
+
+    private func setBonusErrorPresented(_ isPresented: Bool) {
+        if !isPresented { bonusError = nil }
+    }
+
+    private var logoutErrorPresented: Binding<Bool> {
+        Binding<Bool>(get: { accountSheet == nil && accountRequest.errorMessage != nil },
+                      set: setLogoutErrorPresented)
+    }
+
+    private func setLogoutErrorPresented(_ isPresented: Bool) {
+        if !isPresented { dismissLogoutError() }
+    }
+
+    private var cardContent: some View {
+        ZStack {
+            if let bonusCard, let image = UIImage(data: bonusCard.artwork) {
+                DailyRitualCardView(data: DailyCardData(archetype: bonusCard.snapshot.archetype,
+                    imageName: "", quote: bonusCard.snapshot.quote, vibe: bonusCard.snapshot.vibe ?? ""),
+                    retainedArtwork: image, accessibilityPrefix: "bonus-card")
+                    .accessibilityIdentifier("bonus-card")
+            } else if let entry = contentState.currentCard {
+                DailyRitualCardView(
+                    data: DailyCardData(
+                        archetype: entry.archetype,
+                        imageName: entry.imageName,
+                        quote: entry.quote,
+                        vibe: entry.vibe ?? ""
+                    ), retainedArtwork: displayedArtwork
+                )
+                .accessibilityIdentifier("daily-card")
+            } else {
+                ZStack {
+                    Color(.systemGroupedBackground).ignoresSafeArea()
+                    Text("No daily content found.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var cardToolbar: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            Menu {
+                if bonusCard != nil {
+                    Button("Return to Today", systemImage: "sun.max") { bonusCard = nil }
+                } else {
+                    Button("Open Bonus Card", systemImage: "sparkles") { Task { await openBonus() } }
+                    Text("One per day, on this device.")
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(bonusCard == nil ? "Today" : "Bonus").lineLimit(1)
+                    // Leave room for the readable state label on compact phones
+                    // at accessibility sizes; the menu keeps its full spoken hint.
+                    if !textSize.isAccessibilitySize {
+                        Image(systemName: "chevron.down").font(.caption2).accessibilityHidden(true)
+                    }
+                }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+            }
+            .accessibilityLabel(bonusCard == nil ? "Today, Card Menu" : "Bonus Card, Card Menu")
+            .accessibilityHint(bonusCard == nil ? "Open your optional daily bonus." : "Return to today's card.")
+            .accessibilityIdentifier("card-menu")
+            .disabled(openingBonus || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            NavigationLink { SavedCardsView(model: savedCards) } label: {
+                Label("Saved Cards", systemImage: "rectangle.stack")
+            }.accessibilityIdentifier("open-saved-cards")
+        }
     }
 
     private func handleAuthStateChange(from previous: AppRouter.AuthState, to state: AppRouter.AuthState) {
