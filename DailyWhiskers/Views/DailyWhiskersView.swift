@@ -214,13 +214,7 @@ struct DailyWhiskersView: View {
                 Text("The card couldn't be prepared or shared. Please try again.")
             }
             .onChange(of: router.authState) { previous, state in
-                // Successful sign-in/deletion (or an external session change) closes
-                // the obsolete account sheet without replacing the daily card.
-                if let sheet = accountSheet, sheet.shouldDismiss(from: previous, to: state) {
-                    accountSheet = nil
-                } else if case .signedIn = previous, state == .signedOut {
-                    settingsFocused = true
-                }
+                handleAuthStateChange(from: previous, to: state)
             }
             .alert("Couldn't Log Out", isPresented: Binding(
                 get: { accountSheet == nil && accountRequest.errorMessage != nil },
@@ -233,6 +227,16 @@ struct DailyWhiskersView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func handleAuthStateChange(from previous: AppRouter.AuthState, to state: AppRouter.AuthState) {
+        // Successful sign-in/deletion (or an external session change) closes
+        // the obsolete account sheet without replacing the daily card.
+        if let sheet = accountSheet, sheet.shouldDismiss(from: previous, to: state) {
+            accountSheet = nil
+        } else if case .signedIn = previous, state == .signedOut {
+            settingsFocused = true
+        }
     }
 
     private func refreshDay() {
