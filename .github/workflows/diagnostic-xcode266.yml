@@ -1,0 +1,111 @@
+name: Temporary Xcode 26.6 type-check diagnostic
+on:
+  push:
+    branches: [codex/diagnostic-xcode266-c3d9243]
+    paths: [.github/workflows/diagnostic-xcode266.yml]
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    name: One Debug timing build (not acceptance)
+    if: github.run_attempt == 1
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      SOURCE_SHA: c3d92437178a64e8a41fb0e8b5e6780dfb34e676
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c3d92437178a64e8a41fb0e8b5e6780dfb34e676
+          persist-credentials: false
+      - name: Record exact source and diagnostic identity
+        run: |
+          mkdir -p build
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git status --porcelain > build/source-status-before.txt
+          test ! -s build/source-status-before.txt
+          git rev-parse HEAD HEAD^{tree} > build/source-revision.txt
+          printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_REF" > build/diagnostic-identity.txt
+          shasum -a 256 DailyWhiskers/Views/DailyWhiskersView.swift .github/workflows/ios.yml > build/source-digests.txt
+      - name: Verify pinned CI toolchain and prepare unchanged project
+        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
+      - name: Verify diagnostic options on exact compiler
+        run: |
+          xcrun swift-frontend -help-hidden > build/frontend-help.txt 2>&1
+          grep -F -- '-warn-long-expression-type-checking' build/frontend-help.txt
+          grep -F -- '-warn-long-function-bodies' build/frontend-help.txt
+      - name: Restore existing dependency cache (read only)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: build/SourcePackages
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-v2
+      - name: Resolve unchanged locked dependencies
+        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
+      - name: Perform the single instrumented Debug build
+        run: |
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, pathlib, subprocess, time
+          output = pathlib.Path("build")
+          command = [
+              "xcodebuild", "build", "-project", "DailyWhiskers.xcodeproj",
+              "-scheme", "DailyWhiskers", "-configuration", "Debug",
+              "-destination", "generic/platform=iOS Simulator", "ARCHS=arm64",
+              "-clonedSourcePackagesDirPath", str(pathlib.Path.cwd() / "build/SourcePackages"),
+              "-onlyUsePackageVersionsFromResolvedFile", "-disableAutomaticPackageResolution",
+              "CODE_SIGNING_ALLOWED=NO",
+              "OTHER_SWIFT_FLAGS=$(inherited) -Xfrontend -warn-long-expression-type-checking=200 -Xfrontend -warn-long-function-bodies=200",
+              "-derivedDataPath", "build/TimingDerivedData",
+              "-resultBundlePath", "build/TimingBuild.xcresult", "-showBuildTimingSummary"
+          ]
+          record = {
+              "source_sha": os.environ["SOURCE_SHA"],
+              "workflow_sha": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "developer_dir": os.environ["DEVELOPER_DIR"],
+              "command": command,
+              "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "build_invocations": 1,
+              "tests_requested": False,
+              "simulator_launch_requested": False
+          }
+          (output / "timing-command.json").write_text(json.dumps(record, indent=2) + "\n")
+          start = time.monotonic()
+          with (output / "timing-build.log").open("w") as log:
+              process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+              for line in process.stdout:
+                  log.write(line)
+                  print(line, end="", flush=True)
+              code = process.wait()
+          record.update(exit_code=code, elapsed_seconds=time.monotonic()-start,
+                        finished_at=datetime.datetime.now(datetime.timezone.utc).isoformat())
+          record["log_sha256"] = hashlib.sha256((output / "timing-build.log").read_bytes()).hexdigest()
+          (output / "timing-status.json").write_text(json.dumps(record, indent=2) + "\n")
+          raise SystemExit(code)
+          PY
+      - name: Preserve final source and receipt digests
+        if: always()
+        run: |
+          git status --porcelain > build/source-status-after.txt
+          git diff --stat > build/generated-project-diff.txt
+          shasum -a 256 DailyWhiskers/Views/DailyWhiskersView.swift .github/workflows/ios.yml > build/source-digests-after.txt
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path("build")
+          files = [p for p in root.iterdir() if p.is_file()]
+          manifest = {p.name: {"bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(files)}
+          (root / "receipt-digests.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+      - name: Retain diagnostic receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: xcode266-c3d9243-typecheck-diagnostic
+          path: |
+            build/*.txt
+            build/*.json
+            build/*.log
+            build/TimingBuild.xcresult
+          retention-days: 30
+          if-no-files-found: error
