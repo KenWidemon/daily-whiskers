@@ -136,7 +136,7 @@ struct DailyWhiskersView: View {
             .onAppear {
                 contentState.refresh(at: Date(), force: true)
             }
-            .onChange(of: scenePhase) { _, newPhase in
+            .onChange(of: scenePhase) { (_: ScenePhase, newPhase: ScenePhase) in
                 if newPhase == .active { refreshDay() }
             }
             .onReceive(dayCheck) { _ in refreshDay() }
