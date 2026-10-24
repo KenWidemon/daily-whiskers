@@ -346,8 +346,12 @@ Watermark scale, opacity, placement and export sizing require Ken's visual appro
 The interaction suite checks launch in either orientation, repeated bidirectional
 rotation before sharing, current-window canvas bounds and quote centering, scroll
 recovery to the complete quote/vibe, and rotation with the system share sheet open.
-The toolbar uses a view-only UIKit anchor: embedding a controller there previously
-left the main canvas at its launch dimensions while the toolbar rotated.
+The card toolbar installs native `UIBarButtonItem` menus from a controller in the
+screen background, outside SwiftUI toolbar content. The transparent share anchor
+uses the persistent Options bar item for iPad popovers. Keep the controller out
+of toolbar content: embedding a controller there previously left the main canvas
+at its launch dimensions while the toolbar rotated. Preserve these rotation and
+share-dismissal checks when changing the bridge or navigation ownership.
 
 On both iPhone and iPad, record the exact SHA/build and OS, then:
 
@@ -391,14 +395,14 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
 
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
-- Check the text-free monochrome heart-eyes cat save control on Today and Bonus:
-  clear cat when unsaved, lower-trailing check badge when saved, with the same tint
-  as Share and Settings. Its
-  accessible action changes between **Save Card** and **Remove from Saved Cards**,
-  and its **Saved/Not saved** value changes. The stacked-card collection navigation
-  stays distinct. Verify the same original cat artwork in the saved/remove and
-  unsaved/re-save detail menus and empty collection guidance. Save and unsave must
-  preserve control and card geometry at standard and largest accessibility text sizes on regular and small phones.
+- Open Options on Today, Bonus and saved detail. Verify Share and Save/Remove,
+  with the original monochrome heart-eyes cat on the save action: clear when
+  unsaved and a lower-trailing check badge when saved. Remove uses destructive
+  styling. Verify the **Saved/Not saved** value on the persistent Options trigger
+  and the next-action label/hint in the menu. The collection navigation, Today/Bonus
+  switcher and Settings stay separate; the collection list gains no action menu.
+  Save and unsave must preserve trigger and card geometry at standard and largest
+  text sizes. Inspect the same original cat in empty collection guidance.
 - Save an identical version twice without changing order. Save another quote or
   artwork version of the same stable cat ID and verify both versions survive.
   Reordering/renaming the current pack must not change saved content identity.
@@ -423,15 +427,26 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   share content must survive cleanup. No implicit clear follows auth transitions.
 - Compare Today and saved detail for the same card on the same device and text
   size. Verify matching themed frame, quote background, Vibe pill and text while
-  retaining distinct navigation and Share/options controls. Compare actual card,
+  retaining distinct navigation and Options controls. Compare actual card,
   quote and Vibe bounds as well as screenshots; shared code alone is not evidence
   of matching geometry. Open Saved Card Options, dismiss without removing, then
   remove and resave the open card; confirm the options control's accessible label,
-  state and native activation, and a menu-action height of at least 44 points. Record
-  the system toolbar trigger's bounds separately; do not assume its accessibility
-  rectangle is 44 points high. No removal footer reserves content height. Use the
-  saved snapshot's theme
-  and content even when the current manifest differs.
+  state and activation, and a menu-action height of at least 44 points. The options
+  menu uses a native `UIBarButtonItem` and `UIMenu`; platform hosting can still
+  affect actual hit testing, so native appearance and dimensions are not a pass.
+  Run the ordinary-portrait and largest-text paired-geometry tests on iPhone and
+  iPad: coordinate taps at the trigger center and all eight edge/corner samples
+  at offsets of ±21.5 points on each axis must open the menu; dismissal must retain
+  Saved state. Apply the same center and eight boundary samples to Today and Bonus
+  Options at standard and largest text. A native-looking control or an OS-specific
+  failure is not an automatic exception to this project acceptance check.
+  Record the trigger's accessibility bounds separately. Those bounds locate the
+  samples but do not prove tappability or VoiceOver behavior. Use freshly created,
+  dedicated simulators and verify their app/data paths before fixture writes;
+  never run the clearing fixtures against an owner's QA container or assume a
+  simulator clone has independent app storage. No removal footer reserves content
+  height. Use the saved snapshot's theme and content even when the current manifest
+  differs.
 - Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
   offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
   spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve

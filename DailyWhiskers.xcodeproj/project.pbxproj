@@ -18,6 +18,7 @@
 		34BACE37C29F827F30C2DF5D /* AuthLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D49C6335115DC858536C84 /* AuthLayoutTests.swift */; };
 		3633EB50626B3A37A19CA1B2 /* BonusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 526077D6C81DF441973D6A2A /* BonusCard.swift */; };
 		3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */; };
+		3C34B703267D41FC31D66BD2 /* CardNavigationToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4162776B206AD3B045A6D59F /* CardNavigationToolbar.swift */; };
 		3C36FC20FC86871557DD7B96 /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA5B6FA8B03B217C1D67EC4 /* AccountDeletionTests.swift */; };
 		4753D3BC4ED66FB984FE51D3 /* AuthTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD341276C2FFBEB534D41BA /* AuthTextField.swift */; };
 		476257A554D10613DF63BFC2 /* DailyContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEBF90CA567AEF2C4445900 /* DailyContent.swift */; };
@@ -93,6 +94,7 @@
 		2E195009473B4C9A343F42A1 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
 		2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRecoveryTests.swift; sourceTree = "<group>"; };
 		30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualCardView.swift; sourceTree = "<group>"; };
+		4162776B206AD3B045A6D59F /* CardNavigationToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardNavigationToolbar.swift; sourceTree = "<group>"; };
 		43378ED4D8343E90FA4172F9 /* CardSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardSnapshot.swift; sourceTree = "<group>"; };
 		5038272DE90C96D54A69B211 /* GuestAccessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestAccessTests.swift; sourceTree = "<group>"; };
 		526077D6C81DF441973D6A2A /* BonusCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonusCard.swift; sourceTree = "<group>"; };
@@ -180,6 +182,7 @@
 			children = (
 				DDD341276C2FFBEB534D41BA /* AuthTextField.swift */,
 				0FBA1D67F9BBA070EDC581FD /* AuthView.swift */,
+				4162776B206AD3B045A6D59F /* CardNavigationToolbar.swift */,
 				894E64BBBF94F39B0C8F6606 /* CreateAccountView.swift */,
 				8DB34E2AA257C7E47FBD1E1C /* DailyCardShareSheet.swift */,
 				30E5158CAF08C9841E303DE3 /* DailyRitualCardView.swift */,
@@ -450,6 +453,7 @@
 				CA6A5ABF711B4A293A3632A8 /* AuthView.swift in Sources */,
 				3633EB50626B3A37A19CA1B2 /* BonusCard.swift in Sources */,
 				DB93C04A5505B24D31DE77A3 /* CISmokeMode.swift in Sources */,
+				3C34B703267D41FC31D66BD2 /* CardNavigationToolbar.swift in Sources */,
 				E1CF72364EDF41EAAF15EC6A /* CardRepository.swift in Sources */,
 				1DA6C767D871A1C3FB0E3B63 /* CardSnapshot.swift in Sources */,
 				BB7086367503C7C5F0386502 /* CreateAccountView.swift in Sources */,

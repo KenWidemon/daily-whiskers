@@ -66,6 +66,7 @@ final class DailyCardSharingTests: XCTestCase {
         app.launchArguments = ["--ci-smoke", "--ci-smoke-export-evidence", "--ci-smoke-longest-card", "--ci-smoke-share-failure-once", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        app.openCardOptions()
         let share = app.buttons["share-daily-card"]
         XCTAssertTrue(share.waitForExistence(timeout: 10))
         let ready = NSPredicate { _, _ in share.isEnabled }
@@ -122,8 +123,8 @@ final class DailyCardSharingTests: XCTestCase {
     }
 
     private func saveCurrentCard() {
-        let button = app.buttons["save-daily-card"]
-        if button.value as? String != "Saved" { button.tap() }
+        let button = app.buttons["daily-card-options"]
+        if button.value as? String != "Saved" { app.toggleDailyCardSave() }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Saved"), object: button)], timeout: 10), .completed)
     }
 
@@ -133,11 +134,12 @@ final class DailyCardSharingTests: XCTestCase {
     }
 
     private func shareAndCancel(_ name: String, button: XCUIElement) {
+        let options = app.openCardOptions()
         XCTAssertTrue(button.waitForExistence(timeout: 10))
         let ready = NSPredicate { _, _ in button.isEnabled && button.isHittable }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: nil)], timeout: 15), .completed)
         button.tap(); cancelExportSheet(name)
-        XCTAssertTrue(button.isEnabled)
+        XCTAssertTrue(options.isEnabled)
         XCTAssertFalse(app.alerts["Couldn't Share Card"].exists)
     }
 
@@ -171,7 +173,7 @@ final class DailyCardSharingTests: XCTestCase {
 
     func testAccountSheetKeepsLocalNavigationUsableAcrossReopening() {
         XCUIDevice.shared.orientation = .portrait
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
         app.launch()
         let settings = app.buttons["Settings"]
         for _ in 0..<2 {
@@ -203,7 +205,10 @@ final class DailyCardSharingTests: XCTestCase {
             app.buttons["Close"].tap()
             XCTAssertTrue(settings.waitForExistence(timeout: 5))
             XCTAssertFalse(form.exists)
+            app.openCardOptions()
+            XCTAssertTrue(app.buttons["share-daily-card"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["share-daily-card"].isHittable)
+            app.dismissCardOptions()
         }
         // Accessibility-tree/navigation evidence, not VoiceOver focus timing or speech.
     }
@@ -218,7 +223,7 @@ final class DailyCardSharingTests: XCTestCase {
 
     private func checkDailyCanvasRotation(initial: UIDeviceOrientation) {
         XCUIDevice.shared.orientation = initial
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
         app.launch()
         let card = app.otherElements["daily-card"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
@@ -242,7 +247,10 @@ final class DailyCardSharingTests: XCTestCase {
             XCTAssertLessThanOrEqual(card.frame.maxY, window.frame.maxY + 2, "Daily canvas viewport cannot extend beyond the current window.")
             checkQuoteRemainsReachable()
             XCTAssertTrue(app.buttons["Settings"].isHittable)
+            app.openCardOptions()
+            XCTAssertTrue(app.buttons["share-daily-card"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["share-daily-card"].isHittable)
+            app.dismissCardOptions()
         }
     }
 
@@ -271,14 +279,17 @@ final class DailyCardSharingTests: XCTestCase {
     private func checkCancellation(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory, rotateWhilePresented: Bool = false) {
         var currentOrientation = orientation
         XCUIDevice.shared.orientation = orientation
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", textSize.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", textSize.rawValue]
         app.launch()
+        app.openCardOptions()
         let share = app.buttons["share-daily-card"]
         XCTAssertTrue(share.waitForExistence(timeout: 10))
         XCTAssertEqual(share.label, "Share Today's Card")
         XCTAssertTrue(app.otherElements["daily-card"].exists)
         XCTAssertFalse(app.textFields["Email"].exists)
         for _ in 0..<2 {
+            let options = app.openCardOptions()
+            XCTAssertTrue(share.waitForExistence(timeout: 5))
             XCTAssertTrue(share.isEnabled)
             XCTAssertTrue(share.isHittable)
             share.tap()
@@ -312,7 +323,7 @@ final class DailyCardSharingTests: XCTestCase {
             screenshot.lifetime = .keepAlways
             add(screenshot)
             if UIDevice.current.userInterfaceIdiom == .pad {
-                // The popover is anchored to the upper-right Share button.
+                // The popover is anchored to the persistent Options control.
                 let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
                 XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
                 outside.tap()
@@ -324,7 +335,7 @@ final class DailyCardSharingTests: XCTestCase {
             } else {
                 close.tap()
             }
-            let usable = NSPredicate { _, _ in share.exists && share.isEnabled && share.isHittable }
+            let usable = NSPredicate { _, _ in options.exists && options.isEnabled && options.isHittable }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: usable, object: nil)], timeout: 10), .completed)
             XCTAssertFalse(sheet.exists)
             XCTAssertFalse(app.alerts["Couldn't Share Card"].exists)

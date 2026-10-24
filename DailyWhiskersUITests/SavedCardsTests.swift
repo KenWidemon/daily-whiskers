@@ -31,27 +31,33 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
         let confirm = app.alerts["Clear Saved Cards?"].buttons["Clear Saved Cards"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
-        XCTAssertTrue(app.buttons["save-daily-card"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["daily-card-options"].waitForExistence(timeout: 5))
     }
     func testSaveRelaunchReopenShareRemoveAndConfirmedClear() {
-        let save = app.buttons["save-daily-card"]
+        let save = app.buttons["daily-card-options"]
         XCTAssertTrue(save.waitForExistence(timeout: 10))
-        save.tap()
+        app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Saved"))
         capture("01 Today saved")
         app.terminate(); app.launch()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
         app.buttons["open-saved-cards"].tap()
         let row = app.buttons["saved-card-row"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         XCTAssertEqual(app.buttons.matching(identifier: "saved-card-row").count, 1)
         capture("02 Saved Cards on this device")
         row.tap()
-        XCTAssertTrue(app.buttons["Share Saved Card"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
         swipeSavedContent()
         XCTAssertTrue(app.otherElements["saved-card-quote"].exists || app.staticTexts["saved-card-quote"].exists)
         capture("03 Reopened original full card")
-        app.buttons["Share Saved Card"].tap()
+        app.buttons["saved-card-options"].tap()
+        let share = app.buttons["saved-card-share"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        XCTAssertEqual(share.label, "Share Saved Card")
+        recordShareAccessibilityBounds(share)
+        capture("03 Saved card actions menu")
+        share.tap()
         let sheet = app.otherElements["ActivityListView"]
         XCTAssertTrue(sheet.waitForExistence(timeout: 10))
         capture("04 Saved card system share")
@@ -74,11 +80,12 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(waitForOptionsValue("Not saved"))
         XCTAssertTrue(app.navigationBars["Card"].waitForExistence(timeout: 5))
         XCTAssertEqual(options.label, "Card Options")
-        XCTAssertTrue(app.buttons["Share Card"].exists)
         capture("06 Removed detail remains readable")
         options.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.label, "Save Card")
+        XCTAssertTrue(app.buttons["saved-card-share"].isHittable)
+        XCTAssertEqual(app.buttons["saved-card-share"].label, "Share Card")
         capture("06 Unsaved detail Save Card menu")
         toggle.tap()
         XCTAssertTrue(waitForOptionsValue("Saved"))
@@ -93,15 +100,15 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
         capture("06 Explicit clear confirmation")
         app.alerts["Clear Saved Cards?"].buttons["Cancel"].tap()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
         clear()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Not saved"))
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Not saved"))
         app.buttons["open-saved-cards"].tap()
         XCTAssertTrue(app.staticTexts["saved-cards-empty"].waitForExistence(timeout: 5))
         capture("07 Empty collection")
     }
     func testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear() {
-        let save = app.buttons["save-daily-card"]
+        let save = app.buttons["daily-card-options"]
         func checkClear(_ enabled: Bool, captureName: String) {
             app.buttons["Settings"].tap()
             let action = app.buttons["Clear Saved Cards"]
@@ -111,14 +118,14 @@ final class SavedCardsTests: XCTestCase {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
         }
         checkClear(false, captureName: "Clear disabled when empty")
-        save.tap()
+        app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Saved"))
-        XCTAssertEqual(save.label, "Remove from Saved Cards")
+        app.assertDailySaveActionLabel("Remove from Saved Cards")
         checkClear(true, captureName: "Clear enabled with saved card")
-        save.tap()
+        app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Not saved"))
         checkClear(false, captureName: "Clear disabled after last removal")
-        save.tap()
+        app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Saved"))
         app.buttons["Settings"].tap(); app.buttons["Clear Saved Cards"].tap()
         let confirmation = app.alerts["Clear Saved Cards?"]
@@ -132,8 +139,8 @@ final class SavedCardsTests: XCTestCase {
     }
 
     func testLargestTextSavedCardQuoteAndControlsRemainReachable() {
-        app.buttons["save-daily-card"].tap()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.toggleDailyCardSave()
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
         app.terminate()
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
@@ -151,11 +158,11 @@ final class SavedCardsTests: XCTestCase {
         let vibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
         captureScrollableQuote(quote, vibe: vibe, name: "10 Largest text saved card")
         XCTAssertTrue(app.buttons["saved-card-options"].isHittable)
-        XCTAssertTrue(app.buttons["Share Saved Card"].isHittable)
+        assertShareMenuAction()
     }
     func testLargestTextLandscapeSavedCardActionsAndVibe() {
-        app.buttons["save-daily-card"].tap()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.toggleDailyCardSave()
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
         app.terminate()
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
@@ -172,7 +179,7 @@ final class SavedCardsTests: XCTestCase {
         capture("11 Largest text landscape saved card")
         XCTAssertTrue(vibe.isHittable)
         XCTAssertTrue(app.buttons["saved-card-options"].isHittable)
-        XCTAssertTrue(app.buttons["Share Saved Card"].isHittable)
+        assertShareMenuAction()
         XCUIDevice.shared.orientation = .portrait
     }
 
@@ -197,10 +204,10 @@ final class SavedCardsTests: XCTestCase {
         let displayedQuote = quote.label
         let displayedVibe = vibe.label
         let todayBounds = cardBounds(prefix: "daily-card")
-        assertSaveIconToggle(captureName: "Bookmark-Standard")
+        assertSaveMenuToggle(captureName: "Bookmark-Standard")
         capture("12 Complete portrait Today card")
-        app.buttons["save-daily-card"].tap()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.toggleDailyCardSave()
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
         app.buttons["open-saved-cards"].tap()
         app.buttons.matching(identifier: "saved-card-row").firstMatch.tap()
         let savedQuote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
@@ -228,11 +235,11 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(quote.waitForExistence(timeout: 10))
         let originalQuote = quote.label, originalVibe = vibe.label
         let todayBounds = cardBounds(prefix: "daily-card")
-        assertSaveIconToggle(captureName: "Bookmark-AX5")
+        assertSaveMenuToggle(captureName: "Bookmark-AX5")
         capture("Pair-AX5-Today-Top")
         captureScrollableQuote(quote, vibe: vibe, name: "Pair-AX5-Today")
-        app.buttons["save-daily-card"].tap()
-        XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
+        app.toggleDailyCardSave()
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
         app.buttons["open-saved-cards"].tap()
         let row = app.buttons.matching(identifier: "saved-card-row").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
@@ -246,28 +253,28 @@ final class SavedCardsTests: XCTestCase {
         captureScrollableQuote(savedQuote, vibe: savedVibe, name: "Pair-AX5-Saved")
         let options = app.buttons["saved-card-options"]
         XCTAssertTrue(options.isHittable)
-        XCTAssertTrue(app.buttons["Share Saved Card"].isHittable)
+        assertShareMenuAction()
         assertOptionsActivation(captureName: "Pair-AX5-Options")
     }
 
-    private func assertSaveIconToggle(captureName: String) {
-        let save = app.buttons["save-daily-card"]
-        XCTAssertEqual(save.label, "Save Card")
+    private func assertSaveMenuToggle(captureName: String) {
+        let save = app.buttons["daily-card-options"]
+        app.assertDailySaveActionLabel("Save Card")
         XCTAssertTrue(save.isHittable)
         XCTAssertTrue(waitForValue(save, "Not saved"))
         let before = cardBounds(prefix: "daily-card")
         let controlFrame = save.frame
         capture(captureName + "-Unsaved")
-        save.tap()
+        app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Saved"))
-        XCTAssertEqual(save.label, "Remove from Saved Cards")
+        app.assertDailySaveActionLabel("Remove from Saved Cards")
         XCTAssertEqual(save.frame, controlFrame)
         XCTAssertTrue(save.isHittable)
         assertMatchingBounds(before, cardBounds(prefix: "daily-card"), name: captureName + " toggle geometry")
         capture(captureName + "-Saved")
-        save.tap()
+        app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Not saved"))
-        XCTAssertEqual(save.label, "Save Card")
+        app.assertDailySaveActionLabel("Save Card")
         XCTAssertEqual(save.frame, controlFrame)
         XCTAssertEqual(cardBounds(prefix: "daily-card"), before)
     }
@@ -294,6 +301,27 @@ final class SavedCardsTests: XCTestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    private func recordShareAccessibilityBounds(_ share: XCUIElement) {
+        // The native menu's AX frame is metadata, not proof of its tap boundaries.
+        let b = share.frame
+        let data = try! JSONSerialization.data(withJSONObject:
+            ["x": b.minX, "y": b.minY, "width": b.width, "height": b.height])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "Share menu accessibility bounds"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func assertShareMenuAction() {
+        app.buttons["saved-card-options"].tap()
+        let share = app.buttons["saved-card-share"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        XCTAssertEqual(share.label, "Share Saved Card")
+        XCTAssertTrue(share.isHittable)
+        recordShareAccessibilityBounds(share)
+        dismissOptions()
+    }
+
     private func assertOptionsActivation(captureName: String) {
         let options = app.buttons["saved-card-options"]
         XCTAssertEqual(options.label, "Saved Card Options")
@@ -302,16 +330,42 @@ final class SavedCardsTests: XCTestCase {
         let bounds = options.frame
         let data = try! JSONSerialization.data(withJSONObject: ["x":bounds.minX,"y":bounds.minY,"width":bounds.width,"height":bounds.height], options:[.prettyPrinted,.sortedKeys])
         let attachment = XCTAttachment(data:data,uniformTypeIdentifier:"public.json")
-        attachment.name = captureName + " native trigger bounds"; attachment.lifetime = .keepAlways; add(attachment)
-        options.tap()
+        attachment.name = captureName + " trigger accessibility bounds"; attachment.lifetime = .keepAlways; add(attachment)
         let remove = app.buttons["saved-card-toggle"]
-        XCTAssertTrue(remove.waitForExistence(timeout: 5))
-        XCTAssertEqual(remove.label, "Remove from Saved Cards")
-        XCTAssertTrue(remove.isHittable)
-        XCTAssertGreaterThanOrEqual(remove.frame.height, 44)
-        capture(captureName)
-        dismissOptions()
-        XCTAssertTrue(waitForOptionsValue("Saved"))
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        // Half a point inside the 44-point perimeter avoids an exclusive max edge.
+        // Coordinate taps exercise the hit region; AX bounds only locate its center.
+        let edge: CGFloat = 21.5
+        let samples: [(String, CGFloat, CGFloat)] = [
+            ("center", 0, 0), ("top", 0, -edge), ("bottom", 0, edge),
+            ("left", -edge, 0), ("right", edge, 0),
+            ("top-left", -edge, -edge), ("top-right", edge, -edge),
+            ("bottom-left", -edge, edge), ("bottom-right", edge, edge),
+            ("center-after-edges", 0, 0)
+        ]
+        var observations: [[String: Any]] = []
+        defer {
+            let data = try! JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            attachment.name = captureName + " 44-point coordinate taps"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        for (name, dx, dy) in samples {
+            XCTAssertEqual(options.frame, bounds, "Options geometry changed before \(name)")
+            let point = CGPoint(x: bounds.midX + dx, y: bounds.midY + dy)
+            let anchor = origin.screenPoint
+            origin.withOffset(CGVector(dx: point.x - anchor.x, dy: point.y - anchor.y)).tap()
+            let opened = remove.waitForExistence(timeout: 5)
+            observations.append(["sample": name, "x": point.x, "y": point.y, "opened": opened])
+            XCTAssertTrue(opened, "Options did not open at \(name) of the 44-point target: \(point)")
+            XCTAssertEqual(remove.label, "Remove from Saved Cards")
+            XCTAssertTrue(remove.isHittable)
+            XCTAssertGreaterThanOrEqual(remove.frame.height, 44)
+            if name == "center" { capture(captureName) }
+            dismissOptions()
+            XCTAssertTrue(waitForOptionsValue("Saved"))
+        }
     }
 
     private func dismissOptions() {
@@ -385,8 +439,8 @@ final class SavedCardsTests: XCTestCase {
                                        name: "Narrow landscape \(fixture)")
             }
             capture("Window \(fixture) landscape")
-            let save = app.buttons["save-daily-card"]
-            if save.value as? String != "Saved" { save.tap() }
+            let save = app.buttons["daily-card-options"]
+            if save.value as? String != "Saved" { app.toggleDailyCardSave() }
             XCTAssertTrue(waitForValue(save, "Saved"))
         }
         XCUIDevice.shared.orientation = .portrait
@@ -490,5 +544,47 @@ final class SavedCardsTests: XCTestCase {
     private func waitForValue(_ element: XCUIElement, _ value: String) -> Bool {
         let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
         return XCTWaiter.wait(for: [expected], timeout: 10) == .completed
+    }
+}
+
+// Shared UI navigation for card actions; state is exposed on the persistent trigger.
+extension XCUIApplication {
+    @discardableResult
+    func openCardOptions() -> XCUIElement {
+        let options = buttons["saved-card-options"].exists ? buttons["saved-card-options"] : buttons["daily-card-options"]
+        if !buttons["share-daily-card"].exists && !buttons["saved-card-share"].exists {
+            XCTAssertTrue(options.waitForExistence(timeout: 10))
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: options)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
+            XCTAssertTrue(options.isHittable)
+            options.tap()
+        }
+        return options
+    }
+
+    func dismissCardOptions() {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !self.buttons["share-daily-card"].exists && !self.buttons["saved-card-share"].exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+    }
+
+    func toggleDailyCardSave() {
+        XCTAssertTrue(buttons["daily-card-options"].exists)
+        openCardOptions()
+        let action = buttons["save-daily-card"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5))
+        XCTAssertTrue(action.isHittable)
+        action.tap()
+    }
+
+    func assertDailySaveActionLabel(_ label: String) {
+        openCardOptions()
+        let action = buttons["save-daily-card"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5))
+        XCTAssertEqual(action.label, label)
+        XCTAssertTrue(action.isHittable)
+        dismissCardOptions()
     }
 }

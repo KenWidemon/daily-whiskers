@@ -103,8 +103,7 @@ struct SavedCardDetail: View {
     @State private var card: RetainedCard?
     @State private var errorMessage: String?
     @StateObject private var share = DailyCardShareState()
-    @AccessibilityFocusState private var optionsFocused: Bool
-    @AccessibilityFocusState private var shareFocused: Bool
+    @State private var optionsFocused: Bool = false
 
     private var saveState: CardSaveState { CardSaveState(isSaved: model.contains(id)) }
 
@@ -135,58 +134,36 @@ struct SavedCardDetail: View {
         .navigationTitle(saveState.detailTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: id) { await load() }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    guard let card else { return }
-                    Task { await share.start(retained: card) }
-                } label: {
-                    Group {
-                        if share.isRendering { ProgressView() }
-                        else { Image(systemName: "square.and.arrow.up") }
-                    }.frame(minWidth: 44, minHeight: 44)
-                }
-                .disabled(card == nil || share.isRendering || share.export != nil)
-                .accessibilityLabel(share.isRendering ? "Preparing Card" : (saveState.isSaved ? "Share Saved Card" : "Share Card"))
-                .accessibilityHint("Shares the retained artwork and quote. You choose where to send it.")
-                .accessibilityFocused($shareFocused)
-                .background {
-                    DailyCardShareSheet(export: share.export) { failed in
-                        share.completeActivity(failed: failed)
-                        share.sheetDismissed()
-                        shareFocused = true
-                    }.allowsHitTesting(false).accessibilityHidden(true)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button(role: model.contains(id) ? .destructive : nil) {
-                        guard let card else { return }
-                        Task { await model.toggle(card); optionsFocused = true }
-                    } label: {
-                        Label { Text(saveState.actionLabel) } icon: { saveState.icon }
-                    }
-                    .accessibilityValue(saveState.value)
-                    .accessibilityHint(saveState.hint)
-                    .accessibilityIdentifier("saved-card-toggle")
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .disabled(card == nil || model.busy || share.isRendering || share.export != nil)
-                .accessibilityLabel(saveState.isSaved ? "Saved Card Options" : "Card Options")
-                .accessibilityHint("Opens save and remove actions for this card.")
-                .accessibilityValue(saveState.value)
-                .accessibilityIdentifier("saved-card-options")
-                .accessibilityFocused($optionsFocused)
-            }
-        }
+        .background { nativeToolbar.frame(width: 0, height: 0) }
         .modifier(SavedCardsError(model: model))
         .alert("Couldn't Share Card", isPresented: $share.hasError) {
             Button("Try Again") { Task { await share.retry() } }
-            Button("Cancel", role: .cancel) { share.finish(); shareFocused = true }
+            Button("Cancel", role: .cancel) { share.finish(); optionsFocused = true }
         } message: { Text("The saved card couldn't be prepared or shared. Please try again.") }
+    }
+
+    private var nativeToolbar: CardNavigationToolbar {
+        let shareAction = CardNavigationToolbar.action(saveState.isSaved ? "Share Saved Card" : "Share Card",
+            identifier: "saved-card-share", image: UIImage(systemName: "square.and.arrow.up"),
+            hint: "Shares the retained artwork and quote. You choose where to send it.") {
+                guard let card else { return }
+                optionsFocused = false
+                Task { await share.start(retained: card) }
+            }
+        let toggle = CardNavigationToolbar.action(saveState.actionLabel, identifier: "saved-card-toggle",
+            image: saveState.isSaved ? HeartEyesCatIcon.savedImage : HeartEyesCatIcon.unsavedImage,
+            hint: saveState.hint, value: saveState.value, destructive: saveState.isSaved) {
+                guard let card else { return }
+                Task { await model.toggle(card); optionsFocused = true }
+            }
+        return CardNavigationToolbar(options: .init(identifier: "saved-card-options",
+            label: share.isRendering ? "Preparing Card" : (saveState.isSaved ? "Saved Card Options" : "Card Options"),
+            hint: "Opens share, save, and remove actions for this card.", value: saveState.value,
+            image: "ellipsis", enabled: card != nil && !model.busy && !share.isRendering && share.export == nil,
+            menu: UIMenu(children: [shareAction, toggle])),
+            export: share.export, onShareComplete: { failed in
+                share.completeActivity(failed: failed); share.sheetDismissed(); optionsFocused = true
+            }, optionsFocused: $optionsFocused, settingsFocused: .constant(false))
     }
 
     private func load() async {
