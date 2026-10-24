@@ -27,6 +27,91 @@ struct CardRepositoryTests {
         #expect(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
     }
 
+    @Test func savedPresentationMatchesStateAndNextAction() {
+        let unsaved = CardSaveState(isSaved: false)
+        #expect(unsaved.actionLabel == "Save Card")
+        #expect(unsaved.value == "Not saved")
+        #expect(unsaved.hint == "Saves this card on this device.")
+        #expect(unsaved.detailTitle == "Card")
+        let saved = CardSaveState(isSaved: true)
+        #expect(saved.actionLabel == "Remove from Saved Cards")
+        #expect(saved.value == "Saved")
+        #expect(saved.hint == "Removes this card from Saved Cards.")
+        #expect(saved.detailTitle == "Saved Card")
+    }
+
+    @Test func originalCatArtworkUsesTransparentTemplateAndDistinctSavedBadge() throws {
+        let unsaved = HeartEyesCatIcon.unsavedImage
+        let saved = HeartEyesCatIcon.savedImage
+        for image in [unsaved, saved] {
+            #expect(image.renderingMode == .alwaysTemplate)
+            #expect(image.size == CGSize(width: 32, height: 32))
+            let cg = try #require(image.cgImage)
+            #expect(cg.alphaInfo == .premultipliedLast || cg.alphaInfo == .premultipliedFirst)
+        }
+        // Saving adds a badge without changing the icon's size or replacing the cat.
+        #expect(try #require(unsaved.pngData()) != #require(saved.pngData()))
+    }
+
+    @Test func clearEligibilityTracksRefreshSaveRemovalAndClear() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let repository = CardRepository(url: url)
+        let model = SavedCardsModel(repository: repository)
+        let first = try sample(), second = try sample(quote: "Second card")
+        #expect(!model.canClear)
+        await model.refresh()
+        #expect(!model.canClear)
+        await model.toggle(first)
+        #expect(model.canClear)
+        await model.toggle(second)
+        await model.toggle(first)
+        #expect(model.canClear) // Removing one of two must not disable Clear.
+        await model.toggle(second)
+        #expect(!model.canClear)
+        await model.toggle(first) // Re-save retained content after removal.
+        #expect(model.canClear)
+        await model.clear()
+        #expect(!model.canClear)
+        try await repository.save(second)
+        await model.refresh()
+        #expect(model.canClear)
+        await model.removeUnavailable(second.snapshot.id)
+        #expect(!model.canClear)
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test func clearStaysDisabledWhilePopulatedStorageIsBusy() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let card = try sample()
+        try await CardRepository(url: url).save(card)
+        let reachedCommit = AsyncStream<Void>.makeStream()
+        let allowCommit = DispatchSemaphore(value: 0)
+        let repository = CardRepository(url: url, beforeCommit: {
+            reachedCommit.continuation.yield(())
+            // Bound the test barrier so a failed assertion cannot stall storage.
+            guard allowCommit.wait(timeout: .now() + 10) == .success else {
+                throw CardStorageError.unavailable
+            }
+        })
+        let model = SavedCardsModel(repository: repository)
+        await model.refresh()
+        #expect(model.canClear)
+        let removal = Task { await model.toggle(card) }
+        var commits = reachedCommit.stream.makeAsyncIterator()
+        await commits.next()
+        #expect(model.busy)
+        #expect(!model.records.isEmpty)
+        #expect(!model.canClear)
+        allowCommit.signal()
+        await removal.value
+        reachedCommit.continuation.finish()
+        #expect(!model.busy)
+        #expect(!model.canClear)
+        #expect(model.errorMessage == nil)
+    }
+
     @Test func deterministicIdentityAndDistinctVersions() throws {
         let original = try sample()
         #expect(try sample(imageName: "renamed").snapshot.id == original.snapshot.id)

@@ -21,7 +21,13 @@ final class SavedCardsTests: XCTestCase {
     }
     private func clear() {
         app.buttons["Settings"].tap()
-        app.buttons["Clear Saved Cards"].tap()
+        let clear = app.buttons["Clear Saved Cards"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        guard clear.isEnabled else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+            return
+        }
+        clear.tap()
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
         let confirm = app.alerts["Clear Saved Cards?"].buttons["Clear Saved Cards"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
@@ -66,11 +72,18 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(waitForOptionsValue("Saved"))
         options.tap(); toggle.tap()
         XCTAssertTrue(waitForOptionsValue("Not saved"))
+        XCTAssertTrue(app.navigationBars["Card"].waitForExistence(timeout: 5))
+        XCTAssertEqual(options.label, "Card Options")
+        XCTAssertTrue(app.buttons["Share Card"].exists)
         capture("06 Removed detail remains readable")
         options.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        XCTAssertEqual(toggle.label, "Save Card"); toggle.tap()
+        XCTAssertEqual(toggle.label, "Save Card")
+        capture("06 Unsaved detail Save Card menu")
+        toggle.tap()
         XCTAssertTrue(waitForOptionsValue("Saved"))
+        XCTAssertTrue(app.navigationBars["Saved Card"].waitForExistence(timeout: 5))
+        XCTAssertEqual(options.label, "Saved Card Options")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(row.waitForExistence(timeout: 5)); row.tap()
         XCTAssertTrue(waitForOptionsValue("Saved"))
@@ -87,6 +100,37 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["saved-cards-empty"].waitForExistence(timeout: 5))
         capture("07 Empty collection")
     }
+    func testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear() {
+        let save = app.buttons["save-daily-card"]
+        func checkClear(_ enabled: Bool, captureName: String) {
+            app.buttons["Settings"].tap()
+            let action = app.buttons["Clear Saved Cards"]
+            XCTAssertTrue(action.waitForExistence(timeout: 5))
+            XCTAssertEqual(action.isEnabled, enabled)
+            capture(captureName)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+        }
+        checkClear(false, captureName: "Clear disabled when empty")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        XCTAssertEqual(save.label, "Remove from Saved Cards")
+        checkClear(true, captureName: "Clear enabled with saved card")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Not saved"))
+        checkClear(false, captureName: "Clear disabled after last removal")
+        save.tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        app.buttons["Settings"].tap(); app.buttons["Clear Saved Cards"].tap()
+        let confirmation = app.alerts["Clear Saved Cards?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForValue(save, "Saved"))
+        checkClear(true, captureName: "Clear stays enabled after cancellation")
+        clear()
+        XCTAssertTrue(waitForValue(save, "Not saved"))
+        checkClear(false, captureName: "Clear disabled after confirmed clear")
+    }
+
     func testLargestTextSavedCardQuoteAndControlsRemainReachable() {
         app.buttons["save-daily-card"].tap()
         XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
@@ -153,7 +197,7 @@ final class SavedCardsTests: XCTestCase {
         let displayedQuote = quote.label
         let displayedVibe = vibe.label
         let todayBounds = cardBounds(prefix: "daily-card")
-        assertSaveIconToggle(captureName: "CatIcon-Standard")
+        assertSaveIconToggle(captureName: "Bookmark-Standard")
         capture("12 Complete portrait Today card")
         app.buttons["save-daily-card"].tap()
         XCTAssertTrue(waitForValue(app.buttons["save-daily-card"], "Saved"))
@@ -184,7 +228,7 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(quote.waitForExistence(timeout: 10))
         let originalQuote = quote.label, originalVibe = vibe.label
         let todayBounds = cardBounds(prefix: "daily-card")
-        assertSaveIconToggle(captureName: "CatIcon-AX5")
+        assertSaveIconToggle(captureName: "Bookmark-AX5")
         capture("Pair-AX5-Today-Top")
         captureScrollableQuote(quote, vibe: vibe, name: "Pair-AX5-Today")
         app.buttons["save-daily-card"].tap()
@@ -216,7 +260,7 @@ final class SavedCardsTests: XCTestCase {
         capture(captureName + "-Unsaved")
         save.tap()
         XCTAssertTrue(waitForValue(save, "Saved"))
-        XCTAssertEqual(save.label, "Save Card")
+        XCTAssertEqual(save.label, "Remove from Saved Cards")
         XCTAssertEqual(save.frame, controlFrame)
         XCTAssertTrue(save.isHittable)
         assertMatchingBounds(before, cardBounds(prefix: "daily-card"), name: captureName + " toggle geometry")
@@ -290,9 +334,9 @@ final class SavedCardsTests: XCTestCase {
             let distance = min(abs(delta), bottom - top - 40)
             let startY = delta > 0 ? bottom - 20 : top + 20
             let endY = startY + (delta > 0 ? -distance : distance)
-            let origin = app.coordinate(withNormalizedOffset: .zero)
-            origin.withOffset(CGVector(dx: window.midX, dy: startY))
-                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: endY)),
+            let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.width / 2, dy: startY - window.minY))
+                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.width / 2, dy: endY - window.minY)),
                        withVelocity: .slow, thenHoldForDuration: 0.25)
         }
         for _ in 0..<12 where abs(quote.frame.minY - (top + 8)) > 12 {
@@ -312,6 +356,135 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertLessThanOrEqual(vibe.frame.maxY, bottom)
         XCTAssertTrue(vibe.isHittable)
         capture(name + "-Quote")
+    }
+
+    // Deterministic bundled extremes keep layout evidence independent of the date.
+    func testAdaptiveCardAndSavedTilesAcrossWindowSizes() throws {
+        var labels: [String] = []
+        for fixture in ["shortest", "longest"] {
+            XCUIDevice.shared.orientation = .portrait
+            app.terminate()
+            app.launchArguments = ["--ci-smoke", "--ci-smoke-\(fixture)-card",
+                                   "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+            app.launch()
+            let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+            XCTAssertTrue(quote.waitForExistence(timeout: 10))
+            labels.append(quote.label)
+            assertCardVisible(prefix: "daily-card")
+            capture("iPad \(fixture) portrait")
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
+            if app.windows.firstMatch.frame.height >= 800 {
+                assertCardVisible(prefix: "daily-card")
+                XCTAssertGreaterThan(app.descendants(matching: .any)["daily-card-frame"].firstMatch.frame.width, 800)
+            } else {
+                captureScrollableQuote(quote, vibe: app.descendants(matching: .any)["daily-card-vibe"].firstMatch,
+                                       name: "Narrow landscape \(fixture)")
+            }
+            capture("Window \(fixture) landscape")
+            let save = app.buttons["save-daily-card"]
+            if save.value as? String != "Saved" { save.tap() }
+            XCTAssertTrue(waitForValue(save, "Saved"))
+        }
+        XCUIDevice.shared.orientation = .portrait
+        app.buttons["open-saved-cards"].tap()
+        let rows = app.buttons.matching(identifier: "saved-card-row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.label)), Set(labels))
+        if app.windows.firstMatch.frame.width >= 660 { assertAlignedTiles(rows) }
+        else { XCTAssertGreaterThan(rows.element(boundBy: 1).frame.minY, rows.element(boundBy: 0).frame.maxY) }
+        capture("Window short and long Saved tiles portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        // iPad tiles reserve equal quote areas; the phone retains natural tile heights.
+        if UIDevice.current.userInterfaceIdiom == .pad { assertAlignedTiles(rows) }
+        capture("Window short and long Saved tiles landscape")
+        rows.firstMatch.tap()
+        XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
+        if app.windows.firstMatch.frame.height >= 800 { assertCardVisible(prefix: "saved-card") }
+        else {
+            captureScrollableQuote(app.descendants(matching: .any)["saved-card-quote"].firstMatch,
+                                   vibe: app.descendants(matching: .any)["saved-card-vibe"].firstMatch,
+                                   name: "Narrow saved detail")
+        }
+        capture("Window longest saved detail landscape")
+
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let full = app.windows.firstMatch.frame
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: full.maxX - 5, dy: full.maxY - 5))
+                .press(forDuration: 0.4, thenDragTo: origin.withOffset(CGVector(dx: full.minX + 650, dy: full.maxY - 100)),
+                       withVelocity: .slow, thenHoldForDuration: 0.4)
+            let narrowed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width < 800
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [narrowed], timeout: 10), .completed)
+            capture("Actual narrow window retained saved card")
+            XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, labels.last)
+            XCTAssertTrue(waitForOptionsValue("Saved"))
+            captureScrollableQuote(app.descendants(matching: .any)["saved-card-quote"].firstMatch,
+                                   vibe: app.descendants(matching: .any)["saved-card-vibe"].firstMatch,
+                                   name: "Actual narrow window")
+            let narrow = app.windows.firstMatch.frame
+            origin.withOffset(CGVector(dx: narrow.maxX - 5, dy: narrow.maxY - 5))
+                .press(forDuration: 0.4, thenDragTo: origin.withOffset(CGVector(dx: full.maxX - 5, dy: full.maxY - 5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.4)
+            let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width > 1000
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 10), .completed)
+            XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, labels.last)
+            XCTAssertTrue(waitForOptionsValue("Saved"))
+            capture("Actual wide window restored saved card")
+        }
+
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-longest-card",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["open-saved-cards"].waitForExistence(timeout: 10))
+        XCUIDevice.shared.orientation = .portrait
+        app.buttons["open-saved-cards"].tap()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        let first = rows.element(boundBy: 0), second = rows.element(boundBy: 1)
+        XCTAssertEqual(first.frame.minX, second.frame.minX, accuracy: 1)
+        XCTAssertEqual(first.frame.width, second.frame.width, accuracy: 1)
+        XCTAssertGreaterThan(second.frame.minY, first.frame.maxY)
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.label)), Set(labels))
+        capture("iPad accessibility full quotes single column")
+        first.tap()
+        let quote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["saved-card-vibe"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        XCTAssertEqual(quote.label, labels.last)
+        captureScrollableQuote(quote, vibe: vibe, name: "iPad longest accessibility portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        captureScrollableQuote(quote, vibe: vibe, name: "iPad longest accessibility landscape")
+    }
+
+    private func assertCardVisible(prefix: String) {
+        let quote = app.descendants(matching: .any)["\(prefix)-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["\(prefix)-vibe"].firstMatch
+        let card = app.descendants(matching: .any)["\(prefix)-frame"].firstMatch
+        XCTAssertTrue(vibe.waitForExistence(timeout: 5))
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = app.staticTexts["ci-smoke-offline"].frame.minY
+        XCTAssertGreaterThanOrEqual(card.frame.minY, top)
+        XCTAssertLessThanOrEqual(card.frame.maxY, bottom)
+        XCTAssertGreaterThanOrEqual(quote.frame.minY, top)
+        XCTAssertLessThanOrEqual(vibe.frame.maxY, bottom)
+        XCTAssertTrue(vibe.isHittable)
+    }
+
+    private func assertAlignedTiles(_ rows: XCUIElementQuery) {
+        let first = rows.element(boundBy: 0).frame, second = rows.element(boundBy: 1).frame
+        XCTAssertEqual(first.minY, second.minY, accuracy: 1)
+        XCTAssertEqual(first.maxY, second.maxY, accuracy: 1)
+        XCTAssertEqual(first.width, second.width, accuracy: 1)
     }
 
     private func waitForValue(_ element: XCUIElement, _ value: String) -> Bool {

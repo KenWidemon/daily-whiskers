@@ -9,6 +9,7 @@ final class SavedCardsModel: ObservableObject {
     private var retryAction: (() async -> Void)?
 
     init(repository: CardRepository = .shared) { self.repository = repository }
+    var canClear: Bool { !busy && !records.isEmpty }
     func contains(_ id: String) -> Bool { records.contains { $0.id == id } }
     func refresh() async {
         await perform { self.records = try await self.repository.favorites() }
@@ -64,4 +65,15 @@ struct SavedCardsError: ViewModifier {
             Button("Cancel", role: .cancel) { model.cancelError() }
         } message: { Text(model.errorMessage ?? "") }
     }
+}
+
+/// Shared visual state and next-action wording for Today, Bonus and retained detail.
+@MainActor
+struct CardSaveState {
+    let isSaved: Bool
+    var icon: Image { Image(uiImage: isSaved ? HeartEyesCatIcon.savedImage : HeartEyesCatIcon.unsavedImage) }
+    var actionLabel: String { isSaved ? "Remove from Saved Cards" : "Save Card" }
+    var value: String { isSaved ? "Saved" : "Not saved" }
+    var hint: String { isSaved ? "Removes this card from Saved Cards." : "Saves this card on this device." }
+    var detailTitle: String { isSaved ? "Saved Card" : "Card" }
 }

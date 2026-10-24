@@ -54,9 +54,19 @@ final class BonusCardTests: XCTestCase {
         capture("02 Bonus portrait")
         let save = app.buttons["save-daily-card"]
         if save.value as? String == "Saved" { save.tap(); saved("Not saved") }
+        XCTAssertEqual(save.label, "Save Card")
         save.tap(); saved("Saved")
+        XCTAssertEqual(save.label, "Remove from Saved Cards")
         XCTAssertEqual(bonusBounds, ["frame", "quote", "vibe"].map { element("bonus-card-" + $0).frame })
         capture("03 Bonus saved unchanged geometry")
+        var landscapeBonusBounds: [CGRect] = []
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            assertTabletCardFits(prefix: "bonus-card")
+            landscapeBonusBounds = ["frame", "quote", "vibe"].map { element("bonus-card-" + $0).frame }
+            capture("iPad Bonus complete landscape")
+            XCUIDevice.shared.orientation = .portrait
+        }
         today(); XCTAssertEqual(element("daily-card-quote").label, original)
         openBonus(); XCTAssertEqual(element("bonus-card-quote").label, quote)
         app.terminate(); app.launch()
@@ -75,6 +85,13 @@ final class BonusCardTests: XCTestCase {
             XCTAssertEqual(savedBounds.height, bonus.height, accuracy: 1)
         }
         capture("04 Exact saved bonus")
+        if !landscapeBonusBounds.isEmpty {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            assertTabletCardFits(prefix: "saved-card")
+            XCTAssertEqual(landscapeBonusBounds, ["frame", "quote", "vibe"].map { element("saved-card-" + $0).frame })
+            capture("iPad saved Bonus complete landscape")
+            XCUIDevice.shared.orientation = .portrait
+        }
         app.terminate(); app.launch(); openBonus()
         app.buttons["Share Bonus Card"].tap()
         let sheet = app.otherElements["ActivityListView"]
@@ -84,8 +101,20 @@ final class BonusCardTests: XCTestCase {
         XCTAssertFalse(sheet.frame.contains(outside.screenPoint)); outside.tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)], timeout: 10), .completed)
         save.tap(); saved("Not saved")
+        XCTAssertEqual(save.label, "Save Card")
         today(); XCTAssertEqual(element("daily-card-quote").label, original)
     }
+    private func assertTabletCardFits(prefix: String) {
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed)
+        let bounds = element(prefix + "-frame").frame
+        XCTAssertGreaterThanOrEqual(bounds.minY, app.navigationBars.firstMatch.frame.maxY)
+        XCTAssertLessThanOrEqual(bounds.maxY, app.staticTexts["ci-smoke-offline"].frame.minY)
+        XCTAssertTrue(element(prefix + "-vibe").isHittable)
+    }
+
     func testRetainedBonusOpensSavesAndSharesWhenTodayArtworkIsUnavailable() {
         openBonus()
         let quote = element("bonus-card-quote").label

@@ -112,15 +112,16 @@ struct DailyRitualCardView: View {
                 .accessibilityHidden(true)
 
             GeometryReader { geometry in
-                let cardWidth = max(0, min(geometry.size.width - 44, 520))
+                let availableWidth = max(0, geometry.size.width - 44)
                 let artwork = retainedArtwork ?? BundledCardArtwork.image(named: data.imageName)
                 let compact = CardViewportLayout.fitsPortrait(size: geometry.size, textSize: textSize)
+                let roomy = min(geometry.size.width, geometry.size.height) >= 600
                 let padding: CGFloat = compact ? 12 : 28
+                let viewport = CGSize(width: availableWidth, height: max(0, geometry.size.height - padding * 2))
                 ScrollView {
-                    RitualCardPresentation(data: data, artwork: artwork, compact: compact,
-                                           maximumHeight: compact ? geometry.size.height - padding * 2 : nil,
-                                           accessibilityPrefix: accessibilityPrefix)
-                    .frame(width: cardWidth)
+                    AdaptiveRitualCardPresentation(data: data, artwork: artwork, viewport: viewport,
+                                                   compact: compact, tightQuotePanel: roomy,
+                                                   accessibilityPrefix: accessibilityPrefix)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("\(accessibilityPrefix)-frame")
                     .padding(.vertical, padding)
@@ -134,6 +135,41 @@ struct DailyRitualCardView: View {
     }
 }
 
+/// Content-driven selection: a natural-height stack, then full-size columns when
+/// readable, then a natural-height scrolling stack. No device or orientation rule.
+struct AdaptiveRitualCardPresentation: View {
+    @Environment(\.dynamicTypeSize) private var textSize
+    let data: DailyCardData
+    let artwork: UIImage?
+    let viewport: CGSize
+    var compact: Bool
+    var tightQuotePanel: Bool
+    var accessibilityPrefix = "card"
+
+    private var stacked: some View {
+        RitualCardPresentation(data: data, artwork: artwork, compact: compact,
+                               tightQuotePanel: tightQuotePanel, accessibilityPrefix: accessibilityPrefix)
+            .frame(width: min(viewport.width, 520)).fixedSize(horizontal: false, vertical: true)
+    }
+
+    var body: some View {
+        CardViewportProposal(size: viewport) {
+            ViewThatFits(in: .vertical) {
+                stacked
+                if !textSize.isAccessibilitySize && viewport.width >= 840 {
+                    RitualCardPresentation(data: data, artwork: artwork, compact: false,
+                                           tightQuotePanel: true, sideBySide: true,
+                                           quoteColumnWidth: min(440, viewport.width - 520),
+                                           accessibilityPrefix: accessibilityPrefix)
+                        .fixedSize()
+                }
+                // No fitting candidate: let the outer ScrollView expose all content.
+                stacked
+            }
+        }
+    }
+}
+
 /// The card's shared visual content, independent of screen controls and scrolling.
 /// Export uses the ordinary-phone typography with natural, uncropped artwork height.
 struct RitualCardPresentation: View {
@@ -141,57 +177,82 @@ struct RitualCardPresentation: View {
     let artwork: UIImage?
     var compact: Bool
     var maximumHeight: CGFloat? = nil
+    // Screen-only variants; export defaults remain unchanged.
+    var tightQuotePanel = false
+    var sideBySide = false
+    var quoteColumnWidth: CGFloat = 440
     var accessibilityPrefix = "card"
     private var theme: ArchetypeTheme { .forArchetype(data.archetype) }
 
     var body: some View {
         RitualCard(theme: theme) {
-            CardViewportLayout(artworkAspectRatio: artwork.map { $0.size.width / $0.size.height } ?? 2 / 3,
-                               maximumHeight: maximumHeight) {
-                if let artwork {
-                    Image(uiImage: artwork)
-                        .resizable()
-                        .scaledToFit()
-                        .accessibilityHidden(true)
-                } else {
-                    Text("Artwork unavailable")
-                        .foregroundStyle(.white)
-                        .padding()
+            if sideBySide {
+                HStack(spacing: 0) {
+                    artworkContent.frame(width: 520, height: 520 / artworkAspectRatio)
+                    quotePanel.frame(width: quoteColumnWidth)
                 }
-                VStack(spacing: compact ? 8 : 18) {
-                    QuoteBlock(text: data.quote, theme: theme, compact: compact)
-                        .accessibilityIdentifier("\(accessibilityPrefix)-quote")
-                    if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        VibePill(text: data.vibe.uppercased(), theme: theme, compact: compact)
-                            .accessibilityIdentifier("\(accessibilityPrefix)-vibe")
-                    }
-                }
-                .padding(.horizontal, compact ? 16 : 24)
-                .padding(.vertical, compact ? 18 : 30)
-                .frame(maxWidth: .infinity)
-                .background {
-                    LinearGradient(
-                        colors: [.black.opacity(0.70), .black.opacity(0.86)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .overlay(alignment: .top) {
-                        LinearGradient(
-                            colors: [.clear, .black.opacity(0.70)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: compact ? 0 : 64)
-                        .offset(y: compact ? 0 : -64)
-                    }
+                .fixedSize(horizontal: true, vertical: true)
+            } else {
+                CardViewportLayout(artworkAspectRatio: artworkAspectRatio, maximumHeight: maximumHeight) {
+                    artworkContent
+                    quotePanel
                 }
             }
         }
     }
+
+    private var artworkAspectRatio: CGFloat {
+        max(artwork.map { $0.size.width / $0.size.height } ?? 2 / 3, 0.01)
+    }
+
+    @ViewBuilder private var artworkContent: some View {
+        if let artwork {
+            Image(uiImage: artwork).resizable().scaledToFit().accessibilityHidden(true)
+        } else {
+            Text("Artwork unavailable").foregroundStyle(.white).padding()
+        }
+    }
+
+    private var quotePanel: some View {
+        VStack(spacing: compact ? 8 : (tightQuotePanel ? 10 : 18)) {
+            QuoteBlock(text: data.quote, theme: theme, compact: compact,
+                       tightSpacing: tightQuotePanel, prominent: sideBySide)
+                .accessibilityIdentifier("\(accessibilityPrefix)-quote")
+            if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                VibePill(text: data.vibe.uppercased(), theme: theme, compact: compact)
+                    .accessibilityIdentifier("\(accessibilityPrefix)-vibe")
+            }
+        }
+        .padding(.horizontal, compact ? 16 : 24)
+        .padding(.vertical, compact || tightQuotePanel ? 18 : 30)
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: sideBySide ? .infinity : nil)
+        .background {
+            LinearGradient(colors: [.black.opacity(0.70), .black.opacity(0.86)],
+                           startPoint: .top, endPoint: .bottom)
+                .overlay(alignment: .top) {
+                    LinearGradient(colors: [.clear, .black.opacity(0.70)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: compact || sideBySide ? 0 : 64)
+                        .offset(y: compact || sideBySide ? 0 : -64)
+                }
+        }
+    }
+}
+
+/// Give ViewThatFits the real visible height even inside a vertical ScrollView.
+/// Return the selected child's natural size, so an oversized fallback can scroll.
+struct CardViewportProposal: Layout {
+    let size: CGSize
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews[0].sizeThatFits(ProposedViewSize(size))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(size))
+    }
 }
 
 /// Measures text at its requested Dynamic Type size before fitting uncropped artwork.
-/// Short landscape or accessibility layouts keep their natural height and scroll.
+/// When the measured text leaves too little artwork space, natural height scrolls.
 struct CardViewportLayout: Layout {
     let artworkAspectRatio: CGFloat
     var maximumHeight: CGFloat?
@@ -302,9 +363,11 @@ private struct QuoteBlock: View {
     let text: String
     let theme: ArchetypeTheme
     var compact = false
+    var tightSpacing = false
+    var prominent = false
 
     var body: some View {
-        VStack(spacing: compact ? 0 : 14) {
+        VStack(spacing: compact ? 0 : (tightSpacing ? 6 : 14)) {
             if !compact { HStack {
                 Text("“")
                     .font(.system(.title, design: .serif).weight(.semibold))
@@ -314,7 +377,7 @@ private struct QuoteBlock: View {
             } }
 
             Text(text)
-                .font(.system(compact ? .title3 : .title2, design: .serif).weight(.semibold))
+                .font(.system(prominent ? .largeTitle : (compact ? .title3 : .title2), design: .serif).weight(.semibold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(theme.quote)
                 .fixedSize(horizontal: false, vertical: true)

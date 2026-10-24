@@ -51,7 +51,7 @@ evidence below remain useful without overriding this candidate's scoped decision
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
-- Required offline UI CI runs all five `RegressionSmokeTests` and all five
+- Required offline UI CI runs all five `RegressionSmokeTests` and all
   `SavedCardsTests`, including the complete Favorites lifecycle. Both classes
   are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
@@ -391,11 +391,14 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
 
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
-- Check the text-free heart-eyes cat save control beside Share and Settings: its
-  monochrome vector matches their tint, and a checkmark appears when
-  saved, the accessible label remains **Save Card**, and its **Saved/Not saved**
-  value changes. Save and unsave must preserve control and card geometry at
-  standard and largest accessibility text sizes on regular and small phones.
+- Check the text-free monochrome heart-eyes cat save control on Today and Bonus:
+  clear cat when unsaved, lower-trailing check badge when saved, with the same tint
+  as Share and Settings. Its
+  accessible action changes between **Save Card** and **Remove from Saved Cards**,
+  and its **Saved/Not saved** value changes. The stacked-card collection navigation
+  stays distinct. Verify the same original cat artwork in the saved/remove and
+  unsaved/re-save detail menus and empty collection guidance. Save and unsave must
+  preserve control and card geometry at standard and largest accessibility text sizes on regular and small phones.
 - Save an identical version twice without changing order. Save another quote or
   artwork version of the same stable cat ID and verify both versions survive.
   Reordering/renaming the current pack must not change saved content identity.
@@ -412,8 +415,11 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   initial migration rollback/retry and consistent SQLite backup/restore including
   future day-selection references. Simulated disk-full errors are not a physical
   low-storage or power-loss test; record that limit.
-- Unsave one card while leaving its open detail readable; resave it. Confirm clear
-  removes favorites only; cancel retains them. Referenced day content and active
+- Unsave one card while leaving its open detail readable; its title must change
+  from **Saved Card** to **Card**, then return on re-save. Confirm Clear is disabled
+  while empty or busy, enabled after saving, and disabled again after removing the
+  last card or confirmed clearing. Clear removes favorites only; cancel retains
+  them and leaves Clear enabled. Referenced day content and active
   share content must survive cleanup. No implicit clear follows auth transitions.
 - Compare Today and saved detail for the same card on the same device and text
   size. Verify matching themed frame, quote background, Vibe pill and text while
@@ -426,11 +432,23 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   rectangle is 44 points high. No removal footer reserves content height. Use the
   saved snapshot's theme
   and content even when the current manifest differs.
+- Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
+  offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
+  spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve
+  the artwork size, not merely fit the card bounds. Compare two iPad Saved tile
+  top/bottom edges for unequal quote lengths. Resize an iPad window narrower and
+  wider while a saved detail stays open; content identity and save state must remain.
+  `DailyCardShareVisualTests` compares rendered artwork pixels at identical scale
+  across stacked, wide, narrow and accessibility presentations, and verifies the
+  natural-height scrolling fallback. Repeat at the largest accessibility size:
+  one column, complete quotes, reachable
+  full detail and Vibe through scrolling. These simulator fixtures never inspect
+  an owner device or its saved collection.
 - Review phone/tablet, default/largest text, portrait/landscape and Reduce Motion.
   Check empty and multi-card collections, centered tablet widths, and single-column
-  accessibility layouts. At ordinary text sizes, all bundled cards must fit small
-  iPhone portrait viewports with complete artwork and quote/vibe visible; preserve
-  scrolling when larger text or unusually long content needs it. The secondary
+  accessibility layouts. Check ordinary phone portrait fit and complete artwork;
+  shorter windows, larger text and unusually long content must scroll instead of
+  shrinking artwork or text. The secondary
   removal action retains its complete accessible label and a 44-point touch target.
   Saved thumbnails/quote excerpts must be usable and the reopened quote/vibe and
   actions reachable. VoiceOver speech/focus require separate observed acceptance;
@@ -458,7 +476,7 @@ and return navigation. This injection requires both `DEBUG`/`CI_SMOKE_TESTING` a
 
 Compare Today, Bonus and its saved detail on regular/small iPhone and iPad with
 ordinary and largest text. Preserve complete ordinary-phone artwork/quote/Vibe,
-quote padding, the monochrome heart-eyes Save control and unchanged share export.
+quote padding, the monochrome heart-eyes cat Save control and unchanged share export.
 At larger text and in landscape, scroll to both quote boundaries and Vibe; verify
 menu, Save and Share remain reachable. Test foreground midnight and travel on an
 explicitly authorized device without changing the owner's clock/settings as part

@@ -50,6 +50,10 @@ struct DailyWhiskersView: View {
         return displayedSnapshot
     }
 
+    private var saveState: CardSaveState {
+        CardSaveState(isSaved: activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -120,23 +124,15 @@ struct DailyWhiskersView: View {
                         guard let displayedSnapshot = activeSnapshot else { Task { await captureDisplayedCard() }; return }
                         Task { await savedCards.toggle(displayedSnapshot); saveFocused = true }
                     } label: {
-                        HeartEyesCatIcon()
-                            .frame(width: 32, height: 32)
-                            .overlay(alignment: .bottomTrailing) {
-                                if activeSnapshot.map({ savedCards.contains($0.snapshot.id) }) == true {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .symbolRenderingMode(.palette)
-                                        .foregroundStyle(.black, .white)
-                                }
-                            }
+                        saveState.icon
+                            .accessibilityHidden(true)
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .disabled(activeSnapshot == nil || savedCards.busy || accountSheet != nil || shareState.isRendering || shareState.export != nil)
-                    .accessibilityValue(activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true ? "Saved" : "Not saved")
-                    .accessibilityLabel("Save Card")
-                    .accessibilityHint(activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true ? "Removes this card from Saved Cards." : "Saves this card on this device.")
+                    .accessibilityValue(saveState.value)
+                    .accessibilityLabel(saveState.actionLabel)
+                    .accessibilityHint(saveState.hint)
                     .accessibilityIdentifier("save-daily-card")
                     .accessibilityFocused($saveFocused)
                 }
@@ -173,7 +169,7 @@ struct DailyWhiskersView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Clear Saved Cards", role: .destructive) { confirmingClear = true }
-                            .disabled(savedCards.busy)
+                            .disabled(!savedCards.canClear)
                         Divider()
                         Link("Privacy Policy", destination: AppLinks.privacyPolicy)
                         Link("Support", destination: AppLinks.support)
@@ -343,9 +339,11 @@ struct DailyWhiskersView: View {
     }
 }
 
-/// A template-style vector using the dark toolbar's primary foreground color.
-private struct HeartEyesCatIcon: View {
-    private var drawing: Path {
+/// Original heart-eyes cat vector, shared as a template image so native menus
+/// retain the same artwork as the toolbar and empty-state guidance.
+@MainActor
+enum HeartEyesCatIcon {
+    private static var drawing: Path {
         let outline = Path { path in
             path.move(to: CGPoint(x: 3.5, y: 9))
             path.addLine(to: CGPoint(x: 3, y: 2))
@@ -385,10 +383,33 @@ private struct HeartEyesCatIcon: View {
         return result
     }
 
-    var body: some View {
-        drawing.fill(Color.primary)
-            .frame(width: 24, height: 24)
-            .accessibilityHidden(true)
+    static let unsavedImage = render(isSaved: false)
+    static let savedImage = render(isSaved: true)
+
+    private static func render(isSaved: Bool) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32), format: format).image { context in
+            let cg = context.cgContext
+            cg.saveGState()
+            cg.translateBy(x: 4, y: 4)
+            cg.addPath(drawing.cgPath)
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillPath()
+            cg.restoreGState()
+            if isSaved {
+                // Keep the original lower-trailing check badge and a clear cutout
+                // behind it; template tinting must not fill the check's negative space.
+                let badge = CGRect(x: 20, y: 20, width: 12, height: 12)
+                cg.setBlendMode(.clear)
+                cg.fillEllipse(in: badge)
+                cg.setBlendMode(.normal)
+                UIImage(systemName: "checkmark.circle.fill",
+                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))?
+                    .withTintColor(.white, renderingMode: .alwaysOriginal).draw(in: badge)
+            }
+        }.withRenderingMode(.alwaysTemplate)
     }
 }
 
