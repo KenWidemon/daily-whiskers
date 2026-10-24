@@ -35,13 +35,13 @@ struct DailyWhiskersView: View {
     @State private var displayedSnapshot: RetainedCard?
     @State private var captureError: String?
     @State private var confirmingClear = false
-    @AccessibilityFocusState private var cardOptionsFocused: Bool
+    @State private var cardOptionsFocused: Bool = false
     @State private var contentState = DailyContentState()
     @StateObject private var accountRequest = AuthRequestState()
     @StateObject private var deletionRequest = AuthRequestState()
     @State private var accountSheet: AccountSheet?
     @StateObject private var shareState = DailyCardShareState()
-    @AccessibilityFocusState private var settingsFocused: Bool
+    @State private var settingsFocused: Bool = false
 
     private var activeSnapshot: RetainedCard? {
         if let bonusCard { return bonusCard }
@@ -51,6 +51,60 @@ struct DailyWhiskersView: View {
 
     private var saveState: CardSaveState {
         CardSaveState(isSaved: activeSnapshot.map { savedCards.contains($0.snapshot.id) } == true)
+    }
+
+    private var nativeToolbar: CardNavigationToolbar {
+        let share = CardNavigationToolbar.action(bonusCard == nil ? "Share Today's Card" : "Share Bonus Card",
+            identifier: "share-daily-card", image: UIImage(systemName: "square.and.arrow.up"),
+            hint: "Shares the artwork and quote. You choose where to send it.") {
+                guard let snapshot = activeSnapshot else { return }
+                cardOptionsFocused = false
+                Task { await shareState.start(retained: snapshot) }
+            }
+        let save = CardNavigationToolbar.action(saveState.actionLabel, identifier: "save-daily-card",
+            image: saveState.isSaved ? HeartEyesCatIcon.savedImage : HeartEyesCatIcon.unsavedImage,
+            hint: saveState.hint, value: saveState.value, destructive: saveState.isSaved) {
+                guard let snapshot = activeSnapshot else { return }
+                Task { await savedCards.toggle(snapshot); cardOptionsFocused = true }
+            }
+        return CardNavigationToolbar(options: .init(identifier: "daily-card-options",
+            label: shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Today's Card Options" : "Bonus Card Options"),
+            hint: "Opens share, save, and remove actions for this card.", value: saveState.value,
+            image: "ellipsis", enabled: activeSnapshot != nil && !savedCards.busy && accountSheet == nil && !shareState.isRendering && shareState.export == nil,
+            menu: UIMenu(children: [share, save])),
+            settings: .init(identifier: "Settings", label: "Settings",
+                hint: "Opens privacy, support, and optional account tools.", image: "gearshape",
+                enabled: !shareState.isRendering && shareState.export == nil,
+                hiddenFromAccessibility: accountSheet != nil, menu: nativeSettingsMenu),
+            export: shareState.export, onShareComplete: { failed in
+                shareState.completeActivity(failed: failed)
+                shareState.sheetDismissed()
+                cardOptionsFocused = true
+            }, optionsFocused: $cardOptionsFocused, settingsFocused: $settingsFocused)
+    }
+
+    private var nativeSettingsMenu: UIMenu {
+        let clear = CardNavigationToolbar.action("Clear Saved Cards", disabled: !savedCards.canClear,
+            destructive: true) { confirmingClear = true }
+        let links = [CardNavigationToolbar.action("Privacy Policy") { UIApplication.shared.open(AppLinks.privacyPolicy) },
+                     CardNavigationToolbar.action("Support") { UIApplication.shared.open(AppLinks.support) }]
+        let account: [UIMenuElement]
+        switch router.authState {
+        case .loading:
+            account = [CardNavigationToolbar.action("Checking Account...", disabled: true) {}]
+        case .signedOut:
+            account = [CardNavigationToolbar.action("Sign In", hint: "Optional. Daily cards are available without an account.") {
+                settingsFocused = false; accountSheet = .signIn
+            }]
+        case .signedIn:
+            account = [CardNavigationToolbar.action("Log Out", disabled: accountRequest.isWorking, destructive: true) { logOut() },
+                       CardNavigationToolbar.action("Delete Account", disabled: accountRequest.isWorking, destructive: true) {
+                           deletionRequest.clearFeedback(); settingsFocused = false; accountSheet = .deletion
+                       }]
+        }
+        return UIMenu(children: [UIMenu(options: .displayInline, children: [clear]),
+                                 UIMenu(options: .displayInline, children: links),
+                                 UIMenu(options: .displayInline, children: account)])
     }
 
     var body: some View {
@@ -118,92 +172,8 @@ struct DailyWhiskersView: View {
                         Label("Saved Cards", systemImage: "rectangle.stack")
                     }.accessibilityIdentifier("open-saved-cards")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            guard let snapshot = activeSnapshot else { return }
-                            cardOptionsFocused = false
-                            Task { await shareState.start(retained: snapshot) }
-                        } label: {
-                            Label(bonusCard == nil ? "Share Today's Card" : "Share Bonus Card",
-                                  systemImage: "square.and.arrow.up")
-                        }
-                        .accessibilityHint("Shares the artwork and quote. You choose where to send it.")
-                        .accessibilityIdentifier("share-daily-card")
-                        Button(role: saveState.isSaved ? .destructive : nil) {
-                            guard let snapshot = activeSnapshot else { return }
-                            Task { await savedCards.toggle(snapshot); cardOptionsFocused = true }
-                        } label: {
-                            Label { Text(saveState.actionLabel) } icon: { saveState.icon }
-                        }
-                        .accessibilityValue(saveState.value)
-                        .accessibilityHint(saveState.hint)
-                        .accessibilityIdentifier("save-daily-card")
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .menuStyle(.button)
-                    .buttonStyle(.plain)
-                    .disabled(activeSnapshot == nil || savedCards.busy || accountSheet != nil || shareState.isRendering || shareState.export != nil)
-                    .accessibilityLabel(shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Today's Card Options" : "Bonus Card Options"))
-                    .accessibilityHint("Opens share, save, and remove actions for this card.")
-                    .accessibilityValue(saveState.value)
-                    .accessibilityIdentifier("daily-card-options")
-                    .accessibilityFocused($cardOptionsFocused)
-                    // Anchor the share sheet to a control that survives menu dismissal.
-                    .background {
-                        DailyCardShareSheet(export: shareState.export) { failed in
-                            shareState.completeActivity(failed: failed)
-                            shareState.sheetDismissed()
-                            cardOptionsFocused = true
-                        }
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Clear Saved Cards", role: .destructive) { confirmingClear = true }
-                            .disabled(!savedCards.canClear)
-                        Divider()
-                        Link("Privacy Policy", destination: AppLinks.privacyPolicy)
-                        Link("Support", destination: AppLinks.support)
-                        Divider()
-                        switch router.authState {
-                        case .loading:
-                            Button("Checking Account...") { }
-                                .disabled(true)
-                        case .signedOut:
-                            Button("Sign In") {
-                                settingsFocused = false
-                                accountSheet = .signIn
-                            }
-                            .accessibilityHint("Optional. Daily cards are available without an account.")
-                        case .signedIn:
-                            Button("Log Out", role: .destructive) { logOut() }
-                                .disabled(accountRequest.isWorking)
-                            Button("Delete Account", role: .destructive) {
-                                deletionRequest.clearFeedback()
-                                settingsFocused = false
-                                accountSheet = .deletion
-                            }
-                            .disabled(accountRequest.isWorking)
-                        }
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .disabled(shareState.isRendering || shareState.export != nil)
-                    .accessibilityLabel("Settings")
-                    .accessibilityHint("Opens privacy, support, and optional account tools.")
-                    .accessibilityFocused($settingsFocused)
-                    // A closing menu must not restore focus behind its account sheet.
-                    .accessibilityHidden(accountSheet != nil)
-                }
             }
+            .background { nativeToolbar.frame(width: 0, height: 0) }
             .modifier(SavedCardsError(model: savedCards))
             .alert("Clear Saved Cards?", isPresented: $confirmingClear) {
                 Button("Clear Saved Cards", role: .destructive) { Task { await savedCards.clear(); settingsFocused = true } }

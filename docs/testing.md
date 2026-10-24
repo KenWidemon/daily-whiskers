@@ -346,8 +346,12 @@ Watermark scale, opacity, placement and export sizing require Ken's visual appro
 The interaction suite checks launch in either orientation, repeated bidirectional
 rotation before sharing, current-window canvas bounds and quote centering, scroll
 recovery to the complete quote/vibe, and rotation with the system share sheet open.
-The toolbar uses a view-only UIKit anchor: embedding a controller there previously
-left the main canvas at its launch dimensions while the toolbar rotated.
+The card toolbar installs native `UIBarButtonItem` menus from a controller in the
+screen background, outside SwiftUI toolbar content. The transparent share anchor
+uses the persistent Options bar item for iPad popovers. Keep the controller out
+of toolbar content: embedding a controller there previously left the main canvas
+at its launch dimensions while the toolbar rotated. Preserve these rotation and
+share-dismissal checks when changing the bridge or navigation ownership.
 
 On both iPhone and iPad, record the exact SHA/build and OS, then:
 
@@ -428,8 +432,8 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   of matching geometry. Open Saved Card Options, dismiss without removing, then
   remove and resave the open card; confirm the options control's accessible label,
   state and activation, and a menu-action height of at least 44 points. The options
-  menu requests a 44-point label with explicit button/plain styles; the native
-  toolbar host can still constrain actual hit testing, so dimensions are not a pass.
+  menu uses a native `UIBarButtonItem` and `UIMenu`; platform hosting can still
+  affect actual hit testing, so native appearance and dimensions are not a pass.
   Run the ordinary-portrait and largest-text paired-geometry tests on iPhone and
   iPad: coordinate taps at the trigger center and all eight edge/corner samples
   at offsets of ±21.5 points on each axis must open the menu; dismissal must retain
