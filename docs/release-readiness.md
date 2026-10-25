@@ -19,7 +19,10 @@ Configuration guide, not a second release roadmap. See the
 - Prepared marketing version is `1.1`, build `3`; frozen V1 remains `1.0 (1)`.
   Configuration does not reserve the build number in App Store Connect or prove
   archive, signing, upload, or release readiness. Recheck availability before upload.
-- iOS deployment target remains 17.0; iPhone and iPad remain supported.
+- V1.2 requires iOS/iPadOS 26.2 or later; iPhone and iPad remain supported.
+  Earlier OS versions are outside V1.2 support. This policy does not change frozen
+  releases or turn unresolved iOS 17 results into passing evidence. Verify the built
+  `MinimumOSVersion` and qualify the exact 26.2 runtime separately from newer-OS tests.
 - All 18 AppIcon slots were checked against their declared pixel dimensions;
   every referenced PNG exists and has no alpha channel.
 - Local Firebase configuration remains ignored by Git. The CI plist is fake

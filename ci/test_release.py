@@ -85,7 +85,8 @@ class ReleasePolicyTests(unittest.TestCase):
         self.replace_file("app/info.json", missing)
         self.assertFalse(self.validate()["passed"])
         for field, value in (("device_families", [1]), ("device_families", [True, 2]),
-                             ("minimum_os", "99"), ("orientations", [])):
+                             ("minimum_os", "17.0"), ("minimum_os", "26.0"),
+                             ("minimum_os", "26.1"), ("minimum_os", "99"), ("orientations", [])):
             self.replace_file("app/info.json", dict(info, **{field: value}))
             self.assertIn("package_platform", self.validate()["errors"])
 
