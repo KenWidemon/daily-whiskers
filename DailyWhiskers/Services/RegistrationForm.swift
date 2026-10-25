@@ -2,9 +2,18 @@ import Foundation
 
 /// Transient registration input. Never persisted or shared with Sign In.
 struct RegistrationForm: Equatable {
-    var email = ""
+    var email = "" {
+        didSet {
+            if !canEditPassword { maskPasswords() }
+        }
+    }
     var password = ""
     var passwordVisible = false
+
+    // Contain native secure-field disclosure with an empty username. This is
+    // an entry-order rule, separate from validating the address on submission.
+    var canEditPassword: Bool { !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    static let emailFirstGuidance = "Enter an email before entering a password."
 
     // Ken's selected Apple Account-style baseline for new registrations.
     // Firebase still permits six-character passwords; see the README's policy

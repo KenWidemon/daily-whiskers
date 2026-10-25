@@ -120,6 +120,21 @@ model replacements and discarded forms must not be restored by queued work.
 Programmatic secure-entry caret restoration must not publish a temporary cleared
 model. Coverage also uses production-shaped `@State RegistrationForm` bindings
 with native delegates active.
+Create Account requires nonblank email before Password and Show/Hide are enabled;
+whitespace alone remains blank, while a partial address enables entry without
+passing submission validation. The disabled field/control and visible guidance
+explain the entry order. Clearing email remasks and retains the password, returns
+focus to Email if needed, and disables password controls until email is nonblank.
+This is compatibility containment for the empty-username disclosure reproduced
+with native UIKit fields, not a repair of UIKit internals or a provider fix.
+
+The combined visibility/refocus regression covers initial empty/whitespace email,
+partial and populated addresses, explicit Show then Hide, and two Email → Password
+round trips. It also clears Email while Password is revealed, restores Email,
+and deliberately deletes/retypes the password. Check focus, selection, retained
+input, disabled accessibility state and working Show/Hide. Inspect rendered masking:
+a true native secure-entry flag alone is not proof that displayed text is masked.
+Use direct simulator captures if XCTest screenshots omit secure-field contents.
 These tests exercise the bridge ordering, not an actual password provider.
 
 Apple Passwords strong-password acceptance remains an unresolved physical-device
