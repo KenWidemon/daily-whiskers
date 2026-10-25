@@ -6,6 +6,28 @@ import Testing
 @Suite("Dedicated registration")
 @MainActor
 struct RegistrationTests {
+    @Test("Password entry requires nonblank email, not a valid address", arguments: [
+        ("", false), (" \t\n", false), ("\u{00a0}", false), ("a", true), ("cat@", true), (" cat@example.invalid ", true)
+    ])
+    func emailFirstEntry(_ email: String, _ available: Bool) {
+        #expect(RegistrationForm(email: email).canEditPassword == available)
+    }
+
+    @Test("Clearing email remasks without clearing the exact password; restoring email stays masked",
+          arguments: ["", " \t\n"])
+    func clearingEmailRetainsPassword(_ blank: String) {
+        let original = " Aé🐈1z "
+        var form = RegistrationForm(email: "cat@", password: original, passwordVisible: true)
+        form.email = blank
+        #expect(!form.canEditPassword)
+        #expect(!form.passwordVisible)
+        #expect(form.password.utf8.elementsEqual(original.utf8))
+        form.email = "x"
+        #expect(form.canEditPassword)
+        #expect(!form.passwordVisible)
+        #expect(form.password.utf8.elementsEqual(original.utf8))
+    }
+
     @Test("One password is sufficient and submitted without alteration")
     func singlePasswordRegistration() async {
         let request = AuthRequestState()

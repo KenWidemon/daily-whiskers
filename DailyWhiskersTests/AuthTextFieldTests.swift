@@ -6,6 +6,56 @@ import UIKit
 @Suite("Native authentication fields", .serialized)
 @MainActor
 struct AuthTextFieldTests {
+    @Test("Masked password stays secure and toggle remains usable across consecutive email round trips", arguments: [false, true])
+    func visibilityThenRepeatedRefocus(populateEmail: Bool) async throws {
+        let host = try HostedStateRegistrationFields()
+        defer { host.close() }
+        try await host.settle()
+        let password = try #require(host.field("state-password"))
+        let email = try #require(host.field("state-email"))
+        if populateEmail {
+            #expect(email.becomeFirstResponder())
+            email.insertText("refocus@example.invalid")
+            try await host.settle()
+        } else {
+            #expect(email.text?.isEmpty != false)
+        }
+        #expect(password.becomeFirstResponder())
+        password.insertText("Synthetic-Refocus-42")
+        try await host.settle()
+        for visible in [true, false] {
+            host.probe.visible = visible
+            try await host.settle()
+            #expect(password.isSecureTextEntry == !visible)
+        }
+        for _ in 0..<2 {
+            #expect(!host.probe.form.passwordVisible)
+            #expect(password.isSecureTextEntry)
+            #expect(email.becomeFirstResponder())
+            try await host.settle()
+            #expect(password.becomeFirstResponder())
+            try await host.settle()
+            #expect(!host.probe.form.passwordVisible)
+            #expect(password.isSecureTextEntry)
+            #expect(password.text == "Synthetic-Refocus-42")
+            #expect(host.probe.form.password == "Synthetic-Refocus-42")
+            for visible in [true, false] {
+                host.probe.visible = visible
+                try await host.settle()
+                #expect(password.isSecureTextEntry == !visible)
+                #expect(password.isFirstResponder)
+                #expect(password.text == "Synthetic-Refocus-42")
+            }
+        }
+        password.selectedTextRange = password.textRange(from: password.beginningOfDocument, to: password.endOfDocument)
+        password.deleteBackward()
+        try await host.settle()
+        #expect(host.probe.form.password.isEmpty)
+        password.insertText("Synthetic-Retyped-7")
+        try await host.settle()
+        #expect(host.probe.form.password == "Synthetic-Retyped-7")
+    }
+
     @Test("Repeated registration mounts discard old native fields and accept new native edits")
     func repeatedRegistrationMounts() async throws {
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
@@ -49,6 +99,7 @@ struct AuthTextFieldTests {
             #expect(email.keyboardType == .emailAddress)
             #expect(email.becomeFirstResponder())
             email.insertText("repeat@example.invalid")
+            try await settle() // Let the email-first gate enable the native password field.
             #expect(password.becomeFirstResponder())
             try await settle()
             // Synthetic native replacement exercises the bridge, not the
@@ -114,6 +165,47 @@ struct AuthTextFieldTests {
         #expect(password.passwordRules?.passwordRulesDescriptor == RegistrationForm.passwordRules)
         #expect(password.isSecureTextEntry)
         #expect(password.returnKeyType == .done)
+        #expect(!password.isEnabled)
+        #expect(password.accessibilityHint == RegistrationForm.emailFirstGuidance)
+        #expect(email.becomeFirstResponder())
+        email.insertText(" ")
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(!password.isEnabled)
+        email.insertText("x")
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(password.isEnabled)
+        #expect(password.becomeFirstResponder())
+        password.insertText("Synthetic-Refocus-42")
+        try await Task.sleep(for: .milliseconds(200))
+        let start = try #require(password.position(from: password.beginningOfDocument, offset: 2))
+        let end = try #require(password.position(from: password.beginningOfDocument, offset: 5))
+        password.selectedTextRange = password.textRange(from: start, to: end)
+        #expect(email.becomeFirstResponder())
+        #expect(password.becomeFirstResponder())
+        let ordinary = try #require(password.selectedTextRange)
+        let ordinaryOffsets = (password.offset(from: password.beginningOfDocument, to: ordinary.start),
+                               password.offset(from: password.beginningOfDocument, to: ordinary.end))
+        password.selectedTextRange = password.textRange(from: start, to: end)
+        // A native email replacement can arrive while Password still has focus.
+        email.text = ""
+        email.sendActions(for: .editingChanged)
+        try await Task.sleep(for: .milliseconds(250))
+        #expect(!password.isEnabled)
+        #expect(password.isSecureTextEntry)
+        #expect(!password.isFirstResponder)
+        #expect(email.isFirstResponder)
+        #expect(password.text == "Synthetic-Refocus-42")
+        email.insertText("x")
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(password.isEnabled)
+        #expect(password.becomeFirstResponder())
+        let restored = try #require(password.selectedTextRange)
+        #expect(password.offset(from: password.beginningOfDocument, to: restored.start) == ordinaryOffsets.0)
+        #expect(password.offset(from: password.beginningOfDocument, to: restored.end) == ordinaryOffsets.1)
+        // Re-enabling retains ordinary focus behavior and permits range replacement.
+        password.selectedTextRange = password.textRange(from: start, to: end)
+        password.insertText("x")
+        #expect(password.text == "Syxetic-Refocus-42")
     }
 
     @Test("Email account identifiers use username semantics with an email keyboard")
@@ -507,6 +599,7 @@ struct AuthTextFieldTests {
 
 @MainActor
 private final class StateRegistrationProbe: ObservableObject {
+    @Published var visible = false
     @Published var revision = 0
     @Published var clearRequest = 0
     var form = RegistrationForm()
@@ -536,6 +629,7 @@ private struct StateRegistrationHarness: View {
                           onSubmit: {})
         }
         .onChange(of: form) { _, updated in probe.form = updated }
+        .onChange(of: probe.visible) { _, visible in form.passwordVisible = visible }
         .onChange(of: probe.clearRequest) { _, _ in
             focusedField = nil
             form.clearPasswords()
