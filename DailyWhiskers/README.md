@@ -335,6 +335,11 @@ spam), login persistence after relaunch, and offline/retry behavior. A reset req
 alone does not change the password; completing the emailed link does.
 
 ## Setup
+
+V1.2 supports iPhone and iPad running iOS/iPadOS 26.2 or later. The deployment
+target is defined in `project.yml`; testing on a newer OS does not qualify the
+exact 26.2 minimum runtime. Earlier released builds retain their recorded support.
+
 1. Install XcodeGen:
    - `brew install xcodegen`
 2. Generate project:

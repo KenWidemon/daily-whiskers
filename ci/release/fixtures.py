@@ -15,7 +15,7 @@ def make(root):
     entitlements = {"associated_domains": ["webcredentials:fixture.invalid"]}
     files = {
         "app/info.json": canonical(dict(identity=identity, ITSAppUsesNonExemptEncryption=False,
-                                        device_families=[1, 2], minimum_os="17.0",
+                                        device_families=[1, 2], minimum_os="26.2",
                                         orientations=["portrait", "landscape"])),
         "app/firebase.json": canonical(firebase),
         "app/content.json": b'{"fixture":true}',

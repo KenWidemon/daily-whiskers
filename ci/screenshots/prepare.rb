@@ -40,7 +40,7 @@ firebase = pins.find { |pin| pin.fetch('identity') == 'firebase-ios-sdk' }
 abort 'Missing Firebase dependency pin' unless firebase
 spec = {
   'name' => 'WhiskersScreenshots',
-  'options' => { 'deploymentTarget' => { 'iOS' => '17.0' } },
+  'options' => { 'deploymentTarget' => { 'iOS' => '26.2' } },
   'packages' => {
     'Firebase' => { 'url' => firebase.fetch('location'), 'exactVersion' => firebase.fetch('state').fetch('version') }
   },

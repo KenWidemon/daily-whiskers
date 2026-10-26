@@ -11,6 +11,12 @@ struct DistributionConfigurationTests {
         return try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
     }
 
+    @Test("V1.2 requires iOS and iPadOS 26.2 in the packaged app")
+    func minimumSupportedOS() throws {
+        let info = try packagedInfo()
+        #expect(info["MinimumOSVersion"] as? String == "26.2")
+    }
+
     @Test("iPad declares all orientations without requiring full screen")
     func iPadOrientations() throws {
         let info = try packagedInfo()

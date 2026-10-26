@@ -86,7 +86,7 @@ def validate(manifest, expected, root, inspection, ci, now):
         require(info["identity"] == identity, "package_identity")
         require(info["ITSAppUsesNonExemptEncryption"] is False, "encryption")
         require(info["device_families"] == [1, 2]
-                and all(type(v) is int for v in info["device_families"]) and info["minimum_os"] == "17.0"
+                and all(type(v) is int for v in info["device_families"]) and info["minimum_os"] == "26.2"
                 and info["orientations"] == ["portrait", "landscape"], "package_platform")
         firebase = json.loads(files["app/firebase.json"])
         require(firebase == expected["firebase"]
