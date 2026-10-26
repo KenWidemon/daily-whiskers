@@ -20,6 +20,7 @@ case "${1:?Specify resolve, unit, ui or release}" in
     xcodebuild test "${common[@]}" -scheme DailyWhiskersInteraction -configuration Debug \
       'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
       -only-testing:DailyWhiskersUITests/RegressionSmokeTests \
+      -only-testing:DailyWhiskersUITests/SavedCardsTests \
       -destination "platform=iOS Simulator,id=$SIMULATOR_ID,arch=arm64" \
       -derivedDataPath build/SmokeDerivedData -resultBundlePath build/SmokeResults.xcresult \
       -parallel-testing-enabled NO

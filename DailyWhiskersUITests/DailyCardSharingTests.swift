@@ -23,6 +23,142 @@ final class DailyCardSharingTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
     }
 
+    func testActualExportPayloadsForTodayBonusAndSaved() {
+        XCUIDevice.shared.orientation = .portrait
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-export-evidence", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        let daily = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+        XCTAssertTrue(daily.waitForExistence(timeout: 10))
+        let todayQuote = daily.label
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertTrue(app.windows.firstMatch.frame.contains(app.descendants(matching: .any)["daily-card-frame"].firstMatch.frame))
+        }
+        captureExportReview("01-Today-app")
+        shareAndCancel("02-Today-system-sheet", button: app.buttons["share-daily-card"])
+        saveCurrentCard()
+        let menu = app.buttons["card-menu"]
+        menu.tap(); app.buttons["Open Bonus Card"].tap()
+        let bonus = app.descendants(matching: .any)["bonus-card-quote"].firstMatch
+        XCTAssertTrue(bonus.waitForExistence(timeout: 15))
+        let bonusQuote = bonus.label
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertTrue(app.windows.firstMatch.frame.contains(app.descendants(matching: .any)["bonus-card-frame"].firstMatch.frame))
+        }
+        XCTAssertNotEqual(todayQuote, bonusQuote)
+        captureExportReview("03-Bonus-app")
+        shareAndCancel("04-Bonus-system-sheet", button: app.buttons["share-daily-card"])
+        saveCurrentCard()
+        for (index, quote) in [bonusQuote, todayQuote].enumerated() {
+            if index > 0 { app.terminate(); app.launch() }
+            app.buttons["open-saved-cards"].tap()
+            let row = app.buttons.matching(identifier: "saved-card-row").matching(NSPredicate(format: "label == %@", quote)).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+            let saved = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+            XCTAssertTrue(saved.waitForExistence(timeout: 10)); XCTAssertEqual(saved.label, quote)
+            captureExportReview("05-Saved-\(index)-app")
+            shareAndCancel("06-Saved-\(index)-system-sheet", button: app.buttons["Share Saved Card"])
+        }
+    }
+
+    func testLongestQuoteExportRetryCancelAndLargerText() {
+        XCUIDevice.shared.orientation = .portrait
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-export-evidence", "--ci-smoke-longest-card", "--ci-smoke-share-failure-once", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        app.openCardOptions()
+        let share = app.buttons["share-daily-card"]
+        XCTAssertTrue(share.waitForExistence(timeout: 10))
+        let ready = NSPredicate { _, _ in share.isEnabled }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: nil)], timeout: 15), .completed)
+        captureExportReview("07-Longest-quote-app")
+        share.tap()
+        let error = app.alerts["Couldn't Share Card"]
+        XCTAssertTrue(error.waitForExistence(timeout: 10))
+        captureExportReview("08-Injected-render-error")
+        error.buttons["Try Again"].tap()
+        cancelExportSheet("09-Longest-quote-retry-sheet")
+        shareAndCancel("10-Longest-quote-second-share", button: share)
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-export-evidence", "--ci-smoke-longest-card", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        captureExportReview("11-Largest-text-top")
+        checkLongQuoteEdges()
+        captureExportReview("12-Largest-text-quote")
+        shareAndCancel("13-Largest-text-scrolled-sheet", button: share)
+    }
+
+    private func checkLongQuoteEdges() {
+        let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch, vibe = app.descendants(matching: .any)["daily-card-vibe"].firstMatch
+        let window = app.windows.firstMatch.frame
+        let top = app.navigationBars.firstMatch.frame.maxY + 8
+        let bottom = app.staticTexts["ci-smoke-offline"].frame.minY - 4
+        func drag(_ delta: CGFloat) {
+            let distance = min(abs(delta), bottom - top - 40)
+            let startY = delta > 0 ? bottom - 20 : top + 20
+            let endY = startY + (delta > 0 ? -distance : distance)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.midX, dy: startY))
+                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: endY)),
+                       withVelocity: .slow, thenHoldForDuration: 0.25)
+        }
+        for _ in 0..<12 where abs(quote.frame.minY - (top + 8)) > 12 {
+            let previous = quote.frame.minY
+            drag(previous - (top + 8))
+            if abs(quote.frame.minY - previous) < 1 { break }
+        }
+        XCTAssertGreaterThanOrEqual(quote.frame.minY, top - 4)
+        XCTAssertLessThan(quote.frame.minY, bottom - 40)
+        captureExportReview("12-Largest-text-quote-start")
+        for _ in 0..<12 where vibe.frame.maxY > bottom || vibe.frame.minY < top {
+            drag(max(32, vibe.frame.maxY - (bottom - 4)))
+        }
+        XCTAssertGreaterThan(quote.frame.maxY, top + 40)
+        XCTAssertLessThanOrEqual(quote.frame.maxY, bottom)
+        XCTAssertGreaterThanOrEqual(vibe.frame.minY, top)
+        XCTAssertLessThanOrEqual(vibe.frame.maxY, bottom)
+        XCTAssertTrue(vibe.isHittable)
+        captureExportReview("12-Largest-text-quote-end")
+    }
+
+    private func saveCurrentCard() {
+        let button = app.buttons["daily-card-options"]
+        if button.value as? String != "Saved" { app.toggleDailyCardSave() }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Saved"), object: button)], timeout: 10), .completed)
+    }
+
+    private func captureExportReview(_ name: String) {
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = name; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    private func shareAndCancel(_ name: String, button: XCUIElement) {
+        let options = app.openCardOptions()
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        let ready = NSPredicate { _, _ in button.isEnabled && button.isHittable }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: nil)], timeout: 15), .completed)
+        button.tap(); cancelExportSheet(name)
+        XCTAssertTrue(options.isEnabled)
+        XCTAssertFalse(app.alerts["Couldn't Share Card"].exists)
+    }
+
+    private func cancelExportSheet(_ name: String) {
+        let sheet = app.otherElements["ActivityListView"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 15))
+        var last = CGRect.null
+        let settled = NSPredicate { _, _ in
+            let frame = sheet.frame
+            defer { last = frame }
+            return !frame.isEmpty && frame == last
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10), .completed)
+        captureExportReview(name)
+        let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: UIDevice.current.userInterfaceIdiom == .pad ? 0.5 : 0.25))
+        XCTAssertFalse(sheet.frame.contains(outside.screenPoint)); outside.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)], timeout: 10), .completed)
+    }
+
     func testGuestCanCancelSharingAndShareAgain() {
         checkCancellation(orientation: .portrait, textSize: .large)
     }
@@ -37,7 +173,7 @@ final class DailyCardSharingTests: XCTestCase {
 
     func testAccountSheetKeepsLocalNavigationUsableAcrossReopening() {
         XCUIDevice.shared.orientation = .portrait
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
         app.launch()
         let settings = app.buttons["Settings"]
         for _ in 0..<2 {
@@ -69,7 +205,10 @@ final class DailyCardSharingTests: XCTestCase {
             app.buttons["Close"].tap()
             XCTAssertTrue(settings.waitForExistence(timeout: 5))
             XCTAssertFalse(form.exists)
+            app.openCardOptions()
+            XCTAssertTrue(app.buttons["share-daily-card"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["share-daily-card"].isHittable)
+            app.dismissCardOptions()
         }
         // Accessibility-tree/navigation evidence, not VoiceOver focus timing or speech.
     }
@@ -84,7 +223,7 @@ final class DailyCardSharingTests: XCTestCase {
 
     private func checkDailyCanvasRotation(initial: UIDeviceOrientation) {
         XCUIDevice.shared.orientation = initial
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", UIContentSizeCategory.large.rawValue]
         app.launch()
         let card = app.otherElements["daily-card"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
@@ -108,7 +247,10 @@ final class DailyCardSharingTests: XCTestCase {
             XCTAssertLessThanOrEqual(card.frame.maxY, window.frame.maxY + 2, "Daily canvas viewport cannot extend beyond the current window.")
             checkQuoteRemainsReachable()
             XCTAssertTrue(app.buttons["Settings"].isHittable)
+            app.openCardOptions()
+            XCTAssertTrue(app.buttons["share-daily-card"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["share-daily-card"].isHittable)
+            app.dismissCardOptions()
         }
     }
 
@@ -137,14 +279,17 @@ final class DailyCardSharingTests: XCTestCase {
     private func checkCancellation(orientation: UIDeviceOrientation, textSize: UIContentSizeCategory, rotateWhilePresented: Bool = false) {
         var currentOrientation = orientation
         XCUIDevice.shared.orientation = orientation
-        app.launchArguments = ["-UIPreferredContentSizeCategoryName", textSize.rawValue]
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", textSize.rawValue]
         app.launch()
+        app.openCardOptions()
         let share = app.buttons["share-daily-card"]
         XCTAssertTrue(share.waitForExistence(timeout: 10))
         XCTAssertEqual(share.label, "Share Today's Card")
         XCTAssertTrue(app.otherElements["daily-card"].exists)
         XCTAssertFalse(app.textFields["Email"].exists)
         for _ in 0..<2 {
+            let options = app.openCardOptions()
+            XCTAssertTrue(share.waitForExistence(timeout: 5))
             XCTAssertTrue(share.isEnabled)
             XCTAssertTrue(share.isHittable)
             share.tap()
@@ -178,7 +323,7 @@ final class DailyCardSharingTests: XCTestCase {
             screenshot.lifetime = .keepAlways
             add(screenshot)
             if UIDevice.current.userInterfaceIdiom == .pad {
-                // The popover is anchored to the upper-right Share button.
+                // The popover is anchored to the persistent Options control.
                 let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
                 XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
                 outside.tap()
@@ -190,7 +335,7 @@ final class DailyCardSharingTests: XCTestCase {
             } else {
                 close.tap()
             }
-            let usable = NSPredicate { _, _ in share.exists && share.isEnabled && share.isHittable }
+            let usable = NSPredicate { _, _ in options.exists && options.isEnabled && options.isHittable }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: usable, object: nil)], timeout: 10), .completed)
             XCTAssertFalse(sheet.exists)
             XCTAssertFalse(app.alerts["Couldn't Share Card"].exists)
@@ -198,7 +343,15 @@ final class DailyCardSharingTests: XCTestCase {
             if rotateWhilePresented { checkQuoteRemainsReachable() }
         }
         app.buttons["Settings"].tap()
-        XCTAssertTrue(app.buttons["Sign In"].waitForExistence(timeout: 5), "Use a dedicated guest QA simulator.")
+        let signIn = app.buttons["Sign In"]
+        // Native menu rows scroll at accessibility sizes in compact landscape.
+        let menu = app.collectionViews.firstMatch
+        for _ in 0..<4 where !signIn.exists || !signIn.isHittable {
+            guard menu.exists else { break }
+            menu.swipeUp()
+        }
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5), "Use a dedicated guest QA simulator.")
+        XCTAssertTrue(signIn.isHittable)
         // No destination is selected, no account request is submitted, and no card is sent.
     }
 }

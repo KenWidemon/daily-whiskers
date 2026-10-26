@@ -13,11 +13,11 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
-def fixture(passed=73, failed=0, skipped=0, result='Passed'):
-    return dict(totalTestCount=passed + failed + skipped, passedTests=passed,
-                failedTests=failed, skippedTests=skipped, expectedFailures=0, result=result,
+def fixture(passed=73, failed=0, skipped=0, result='Passed', expected_failures=0):
+    return dict(totalTestCount=passed + failed + skipped + expected_failures, passedTests=passed,
+                failedTests=failed, skippedTests=skipped, expectedFailures=expected_failures, result=result,
                 devicesAndConfigurations=[dict(passedTests=passed + 51, failedTests=failed,
-                                               skippedTests=skipped, expectedFailures=0)])
+                                               skippedTests=skipped, expectedFailures=expected_failures)])
 
 
 class ResultTests(unittest.TestCase):
@@ -33,9 +33,27 @@ class ResultTests(unittest.TestCase):
         self.assertEqual(test_counts(summary)['executions'], 3)
 
     def test_zero_fail_skip_or_unknown_result_never_pass(self):
-        for summary in (fixture(0), fixture(failed=1), fixture(skipped=1), fixture(result='Unknown')):
+        for summary in (fixture(0), fixture(failed=1), fixture(skipped=1), fixture(result='Unknown'),
+                        fixture(expected_failures=1), fixture(0, expected_failures=1),
+                        fixture(expected_failures=1, result='Expected Failure')):
             with self.subTest(summary=summary):
                 self.assertFalse(test_counts(summary)['valid_pass'])
+
+    def test_missing_or_invalid_expected_failure_count_rejected(self):
+        missing = fixture()
+        del missing['expectedFailures']
+        summaries = [missing] + [fixture() | {'expectedFailures': value}
+                                 for value in (None, -1, True, 0.0, '0')]
+        for summary in summaries:
+            with self.subTest(summary=summary), self.assertRaises(ValueError):
+                test_counts(summary)
+
+    def test_missing_device_count_keeps_execution_count_unavailable(self):
+        summary = fixture()
+        del summary['devicesAndConfigurations'][0]['expectedFailures']
+        counts = test_counts(summary)
+        self.assertIsNone(counts['executions'])
+        self.assertTrue(counts['valid_pass'])
 
     def test_missing_negative_or_inconsistent_counts_rejected(self):
         for change in ({'totalTestCount': 74}, {'passedTests': -1}, {'failedTests': None}, {'passedTests': True}):
@@ -65,6 +83,37 @@ class ResultTests(unittest.TestCase):
                 self.assertFalse(collect(directory))
             self.assertIn('73 cases', render(directory))
             self.assertIn('124 executions', render(directory))
+
+    def test_expected_failure_evidence_rejected_in_either_suite(self):
+        # Synthetic summaries exercise policy, not XCTest/Swift Testing emission.
+        for suite in ('unit', 'ui'):
+            for passed in (73, 0):
+                for missing in (False, True):
+                    with self.subTest(suite=suite, passed=passed, missing=missing), tempfile.TemporaryDirectory() as temporary:
+                        directory = Path(temporary)
+                        for stage in ('prepare', 'resolve', 'unit', 'ui', 'release'):
+                            (directory / f'{stage}-status.json').write_text(json.dumps({'status': 'success'}))
+                        for name in ('TestResults', 'SmokeResults'):
+                            (directory / f'{name}.xcresult').mkdir()
+                        summaries = {'unit': fixture(), 'ui': fixture(3)}
+                        summaries[suite] = fixture(passed, expected_failures=1)
+                        if missing:
+                            del summaries[suite]['expectedFailures']
+                        raw = [json.dumps(summaries[s]) for s in ('unit', 'ui')]
+                        with patch('results.subprocess.check_output', side_effect=raw):
+                            self.assertFalse(collect(directory))
+                        data = json.loads((directory / 'results.json').read_text())
+                        self.assertFalse(data['verified'])
+                        text = render(directory)
+                        self.assertIn('Evidence complete and passing: **no**', text)
+                        if missing:
+                            self.assertIn('Unreadable result bundle (ValueError)', text)
+                            self.assertNotIn('tests', data['stages'][suite])
+                        else:
+                            tests = data['stages'][suite]['tests']
+                            self.assertFalse(tests['valid_pass'])
+                            self.assertEqual(tests['expectedFailures'], 1)
+                            self.assertIn(f'{passed} passed, 0 failed, 0 skipped, 1 expected failures', text)
 
     def test_unreadable_bundle_is_failure(self):
         with tempfile.TemporaryDirectory() as temporary:

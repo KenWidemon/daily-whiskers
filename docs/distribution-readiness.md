@@ -194,3 +194,89 @@ For source promotion and fixes, follow [branching strategy](branching-strategy.m
 For open gates and scoped acceptance, use [release checklist](release-checklist.md).
 Old failed signing/profiling attempts are in [historical recovery](README.md#historical-recovery),
 not current prerequisites to repeat.
+
+## Offline Release Policy Rehearsal
+
+`ci/release/` models candidate validation, approval binding and uncertain-upload
+recovery using synthetic data only. Update this procedure when its CLI, fixtures
+or policy changes. It does not build, sign, validate with Apple, upload, allocate
+real build numbers, or replace the manual procedure above. Signing, credentials,
+storage provisioning, tester access, App Review and public release remain
+separately authorized. Xcode Cloud is outside this workflow.
+
+Run from the repository root without a simulator or any release credentials:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ci -p 'test_release*.py' -v
+python3 -m ci.release.rehearse \
+  --controller-sha "$(git rev-parse HEAD)" \
+  --candidate-sha "$(git rev-parse HEAD)"
+```
+
+The CLI writes JSON to stdout and creates/removes synthetic files in temporary
+directories. `--scenario` selects one allowlisted case; omission runs all cases.
+An unknown scenario or non-full SHA returns exit 2. An unexpected outcome or a
+blocked external-call attempt returns exit 1. Exit 0 means expected fixture
+outcomes matched, including deliberate rejection cases. Every report says
+`mode=fixture` and `release_eligible=false`; it cannot authorize distribution.
+The CLI checks only the format of its declared Git identities; the workflow does
+the actual Git preflight. Reports also hash the implementation files, so local
+uncommitted code is not misrepresented as an immutable controller commit.
+
+The schema-1 manifest binds synthetic source/controller/tree/tag identity,
+app/version/build, configuration digests, an exact file inventory and object
+version. Canonical JSON uses sorted keys and compact separators before SHA-256.
+Prepared manifest and package-inventory digests identify fixture evidence, not
+an IPA or signed archive. File changes, unknown files, symlinks and missing
+resources are rejected. Package metadata and signature/profile/UUID inspection
+records are fixtures, not real plist, Mach-O, codesign or dSYM inspection.
+
+Simulated approval binds identity, manifest/package-inventory digests, action,
+attempt and supplied time. A temporary SQLite ledger models atomic reservation
+and compare-and-swap transitions for `fixture-app` only. Intent persists before
+the modeled response; missing receipts, duplicates and uncertain Apple-state
+fixtures require reconciliation. No send function exists. Batches longer than
+three supplied responses cannot establish a definitive outcome; valid acceptance
+anywhere in the supplied batch still survives. No network polling or automatic
+retry occurs. Processing and processed outcomes remain separate from physical
+acceptance.
+Definitive rejection requires the current package digest. Once acceptance has
+been observed, the ledger preserves that fact across unknown states and restart;
+a contradictory pre-acceptance rejection requires reconciliation and cannot
+replace acceptance evidence. Fixture ledgers are temporary and not migrated
+between schema changes.
+Reconciliation returns structured state, acceptance evidence and package digest.
+Complete, well-formed observations bound to the current package establish
+acceptance independently of the final state. Errors, incomplete pages and
+contradictions make the outcome unknown without discarding acceptance elsewhere
+in the batch. The ledger saves both fields in one compare-and-swap transaction;
+it never infers acceptance from the final state. A stale rejection decision is
+atomically converted to unknown if stored acceptance has already been observed.
+
+The manually dispatched `release-rehearsal.yml` checks the controller's exact SHA
+against the checked-out event commit on `codex/develop`, requires a clean checkout,
+and verifies that the candidate commit exists. An optional annotated tag object
+must peel to that commit. The candidate is identified, not executed or approved
+as an RC. Fixture identity tests exercise the remaining policy independently.
+Dispatch also requires workflow availability on the default branch; publication,
+any propagation PR/merge and hosted runs require their applicable authorization.
+
+The Linux job runs the tests and all scenarios, then publishes only the sanitized
+fixture JSON as its summary and a seven-day artifact. Missing output is a failure,
+not a pass. Read-only checkout and GitHub report publication are outside the
+fixture process's external-call guard. No protected environment, release secret,
+OIDC token, production Firebase configuration or external storage is used.
+
+Local tests cover identity/schema errors, CI failures and expected failures,
+tampered/missing objects, package metadata, unsafe paths, stale/wrong approvals,
+competing local reservations, persisted intent recovery, processing failures,
+ambiguous responses and automatic-distribution fixtures. The CPython audit guard
+blocks socket/process/native-loader attempts during rehearsal and counts attempted
+calls even when caught. Tests inject blocked attempts to prove detection. This
+is defense in depth for reviewed fixture code, not a sandbox for untrusted code.
+
+Local success does not establish hosted behavior, real GitHub environment
+enforcement, signing validity, private-store atomicity/durability, Apple upload
+idempotency, production configuration or physical acceptance. Qualify those in
+separately approved later stages. Preserve the manual release path and reconcile
+any real uncertain upload before a manual retry; fixture results cannot clear it.

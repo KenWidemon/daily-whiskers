@@ -77,7 +77,20 @@ struct DailyContentIntegrityTests {
         #expect(result.vibe == nil)
     }
 
-    @Test("Every bundled card and fallback image passes real asset validation")
+    @Test("The real original loader rejects a missing artwork and leaves valid content usable")
+    func missingBundledOriginal() throws {
+        let valid = DailyContentProvider.fallbackCard
+        let missing = DailyCard(id: "missing-original", archetype: "cozy", imageName: "absent-original",
+                                quote: "Still here.", vibe: nil)
+        let data = try JSONSerialization.data(withJSONObject: ["cards": [missing, valid].map {
+            ["id": $0.id, "archetype": $0.archetype, "imageName": $0.imageName, "quote": $0.quote]
+        }])
+        #expect(DailyContentProvider.manifest(from: data).cards.map(\.id) == [valid.id])
+        #expect(BundledCardArtwork.image(named: missing.imageName) == nil)
+        #expect(throws: Error.self) { try BundledCardArtwork.bytes(for: missing) }
+    }
+
+    @Test("Every bundled card and fallback image passes original artwork validation")
     func bundledContent() throws {
         let url = try #require(Bundle.main.url(forResource: "daily_whiskers_content", withExtension: "json"))
         let data = try Data(contentsOf: url)
@@ -85,7 +98,7 @@ struct DailyContentIntegrityTests {
         #expect(!decoded.cards.isEmpty)
         let validated = DailyContentProvider.manifest(from: data)
         #expect(validated.cards.map(\.id) == decoded.cards.map(\.id))
-        #expect(UIImage(named: DailyContentProvider.fallbackCard.imageName) != nil)
+        #expect(BundledCardArtwork.image(named: DailyContentProvider.fallbackCard.imageName) != nil)
     }
 }
 

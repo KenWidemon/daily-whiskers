@@ -3,14 +3,26 @@ import UIKit
 
 /// A value captured from the displayed card, never a new date-based selection.
 struct DailyCardShareSnapshot {
+    let archetype: String
     let imageName: String
+    let retainedArtwork: Data?
     let quote: String
     let vibe: String?
 
     init(card: DailyCard) {
+        archetype = card.archetype
+        retainedArtwork = try? BundledCardArtwork.bytes(for: card)
         imageName = card.imageName
         quote = card.quote
         vibe = card.vibe.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+    }
+
+    init(retained: RetainedCard) {
+        archetype = retained.snapshot.archetype
+        imageName = ""
+        retainedArtwork = retained.artwork
+        quote = retained.snapshot.quote
+        vibe = retained.snapshot.vibe.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
     }
 
     var companionText: String {
@@ -26,93 +38,98 @@ struct DailyCardShareExport: Identifiable {
 }
 
 enum DailyCardShareError: Error {
-    case missingArtwork, contentTooLarge
+    case missingArtwork, missingLogo, contentTooLarge, renderingFailed
 }
 
-/// Fixed pixel width and bounded height keep export memory independent of device scale.
-/// Drawing into a fresh bitmap excludes source metadata, account data, and app chrome.
+/// Rendering is independent of viewport, scroll position and the user's text size.
+/// All content is frozen before yielding; no mutable asset lookup occurs during render.
 @MainActor
 struct DailyCardShareRenderer {
     static let width: CGFloat = 1080
     static let maximumHeight: CGFloat = 2400
-    static let quoteFont = UIFont(descriptor: UIFont.systemFont(ofSize: 48, weight: .semibold)
-        .fontDescriptor.withDesign(.serif) ?? UIFont.systemFont(ofSize: 48, weight: .semibold).fontDescriptor, size: 48)
+    static let scale: CGFloat = 3
+    static let logoResource = "Daily_Whiskers_App_Icon_FINAL_cropped"
+    static let watermarkSize: CGFloat = 24
+    static let watermarkOpacity = 0.45
 
-    struct Layout {
-        let size: CGSize
-        let artwork: CGRect
-        let quote: CGRect
-        let vibe: CGRect?
-        let branding: CGRect
-    }
+    /// Faithful monochrome treatment of the packaged final icon, not a redrawn mark.
+    /// The approved white cat is separated from its saturated purple tile by the green
+    /// channel (including its antialiased whiskers and facial cutouts). Coordinates and
+    /// silhouette come directly from the source pixels; RGB becomes white, tile alpha zero.
+    static let watermark: UIImage? = {
+        guard let url = Bundle.main.url(forResource: logoResource, withExtension: "png"),
+              let image = UIImage(contentsOfFile: url.path)?.cgImage,
+              let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        let width = image.width, height = image.height
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        return bytes.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height,
+                bitsPerComponent: 8, bytesPerRow: width * 4, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+            else { return nil }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            let pixels = buffer.bindMemory(to: UInt8.self)
+            for i in stride(from: 0, to: pixels.count, by: 4) {
+                let coverage = min(1, max(0, (Double(pixels[i + 1]) - 128) / 64))
+                let alpha = UInt8((coverage * coverage * (3 - 2 * coverage) * 255).rounded())
+                // Premultiplied white; preserve the source geometry without any tracing.
+                pixels[i] = alpha; pixels[i + 1] = alpha; pixels[i + 2] = alpha; pixels[i + 3] = alpha
+            }
+            return context.makeImage().map { UIImage(cgImage: $0) }
+        }
+    }()
 
-    static func attributes(font: UIFont, color: UIColor) -> [NSAttributedString.Key: Any] {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        paragraph.lineBreakMode = .byWordWrapping
-        paragraph.lineSpacing = 8
-        return [.font: font, .foregroundColor: color, .paragraphStyle: paragraph]
-    }
-
-    static func layout(for snapshot: DailyCardShareSnapshot) throws -> Layout {
-        // Reject unreasonable future content before allocating or measuring it.
+    static func render(_ snapshot: DailyCardShareSnapshot) throws -> DailyCardShareExport {
         guard snapshot.quote.utf16.count <= 4000, (snapshot.vibe?.utf16.count ?? 0) <= 200 else {
             throw DailyCardShareError.contentTooLarge
         }
-        let textWidth: CGFloat = 936
-        func height(_ text: String, font: UIFont) -> CGFloat {
-            ceil((text as NSString).boundingRect(
-                with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: attributes(font: font, color: .white), context: nil
-            ).height) + 8
-        }
-        let artwork = CGRect(x: 60, y: 60, width: 960, height: 1440)
-        let quote = CGRect(x: 72, y: artwork.maxY + 44, width: textWidth,
-                           height: height("“\(snapshot.quote)”", font: quoteFont))
-        let vibe = snapshot.vibe.map {
-            CGRect(x: 72, y: quote.maxY + 28, width: textWidth,
-                   height: height($0, font: .systemFont(ofSize: 30, weight: .medium)))
-        }
-        let branding = CGRect(x: 72, y: (vibe?.maxY ?? quote.maxY) + 48,
-                              width: textWidth, height: 44)
-        let size = CGSize(width: width, height: branding.maxY + 56)
-        guard size.height <= maximumHeight else { throw DailyCardShareError.contentTooLarge }
-        return Layout(size: size, artwork: artwork, quote: quote, vibe: vibe, branding: branding)
-    }
-
-    static func render(_ snapshot: DailyCardShareSnapshot) throws -> DailyCardShareExport {
-        let layout = try layout(for: snapshot)
-        guard let artwork = UIImage(named: snapshot.imageName) else {
+        guard let bytes = snapshot.retainedArtwork, let artwork = UIImage(data: bytes) else {
             throw DailyCardShareError.missingArtwork
         }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        format.preferredRange = .standard
-        let image = UIGraphicsImageRenderer(size: layout.size, format: format).image { context in
-            UIColor(red: 0.055, green: 0.043, blue: 0.08, alpha: 1).setFill()
-            context.fill(CGRect(origin: .zero, size: layout.size))
-            context.cgContext.saveGState()
-            UIBezierPath(roundedRect: layout.artwork, cornerRadius: 28).addClip()
-            // Fit the entire approved artwork; never crop the cat to fit text.
-            let scale = min(layout.artwork.width / artwork.size.width, layout.artwork.height / artwork.size.height)
-            let size = CGSize(width: artwork.size.width * scale, height: artwork.size.height * scale)
-            artwork.draw(in: CGRect(x: layout.artwork.midX - size.width / 2,
-                                    y: layout.artwork.midY - size.height / 2,
-                                    width: size.width, height: size.height))
-            context.cgContext.restoreGState()
-            ("“\(snapshot.quote)”" as NSString).draw(in: layout.quote,
-                withAttributes: attributes(font: quoteFont, color: .white))
-            if let vibe = snapshot.vibe, let rect = layout.vibe {
-                (vibe as NSString).draw(in: rect, withAttributes: attributes(
-                    font: .systemFont(ofSize: 30, weight: .medium),
-                    color: UIColor(red: 0.88, green: 0.80, blue: 0.96, alpha: 1)))
-            }
-            ("Daily Whiskers" as NSString).draw(in: layout.branding, withAttributes: attributes(
-                font: .systemFont(ofSize: 32, weight: .medium),
-                color: UIColor(red: 0.94, green: 0.81, blue: 0.57, alpha: 1)))
+        guard let logo = watermark else { throw DailyCardShareError.missingLogo }
+        let theme = ArchetypeTheme.forArchetype(snapshot.archetype)
+        let content = VStack(spacing: 16) {
+            RitualCardPresentation(data: DailyCardData(archetype: snapshot.archetype,
+                imageName: "", quote: snapshot.quote, vibe: snapshot.vibe ?? ""),
+                artwork: artwork, compact: true)
+            // Dedicated footer keeps the monochrome approved mark off artwork and text.
+            Image(uiImage: logo).resizable().scaledToFit()
+                .frame(width: watermarkSize, height: watermarkSize)
+                .opacity(watermarkOpacity)
         }
+        .padding(18)
+        .frame(width: width / scale)
+        .background(LinearGradient(colors: [theme.bgTop, theme.bgBottom], startPoint: .top, endPoint: .bottom))
+        .environment(\.dynamicTypeSize, .large)
+        .environment(\.colorScheme, .dark)
+        .environment(\.layoutDirection, .leftToRight)
+        .environment(\.locale, Locale(identifier: "en_US"))
+        let renderer = ImageRenderer(content: content)
+        renderer.proposedSize = ProposedViewSize(width: width / scale, height: nil)
+        renderer.scale = scale
+        renderer.isOpaque = true
+        var image: UIImage?
+        var tooLarge = false
+        // Measure before allocating the bitmap; do not clip or shrink oversized text.
+        renderer.render(rasterizationScale: scale) { size, draw in
+            let pixels = CGSize(width: width, height: ceil(size.height * scale))
+            guard pixels.height <= maximumHeight else { tooLarge = true; return }
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            format.opaque = true
+            format.preferredRange = .standard
+            image = UIGraphicsImageRenderer(size: pixels, format: format).image { context in
+                UIColor(theme.bgBottom).setFill()
+                context.fill(CGRect(origin: .zero, size: pixels))
+                context.cgContext.scaleBy(x: scale, y: scale)
+                // ImageRenderer's drawing closure uses Core Graphics' bottom-left origin.
+                context.cgContext.translateBy(x: 0, y: size.height)
+                context.cgContext.scaleBy(x: 1, y: -1)
+                draw(context.cgContext)
+            }
+        }
+        if tooLarge { throw DailyCardShareError.contentTooLarge }
+        guard let image else { throw DailyCardShareError.renderingFailed }
         return DailyCardShareExport(image: image, text: snapshot.companionText)
     }
 }
@@ -136,6 +153,14 @@ final class DailyCardShareState: ObservableObject {
         await prepare()
     }
 
+    func start(retained: RetainedCard) async {
+        guard !isRendering, export == nil else { return }
+        do { try retained.snapshot.validate(artwork: retained.artwork) }
+        catch { hasError = true; return }
+        snapshot = DailyCardShareSnapshot(retained: retained)
+        await prepare()
+    }
+
     func retry() async {
         guard !isRendering, export == nil, snapshot != nil else { return }
         await prepare()
@@ -149,6 +174,9 @@ final class DailyCardShareState: ObservableObject {
         await Task.yield()
         defer { isRendering = false }
         do {
+#if DEBUG && CI_SMOKE_TESTING
+            try CISmokeMode.failShareIfRequested()
+#endif
             export = try autoreleasepool { try render(snapshot) }
         } catch {
             hasError = true
