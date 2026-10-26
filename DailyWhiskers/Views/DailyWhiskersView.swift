@@ -65,7 +65,18 @@ struct DailyWhiskersView: View {
             image: saveState.isSaved ? HeartEyesCatIcon.savedImage : HeartEyesCatIcon.unsavedImage,
             hint: saveState.hint, value: saveState.value, destructive: saveState.isSaved) {
                 guard let snapshot = activeSnapshot else { return }
-                Task { await savedCards.toggle(snapshot); cardOptionsFocused = true }
+                #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+                SavedTimingDiagnostic.mark("action.save.dispatched")
+                #endif
+                Task {
+                    #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+                    SavedTimingDiagnostic.mark("action.save.taskStarted")
+                    #endif
+                    await savedCards.toggle(snapshot); cardOptionsFocused = true
+                    #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+                    SavedTimingDiagnostic.mark("action.save.taskCompleted")
+                    #endif
+                }
             }
         return CardNavigationToolbar(options: .init(identifier: "daily-card-options",
             label: shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Today's Card Options" : "Bonus Card Options"),

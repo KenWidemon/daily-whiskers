@@ -35,3 +35,16 @@ enum CISmokeMode {
     }
 }
 #endif
+
+#if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+import os
+
+// Temporary diagnostic branch only: static event names and synthetic-state flags.
+enum SavedTimingDiagnostic {
+    private static let logger = Logger(subsystem: "com.dailywhiskers.saved-timing", category: "diagnostic")
+    static func mark(_ event: String, _ detail: String = "") {
+        guard CISmokeMode.isEnabled else { return }
+        logger.notice("DW_SAVE_TIMING uptime=\(ProcessInfo.processInfo.systemUptime, privacy: .public) event=\(event, privacy: .public) \(detail, privacy: .public)")
+    }
+}
+#endif

@@ -543,7 +543,14 @@ final class SavedCardsTests: XCTestCase {
 
     private func waitForValue(_ element: XCUIElement, _ value: String) -> Bool {
         let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
-        return XCTWaiter.wait(for: [expected], timeout: 10) == .completed
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        print("DW_SAVE_TIMING uptime=\(ProcessInfo.processInfo.systemUptime) event=xctest.wait.begin expected=\(value)")
+        #endif
+        let result = XCTWaiter.wait(for: [expected], timeout: 10)
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        print("DW_SAVE_TIMING uptime=\(ProcessInfo.processInfo.systemUptime) event=xctest.wait.end result=\(result.rawValue)")
+        #endif
+        return result == .completed
     }
 }
 

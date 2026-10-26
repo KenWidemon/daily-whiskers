@@ -1,0 +1,48 @@
+name: Temporary Saved timing diagnostic
+
+on:
+  push:
+    branches: [codex/diagnostic-saved-timing]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    name: Two-case Saved timing diagnostic
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Record diagnostic provenance
+        run: |
+          mkdir -p build
+          git rev-parse HEAD HEAD^{tree} > build/diagnostic-provenance.txt
+          printf '%s\n' 'Promotion baseline: abb09202aa3371b3ada124bddb6bc85f912c45aa' >> build/diagnostic-provenance.txt
+      - name: Verify matching toolchain and prepare
+        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/SourcePackages
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-v2
+      - name: Resolve locked dependencies
+        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
+      - name: Run original two cases with timing only
+        run: bash ci/diagnostic-saved-timing.sh
+      - name: Preserve diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: saved-timing-diagnostic
+          path: |
+            build/SavedTiming.xcresult
+            build/*.log
+            build/*.json
+            build/*.jsonl
+            build/*.txt
+          retention-days: 7
+          if-no-files-found: warn

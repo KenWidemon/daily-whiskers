@@ -88,12 +88,33 @@ actor CardRepository {
     }
 
     func save(_ card: RetainedCard) throws {
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        SavedTimingDiagnostic.mark("repository.save.begin")
+        #endif
         try open()
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        SavedTimingDiagnostic.mark("repository.validate.begin")
+        #endif
         try card.snapshot.validate(artwork: card.artwork)
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        SavedTimingDiagnostic.mark("repository.validate.end")
+        #endif
         try transaction {
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            SavedTimingDiagnostic.mark("repository.retain.begin")
+            #endif
             try retain(card)
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            SavedTimingDiagnostic.mark("repository.retain.end")
+            #endif
             try execute("INSERT OR IGNORE INTO favorite(snapshot_id,quote) VALUES(?,?)", [.text(card.snapshot.id), .text(card.snapshot.quote)])
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            SavedTimingDiagnostic.mark("repository.insert.end")
+            #endif
         }
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        SavedTimingDiagnostic.mark("repository.commit.returned")
+        #endif
     }
 
     private func retain(_ card: RetainedCard) throws {

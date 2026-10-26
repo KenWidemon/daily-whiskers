@@ -17,10 +17,19 @@ final class SavedCardsModel: ObservableObject {
     func toggle(_ card: RetainedCard) async {
         // Capture desired action before awaiting; retries never invert the original intent.
         let remove = contains(card.snapshot.id)
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        SavedTimingDiagnostic.mark("model.toggle.begin", "remove=\(remove) busy=\(busy)")
+        #endif
         await perform {
             if remove { try await self.repository.remove(card.snapshot.id) }
             else { try await self.repository.save(card) }
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            SavedTimingDiagnostic.mark("model.repository.returned")
+            #endif
             self.records = try await self.repository.favorites()
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            SavedTimingDiagnostic.mark("model.records.published", "saved=\(self.contains(card.snapshot.id))")
+            #endif
             UIAccessibility.post(notification: .announcement, argument: remove ? "Removed from Saved Cards." : "Card saved.")
         }
     }
@@ -43,8 +52,16 @@ final class SavedCardsModel: ObservableObject {
     private func perform(_ action: @escaping () async throws -> Void) async {
         guard !busy else { return }
         busy = true
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        SavedTimingDiagnostic.mark("model.busy.true")
+        #endif
         errorMessage = nil
-        defer { busy = false }
+        defer {
+            busy = false
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            SavedTimingDiagnostic.mark("model.busy.false")
+            #endif
+        }
         do {
             try await action()
             retryAction = nil

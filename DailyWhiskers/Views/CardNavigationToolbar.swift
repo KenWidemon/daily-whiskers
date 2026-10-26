@@ -47,6 +47,9 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
         private let settingsItem = UIBarButtonItem()
         private weak var owner: UIViewController?
         private var updateScheduled = false
+        #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+        private var lastTimingState = ""
+        #endif
         private var anchor: DailyCardShareAnchor { view as! DailyCardShareAnchor }
 
         override func loadView() {
@@ -128,6 +131,15 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
             item.accessibilityHint = state.hint
             item.accessibilityValue = state.value
             item.accessibilityElementsHidden = state.hiddenFromAccessibility
+            #if DEBUG && CI_SMOKE_TESTING && SAVED_TIMING_DIAGNOSTIC
+            if state.identifier == "daily-card-options" {
+                let timingState = "value=\(state.value) enabled=\(state.enabled)"
+                if lastTimingState != timingState {
+                    lastTimingState = timingState
+                    SavedTimingDiagnostic.mark("toolbar.applied", timingState)
+                }
+            }
+            #endif
         }
     }
 }
