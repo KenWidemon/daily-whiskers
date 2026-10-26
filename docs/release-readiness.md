@@ -16,7 +16,8 @@ Configuration guide, not a second release roadmap. See the
   The `example` component is not a reason to rename
   an existing Firebase registration. The existing App Store Connect record is
   `6809050612`; do not create a duplicate or rename its confirmed bundle ID.
-- Prepared marketing version is `1.1`, build `3`; frozen V1 remains `1.0 (1)`.
+- Prepared marketing version is `1.2`, build `4`; accepted V1.1 remains `1.1 (3)`
+  and frozen V1 remains `1.0 (1)`.
   Configuration does not reserve the build number in App Store Connect or prove
   archive, signing, upload, or release readiness. Recheck availability before upload.
 - V1.2 requires iOS/iPadOS 26.2 or later; iPhone and iPad remain supported.
