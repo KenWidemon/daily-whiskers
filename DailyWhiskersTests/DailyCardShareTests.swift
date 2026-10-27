@@ -34,6 +34,96 @@ struct DailyCardShareTests {
         #expect(share.snapshot?.imageName == displayed.imageName)
     }
 
+    @Test("Retained content survives navigation, content replacement and activity retry with identical pixels")
+    func retainedVersionThroughRetry() async throws {
+        let original = card(quote: "The original full quote.")
+        let retained = try CardSnapshot.capture(card: original, artwork: BundledCardArtwork.bytes(for: original))
+        let expected = try DailyCardShareRenderer.render(DailyCardShareSnapshot(retained: retained))
+        let share = DailyCardShareState()
+        let render = Task { await share.start(retained: retained) }
+        while !share.isRendering && share.export == nil { await Task.yield() }
+        // Simulate a new screen/manifest version arriving while rendering is suspended.
+        let replacement = DailyCard(id: original.id, archetype: "forest", imageName: original.imageName,
+                                    quote: "A replacement must not leak into sharing.", vibe: "New")
+        await share.start(card: replacement)
+        await render.value
+        #expect(share.snapshot?.archetype == retained.snapshot.archetype)
+        #expect(share.snapshot?.retainedArtwork == retained.artwork)
+        #expect(share.export?.image.pngData() == expected.image.pngData())
+        share.completeActivity(failed: true)
+        share.sheetDismissed()
+        await share.retry()
+        #expect(share.export?.image.pngData() == expected.image.pngData())
+        #expect(share.export?.text == expected.text)
+        share.finish()
+        #expect(share.snapshot == nil)
+    }
+
+    @Test("Approved logo becomes white on transparent pixels without the colored tile")
+    func monochromeWatermark() throws {
+        let url = try #require(Bundle.main.url(forResource: DailyCardShareRenderer.logoResource, withExtension: "png"))
+        #expect(try ArtworkIdentity.pixelDigest(Data(contentsOf: url)) == "b3d7af74e7ccbf20228ad2d0d07d249ba375f58fcd8bf6500a759108f80d8931")
+        let image = try #require(DailyCardShareRenderer.watermark?.cgImage)
+        #expect(image.width == 681 && image.height == 681)
+        var pixels = [UInt8](repeating: 0, count: 681 * 681 * 4)
+        try pixels.withUnsafeMutableBytes { buffer in
+            let context = try #require(CGContext(data: buffer.baseAddress, width: 681, height: 681,
+                bitsPerComponent: 8, bytesPerRow: 681 * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: 681, height: 681))
+        }
+        let offsets = stride(from: 0, to: pixels.count, by: 4)
+        #expect(offsets.allSatisfy { pixels[$0] == pixels[$0 + 1] && pixels[$0] == pixels[$0 + 2] && pixels[$0] == pixels[$0 + 3] })
+        #expect(offsets.filter { pixels[$0 + 3] > 0 }.count > 100_000)
+        for y in [0, 680] {
+            #expect((0..<681).allSatisfy { pixels[(y * 681 + $0) * 4 + 3] == 0 })
+        }
+        for x in [0, 680] {
+            #expect((0..<681).allSatisfy { pixels[($0 * 681 + x) * 4 + 3] == 0 })
+        }
+    }
+
+    @Test("Export preserves the upright artwork pixels above the quote")
+    func uprightArtwork() throws {
+        let input = card()
+        let artwork = try #require(BundledCardArtwork.image(named: input.imageName))
+        let export = try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: input))
+        let artSize = CGSize(width: 972, height: 972 * artwork.size.height / artwork.size.width)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+        let reference = UIGraphicsImageRenderer(size: artSize, format: format).image { _ in
+            artwork.draw(in: CGRect(origin: .zero, size: artSize))
+        }
+        let inset = CGRect(origin: .zero, size: artSize).insetBy(dx: 50, dy: 50)
+        let expected = try #require(reference.cgImage?.cropping(to: inset))
+        let actual = try #require(export.image.cgImage?.cropping(to: inset.offsetBy(dx: 54, dy: 54)))
+        func samples(_ image: CGImage) throws -> [UInt8] {
+            var pixels = [UInt8](repeating: 0, count: 8 * 12 * 4)
+            try pixels.withUnsafeMutableBytes { buffer in
+                let context = try #require(CGContext(data: buffer.baseAddress, width: 8, height: 12,
+                    bitsPerComponent: 8, bytesPerRow: 32, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                context.interpolationQuality = .high
+                context.draw(image, in: CGRect(x: 0, y: 0, width: 8, height: 12))
+            }
+            return pixels
+        }
+        let differences = zip(try samples(expected), try samples(actual)).map { abs(Int($0) - Int($1)) }
+        #expect(Double(differences.reduce(0, +)) / Double(differences.count) < 5)
+    }
+
+    @Test("Long quotes grow the shared card without shrinking the artwork")
+    func longQuote() throws {
+        let short = try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card()))
+        let long = try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card(quote:
+            "Take a gentle breath. Let the quiet settle around you. There is room for every small beginning, every brave pause, and every kind thought you offer yourself today.")))
+        #expect(long.image.size.height > short.image.size.height)
+        #expect(long.image.size.height <= DailyCardShareRenderer.maximumHeight)
+        let region = CGRect(x: 150, y: 150, width: 780, height: 1200)
+        let shortArt = try #require(short.image.cgImage?.cropping(to: region))
+        let longArt = try #require(long.image.cgImage?.cropping(to: region))
+        #expect(try ArtworkIdentity.pixelDigest(shortArt) == ArtworkIdentity.pixelDigest(longArt))
+    }
+
     @Test("Text companion includes the exact quote and optional vibe, without internal identifiers")
     func companion() {
         let snapshot = DailyCardShareSnapshot(card: card(quote: "Breathe.\nYou’re here 🐈", vibe: "Still"))
@@ -52,22 +142,16 @@ struct DailyCardShareTests {
         for card in manifest.cards + [DailyContentProvider.fallbackCard] {
             try autoreleasepool {
                 let snapshot = DailyCardShareSnapshot(card: card)
-                let layout = try DailyCardShareRenderer.layout(for: snapshot)
                 let export = try DailyCardShareRenderer.render(snapshot)
+                let retained = try CardSnapshot.capture(card: card, artwork: BundledCardArtwork.bytes(for: card))
+                let savedExport = try DailyCardShareRenderer.render(DailyCardShareSnapshot(retained: retained))
+                #expect(export.image.pngData() == savedExport.image.pngData())
+                #expect(export.text == savedExport.text)
                 let cgImage = try #require(export.image.cgImage)
                 #expect(cgImage.width == 1080)
                 #expect(cgImage.height <= 2400)
-                #expect(cgImage.height == Int(layout.size.height))
                 #expect(export.image.scale == 1)
-                #expect(layout.quote.minY > layout.artwork.maxY)
-                #expect(layout.branding.maxY < layout.size.height)
-                let required = ("“\(card.quote)”" as NSString).boundingRect(
-                    with: CGSize(width: layout.quote.width, height: .greatestFiniteMagnitude),
-                    options: [.usesLineFragmentOrigin, .usesFontLeading],
-                    attributes: DailyCardShareRenderer.attributes(font: DailyCardShareRenderer.quoteFont, color: .white),
-                    context: nil)
-                #expect(layout.quote.height >= ceil(required.height))
-                if let vibe = layout.vibe { #expect(vibe.maxY < layout.branding.minY) }
+                #expect(cgImage.height > 1600)
                 #expect(export.text == snapshot.companionText)
             }
         }
@@ -125,7 +209,7 @@ struct DailyCardShareTests {
             try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card(quote: String(repeating: "Long quote. ", count: 250))))
         }
         #expect(throws: DailyCardShareError.self) {
-            try DailyCardShareRenderer.layout(for: DailyCardShareSnapshot(card: card(quote: String(repeating: "x", count: 5000))))
+            try DailyCardShareRenderer.render(DailyCardShareSnapshot(card: card(quote: String(repeating: "x", count: 5000))))
         }
     }
 

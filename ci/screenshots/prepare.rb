@@ -30,6 +30,7 @@ Dir.glob(File.join(root, 'DailyWhiskers/**/*.swift')).sort.each do |source|
 end
 FileUtils.cp(File.join(__dir__, 'CaptureApp.swift'), sources)
 FileUtils.cp_r(File.join(root, 'DailyWhiskers/Assets.xcassets'), resources)
+FileUtils.cp_r(File.join(root, 'DailyWhiskers/CardOriginals'), output)
 # A single unmodified production card makes the existing date selector deterministic.
 File.write(File.join(resources, 'daily_whiskers_content.json'), JSON.pretty_generate('cards' => [card]) + "\n")
 
@@ -39,14 +40,15 @@ firebase = pins.find { |pin| pin.fetch('identity') == 'firebase-ios-sdk' }
 abort 'Missing Firebase dependency pin' unless firebase
 spec = {
   'name' => 'WhiskersScreenshots',
-  'options' => { 'deploymentTarget' => { 'iOS' => '17.0' } },
+  'options' => { 'deploymentTarget' => { 'iOS' => '26.2' } },
   'packages' => {
     'Firebase' => { 'url' => firebase.fetch('location'), 'exactVersion' => firebase.fetch('state').fetch('version') }
   },
   'targets' => {
     'WhiskersScreenshots' => {
       'type' => 'application', 'platform' => 'iOS',
-      'sources' => [{ 'path' => 'Sources' }, { 'path' => 'Resources', 'buildPhase' => 'resources' }],
+      'sources' => [{ 'path' => 'Sources' }, { 'path' => 'Resources', 'buildPhase' => 'resources' },
+                    { 'path' => 'CardOriginals', 'type' => 'folder', 'buildPhase' => 'resources' }],
       'settings' => { 'base' => {
         'PRODUCT_BUNDLE_IDENTIFIER' => 'com.kenwidemon.dailywhiskers.screenshots',
         'SWIFT_VERSION' => '5.0', 'TARGETED_DEVICE_FAMILY' => '1,2',

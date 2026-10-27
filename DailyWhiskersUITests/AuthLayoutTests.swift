@@ -153,6 +153,124 @@ final class AuthLayoutTests: XCTestCase {
         XCTAssertTrue(app.secureTextFields["sign-in-password"].exists)
     }
 
+    func testRegistrationMaskedRefocusAfterVisibilityToggle() {
+        registrationMaskedRefocus(populateEmail: true)
+    }
+
+    func testRegistrationMaskedRefocusWithoutEmail() {
+        registrationMaskedRefocus(populateEmail: false)
+    }
+
+    func testRegistrationEmptyEmailFocusedFirst() {
+        registrationMaskedRefocus(populateEmail: false, focusEmailFirst: true)
+    }
+
+    func testRegistrationEmptyEmailWithoutInitialToggle() {
+        registrationMaskedRefocus(populateEmail: false, initialToggle: false)
+    }
+
+    private func registrationMaskedRefocus(populateEmail: Bool, focusEmailFirst: Bool = false, initialToggle: Bool = true) {
+        launch(orientation: .portrait, textSize: .large)
+        app.buttons["Create Account"].tap()
+        let email = app.textFields["registration-email"]
+        let password = app.secureTextFields["registration-password"]
+        let passwordInput = app.descendants(matching: .any)["registration-password"].firstMatch
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        func capture(_ name: String) {
+            print("DW86 capture: \(name)")
+            fflush(stdout)
+            // Allow the secure-entry render and SF Symbol transition to settle.
+            Thread.sleep(forTimeInterval: 4)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = name
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = name + " hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        if populateEmail {
+            email.tap()
+            email.typeText("refocus@example.invalid")
+        } else {
+            // The former disclosure sequence is now contained at its entry point.
+            XCTAssertEqual(email.value as? String, "Email")
+            XCTAssertFalse(password.isEnabled)
+            XCTAssertFalse(app.buttons["Show Password"].isEnabled)
+            XCTAssertTrue(app.staticTexts["registration-email-first"].exists)
+            capture("Blank Email disables password and shows guidance")
+            email.tap()
+            email.typeText(" ")
+            XCTAssertFalse(password.isEnabled, "Whitespace is still blank.")
+            if focusEmailFirst {
+                let next = app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "next")).firstMatch
+                waitForVisibleKey(next)
+                next.tap()
+                XCTAssertFalse(password.isEnabled)
+                XCTAssertTrue(app.keyboards.keys["@"].exists, "Blank Email Next must keep the email keyboard.")
+            }
+            email.typeText(XCUIKeyboardKey.delete.rawValue + "x")
+            XCTAssertTrue(password.isEnabled, "A nonblank partial address enables entry before validation.")
+        }
+        passwordInput.tap()
+        password.typeText("Synthetic-Refocus-42")
+        if initialToggle {
+            app.buttons["Show Password"].tap()
+            app.buttons["Hide Password"].tap()
+        }
+        capture(initialToggle ? "Initially explicitly masked" : "Initially masked without toggling")
+        for round in 1...2 {
+            email.tap()
+            passwordInput.tap()
+            capture("Refocus \(round) before touching Show")
+            XCTAssertTrue(password.exists)
+            XCTAssertEqual(app.buttons["Show Password"].value as? String, "Hidden")
+            XCTAssertEqual(passwordInput.value as? String, "Password entered")
+            app.buttons["Show Password"].tap()
+            capture("Refocus \(round) after Show")
+            XCTAssertTrue(app.textFields["registration-password"].exists)
+            XCTAssertEqual(app.buttons["Hide Password"].value as? String, "Visible")
+            app.buttons["Hide Password"].tap()
+            capture("Refocus \(round) after Hide")
+            XCTAssertTrue(password.exists)
+        }
+        // Clearing a revealed password's email must mask and retain the draft.
+        app.buttons["Show Password"].tap()
+        email.tap()
+        let emailLength = populateEmail ? "refocus@example.invalid".count : 1
+        email.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: emailLength))
+        XCTAssertEqual(email.value as? String, "Email")
+        XCTAssertFalse(passwordInput.isEnabled)
+        XCTAssertFalse(app.buttons["Show Password"].isEnabled)
+        XCTAssertTrue(app.staticTexts["registration-email-first"].exists)
+        XCTAssertTrue(password.exists)
+        XCTAssertEqual(password.value as? String, "Password entered")
+        capture("Cleared email retains masked password and disables controls")
+        email.typeText(" ")
+        XCTAssertFalse(passwordInput.isEnabled)
+        XCTAssertTrue(password.exists)
+        email.typeText(XCUIKeyboardKey.delete.rawValue + "x")
+        XCTAssertTrue(passwordInput.isEnabled)
+        let next = app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] %@", "next")).firstMatch
+        waitForVisibleKey(next)
+        next.tap()
+        XCTAssertTrue(password.exists)
+        capture("Restored nonblank email remains masked before Show")
+        app.buttons["Show Password"].tap()
+        capture("Restored email Show reveals retained synthetic input")
+        app.buttons["Hide Password"].tap()
+        // Deliberate deletion/retyping must remain possible after the gate reopens.
+        app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Synthetic-Refocus-42".count))
+        XCTAssertEqual(password.value as? String, "Empty")
+        app.typeText("Retyped-Synthetic-7")
+        app.buttons["Show Password"].tap()
+        capture("Deliberately retyped synthetic input after restoration")
+        app.buttons["Hide Password"].tap()
+        XCTAssertTrue(password.exists)
+        // Synthetic input only; never submits registration.
+    }
+
     func testRegistrationNavigationAndCredentialIsolation() {
         launch(orientation: .portrait, textSize: .large)
         app.textFields["Email"].tap()
@@ -223,6 +341,8 @@ final class AuthLayoutTests: XCTestCase {
     func testRegistrationPasswordPrivacyAndCloseDiscard() {
         launch(orientation: .portrait, textSize: .large)
         app.buttons["Create Account"].tap()
+        app.textFields["registration-email"].tap()
+        app.textFields["registration-email"].typeText("x")
         let password = app.secureTextFields["registration-password"]
         XCTAssertTrue(password.waitForExistence(timeout: 5))
         password.tap()
@@ -256,7 +376,11 @@ final class AuthLayoutTests: XCTestCase {
     func testSwipeDismissalDiscardsSignInAndRegistrationDrafts() {
         launch(orientation: .portrait, textSize: .large)
         for registration in [false, true] {
-            if registration { app.buttons["Create Account"].tap() }
+            if registration {
+                app.buttons["Create Account"].tap()
+                app.textFields["registration-email"].tap()
+                app.textFields["registration-email"].typeText("x")
+            }
             let identifier = registration ? "registration-password" : "sign-in-password"
             let password = app.secureTextFields[identifier]
             XCTAssertTrue(password.waitForExistence(timeout: 5))
@@ -295,6 +419,10 @@ final class AuthLayoutTests: XCTestCase {
         for _ in 0..<12 where !open.isHittable { scroll.swipeUp() }
         open.tap()
         XCTAssertTrue(app.buttons["registration-submit"].waitForExistence(timeout: 5))
+        let email = app.textFields["registration-email"]
+        for _ in 0..<12 where !email.isHittable { scroll.swipeUp() }
+        email.tap()
+        email.typeText("x")
         let password = app.secureTextFields["registration-password"]
         for _ in 0..<12 where !password.isHittable { scroll.swipeUp() }
         password.tap()
@@ -325,8 +453,15 @@ final class AuthLayoutTests: XCTestCase {
     private func openOptionalSignIn() {
         app.buttons["Settings"].tap()
         let signIn = app.buttons["Sign In"]
+        // Native menu rows scroll at accessibility sizes in compact landscape.
+        let menu = app.collectionViews.firstMatch
+        for _ in 0..<4 where !signIn.exists || !signIn.isHittable {
+            guard menu.exists else { break }
+            menu.swipeUp()
+        }
         XCTAssertTrue(signIn.waitForExistence(timeout: 10),
                       "Run on a signed-out QA simulator; this test never signs out a user.")
+        XCTAssertTrue(signIn.isHittable)
         XCTAssertFalse(app.buttons["Log Out"].exists)
         XCTAssertFalse(app.buttons["Delete Account"].exists)
         signIn.tap()

@@ -51,6 +51,9 @@ evidence below remain useful without overriding this candidate's scoped decision
   They do not prove VoiceOver speech, real authentication, or backend request counts.
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
+- Required offline UI CI runs all five `RegressionSmokeTests` and all
+  `SavedCardsTests`, including the complete Favorites lifecycle. Both classes
+  are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
   synthetic native replacements across email/password focus changes, intentional
   select-all deletion and continued manual editing. These checks do not invoke
@@ -117,6 +120,21 @@ model replacements and discarded forms must not be restored by queued work.
 Programmatic secure-entry caret restoration must not publish a temporary cleared
 model. Coverage also uses production-shaped `@State RegistrationForm` bindings
 with native delegates active.
+Create Account requires nonblank email before Password and Show/Hide are enabled;
+whitespace alone remains blank, while a partial address enables entry without
+passing submission validation. The disabled field/control and visible guidance
+explain the entry order. Clearing email remasks and retains the password, returns
+focus to Email if needed, and disables password controls until email is nonblank.
+This is compatibility containment for the empty-username disclosure reproduced
+with native UIKit fields, not a repair of UIKit internals or a provider fix.
+
+The combined visibility/refocus regression covers initial empty/whitespace email,
+partial and populated addresses, explicit Show then Hide, and two Email → Password
+round trips. It also clears Email while Password is revealed, restores Email,
+and deliberately deletes/retypes the password. Check focus, selection, retained
+input, disabled accessibility state and working Show/Hide. Inspect rendered masking:
+a true native secure-entry flag alone is not proof that displayed text is masked.
+Use direct simulator captures if XCTest screenshots omit secure-field contents.
 These tests exercise the bridge ordering, not an actual password provider.
 
 Apple Passwords strong-password acceptance remains an unresolved physical-device
@@ -319,17 +337,36 @@ those local references are not durable release evidence. Historical rounds are a
 
 ## Sharing Today's Card
 
-For DW-002, run `DailyCardShareTests` in the unit scheme. Coverage includes a
-snapshot across local midnight, all bundled artwork/quotes plus fallback, text
-measurement and pixel bounds, optional vibe/text companion, PNG metadata,
-render failures/retry, duplicate taps, local preview metadata, and completion/cancellation cleanup.
+Run `DailyCardShareTests` and `DailyCardShareVisualTests` in the unit scheme.
+Coverage includes local midnight, immutable bytes/archetype across content replacement
+and retry, all bundled artwork/quotes plus fallback, daily/saved pixel equality,
+upright artwork pixel comparison, long-quote growth, PNG metadata, optional vibe/text
+companion, render failures/retry, duplicate taps, preview metadata and cleanup.
+Visual attachments cover the longest bundled quote and all six archetypes.
 These checks do not establish physical share-sheet or VoiceOver acceptance.
+
+For DW-017, run `DailyCardSharingTests/testActualExportPayloadsForTodayBonusAndSaved`
+and `testLongestQuoteExportRetryCancelAndLargerText` in the offline interaction
+scheme on iPhone and iPad. They capture paired app/system-sheet screenshots,
+exercise Today/Bonus/Saved navigation, cancellation, injected render error/retry,
+and sharing after scrolling at largest text. With the explicit CI-only
+`--ci-smoke-export-evidence` flag, the exact image/text passed to the activity
+controller is retained under the simulator app's Documents/ShareEvidence directory.
+Inspect those actual payloads for full upright art, complete quote, Vibe, watermark,
+dimensions and metadata; compare matched Today/Bonus/Saved versions byte-for-byte.
+This opt-in evidence hook is compiled only with `DEBUG && CI_SMOKE_TESTING`;
+ordinary Debug/Release exports remain memory-only. Keep raw output outside Git.
+Watermark scale, opacity, placement and export sizing require Ken's visual approval.
 
 The interaction suite checks launch in either orientation, repeated bidirectional
 rotation before sharing, current-window canvas bounds and quote centering, scroll
 recovery to the complete quote/vibe, and rotation with the system share sheet open.
-The toolbar uses a view-only UIKit anchor: embedding a controller there previously
-left the main canvas at its launch dimensions while the toolbar rotated.
+The card toolbar installs native `UIBarButtonItem` menus from a controller in the
+screen background, outside SwiftUI toolbar content. The transparent share anchor
+uses the persistent Options bar item for iPad popovers. Keep the controller out
+of toolbar content: embedding a controller there previously left the main canvas
+at its launch dimensions while the toolbar rotated. Preserve these rotation and
+share-dismissal checks when changing the bridge or navigation ownership.
 
 On both iPhone and iPad, record the exact SHA/build and OS, then:
 
@@ -363,3 +400,122 @@ On both iPhone and iPad, record the exact SHA/build and OS, then:
 Keep account/regression prerequisites and artwork/quote redistribution approval
 explicit in the linked issue/PR. No physical check or rights approval is implied
 by passing unit tests or opening a draft PR.
+
+## Saved Cards
+
+Use the `CardRepositoryTests` unit suite and `SavedCardsTests` interaction class
+with the same offline smoke compilation/launch gate documented in the app README.
+Keep result bundles, screenshots and accessibility hierarchies privately; report
+the exact source/diff, OS, simulator, selected checks and skips separately from CI.
+
+- Save a displayed guest card, relaunch offline, browse newest-first, reopen and
+  share it. Check the exact quote/vibe and full artwork; no account prompt appears.
+- Open Options on Today, Bonus and saved detail. Verify Share and Save/Remove,
+  with the original monochrome heart-eyes cat on the save action: clear when
+  unsaved and a lower-trailing check badge when saved. Remove uses destructive
+  styling. Verify the **Saved/Not saved** value on the persistent Options trigger
+  and the next-action label/hint in the menu. The collection navigation, Today/Bonus
+  switcher and Settings stay separate; the collection list gains no action menu.
+  Save and unsave must preserve trigger and card geometry at standard and largest
+  text sizes. Inspect the same original cat in empty collection guidance.
+- Save an identical version twice without changing order. Save another quote or
+  artwork version of the same stable cat ID and verify both versions survive.
+  Reordering/renaming the current pack must not change saved content identity.
+- Replace current artwork, restart, and verify old bytes and actual old exports
+  remain exact. Validate all current packaged original files against source hashes.
+  Confirm the clean app bundle contains one `CardOriginals` folder and the catalog
+  contains only AppIcon. Current and retained share PNGs must match exactly for
+  identical content; exercise the default artwork loader in previews and fallback
+  validation as well as the retained-byte display path. Record unsigned app file
+  bytes separately from App Store download size, and simulator memory separately
+  from physical-device acceptance.
+- Inject a failure after row writes but before commit; prior favorites remain.
+  Exercise interrupted transactions, corrupt/missing BLOBs, schema rejection,
+  initial migration rollback/retry and consistent SQLite backup/restore including
+  future day-selection references. Simulated disk-full errors are not a physical
+  low-storage or power-loss test; record that limit.
+- Unsave one card while leaving its open detail readable; its title must change
+  from **Saved Card** to **Card**, then return on re-save. Confirm Clear is disabled
+  while empty or busy, enabled after saving, and disabled again after removing the
+  last card or confirmed clearing. Clear removes favorites only; cancel retains
+  them and leaves Clear enabled. Referenced day content and active
+  share content must survive cleanup. No implicit clear follows auth transitions.
+- Compare Today and saved detail for the same card on the same device and text
+  size. Verify matching themed frame, quote background, Vibe pill and text while
+  retaining distinct navigation and Options controls. Compare actual card,
+  quote and Vibe bounds as well as screenshots; shared code alone is not evidence
+  of matching geometry. Open Saved Card Options, dismiss without removing, then
+  remove and resave the open card; confirm the options control's accessible label,
+  state and activation, and a menu-action height of at least 44 points. The options
+  menu uses a native `UIBarButtonItem` and `UIMenu`; platform hosting can still
+  affect actual hit testing, so native appearance and dimensions are not a pass.
+  Run the ordinary-portrait and largest-text paired-geometry tests on iPhone and
+  iPad: coordinate taps at the trigger center and all eight edge/corner samples
+  at offsets of ±21.5 points on each axis must open the menu; dismissal must retain
+  Saved state. Apply the same center and eight boundary samples to Today and Bonus
+  Options at standard and largest text. A native-looking control or an OS-specific
+  failure is not an automatic exception to this project acceptance check.
+  Record the trigger's accessibility bounds separately. Those bounds locate the
+  samples but do not prove tappability or VoiceOver behavior. Use freshly created,
+  dedicated simulators and verify their app/data paths before fixture writes;
+  never run the clearing fixtures against an owner's QA container or assume a
+  simulator clone has independent app storage. No removal footer reserves content
+  height. Use the saved snapshot's theme and content even when the current manifest
+  differs.
+- Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
+  offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
+  spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve
+  the artwork size, not merely fit the card bounds. Compare two iPad Saved tile
+  top/bottom edges for unequal quote lengths. Resize an iPad window narrower and
+  wider while a saved detail stays open; content identity and save state must remain.
+  `DailyCardShareVisualTests` compares rendered artwork pixels at identical scale
+  across stacked, wide, narrow and accessibility presentations, and verifies the
+  natural-height scrolling fallback. Repeat at the largest accessibility size:
+  one column, complete quotes, reachable
+  full detail and Vibe through scrolling. These simulator fixtures never inspect
+  an owner device or its saved collection.
+- Review phone/tablet, default/largest text, portrait/landscape and Reduce Motion.
+  Check empty and multi-card collections, centered tablet widths, and single-column
+  accessibility layouts. Check ordinary phone portrait fit and complete artwork;
+  shorter windows, larger text and unusually long content must scroll instead of
+  shrinking artwork or text. The secondary
+  removal action retains its complete accessible label and a 44-point touch target.
+  Saved thumbnails/quote excerpts must be usable and the reopened quote/vibe and
+  actions reachable. VoiceOver speech/focus require separate observed acceptance;
+  accessibility hierarchy and hittability assertions do not prove them.
+- Check login, logout and account deletion with separately authorized accounts.
+  The collection remains device-owned; deletion copy points to explicit clear.
+  Review public privacy/support wording before release without treating source
+  documentation changes as publication of those separate sites.
+
+## Bonus Card
+
+Run `BonusCardTests` in the unit scheme for local midnight, time-zone travel,
+repeated dates, DST transitions, retained bytes across relaunch/backup, failed
+commit rollback, corrupt content, exact Today exclusions and recent-seven fallback.
+Corrupt a recent snapshot's metadata: its original date must stay unavailable while
+future dates can select valid content and still avoid readable recent cards.
+Run `DailyWhiskersUITests/BonusCardTests` with the offline smoke build/launch gate
+for guest access, return to Today, reopening after relaunch, Favorites, existing
+share-sheet cancellation and paired portrait previews. Keep original failures and
+screenshots; do not classify a failure as intermittent without evidence.
+The retained-bonus regression relaunches with `--ci-smoke-today-artwork-unavailable`
+to fail Today's capture, then verifies reopening the original bonus, Save, Share
+and return navigation. This injection requires both `DEBUG`/`CI_SMOKE_TESTING` and
+`--ci-smoke`; it is absent from ordinary and Release builds.
+
+Compare Today, Bonus and its saved detail on regular/small iPhone and iPad with
+ordinary and largest text. Preserve complete ordinary-phone artwork/quote/Vibe,
+quote padding, the monochrome heart-eyes cat Save control and unchanged share export.
+At larger text and in landscape, scroll to both quote boundaries and Vibe; verify
+menu, Save and Share remain reachable. Test foreground midnight and travel on an
+explicitly authorized device without changing the owner's clock/settings as part
+of automation. Current automation tests date policy separately from real clock
+notifications. VoiceOver reading order, speech and focus restoration require
+observed acceptance; hierarchy and hittability alone do not establish them.
+
+A retained date must survive Favorites clearing, navigation and reopening with a
+changed or missing content pack. A corrupt retained snapshot shows an error and
+never consumes a second selection. No content match should produce a usable Today
+and a retryable unavailable message. The known registration-focus risk and deferred
+account checks elsewhere in this guide remain unchanged by bonus-card validation.

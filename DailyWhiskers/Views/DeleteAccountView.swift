@@ -14,7 +14,7 @@ struct DeleteAccountView: View {
             Form {
                 Section {
                     Text("Permanently delete your Daily Whiskers account. You will be signed out and can keep enjoying daily cards without an account. This cannot be undone.")
-                    Text("Daily cat photos and quotes are bundled with the app, not stored in your account.")
+                    Text("Saved Cards stays on this device after account deletion. To remove it, use Settings > Clear Saved Cards. Daily Whiskers does not sync saved cards; your device backup may include them.")
                         .foregroundStyle(.secondary)
                 }
                 Section("Confirm Your Identity") {

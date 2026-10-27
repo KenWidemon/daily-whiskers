@@ -16,10 +16,14 @@ Configuration guide, not a second release roadmap. See the
   The `example` component is not a reason to rename
   an existing Firebase registration. The existing App Store Connect record is
   `6809050612`; do not create a duplicate or rename its confirmed bundle ID.
-- Prepared marketing version is `1.1`, build `3`; frozen V1 remains `1.0 (1)`.
+- Prepared marketing version is `1.2`, build `4`; accepted V1.1 remains `1.1 (3)`
+  and frozen V1 remains `1.0 (1)`.
   Configuration does not reserve the build number in App Store Connect or prove
   archive, signing, upload, or release readiness. Recheck availability before upload.
-- iOS deployment target remains 17.0; iPhone and iPad remain supported.
+- V1.2 requires iOS/iPadOS 26.2 or later; iPhone and iPad remain supported.
+  Earlier OS versions are outside V1.2 support. This policy does not change frozen
+  releases or turn unresolved iOS 17 results into passing evidence. Verify the built
+  `MinimumOSVersion` and qualify the exact 26.2 runtime separately from newer-OS tests.
 - All 18 AppIcon slots were checked against their declared pixel dimensions;
   every referenced PNG exists and has no alpha channel.
 - Local Firebase configuration remains ignored by Git. The CI plist is fake
@@ -68,3 +72,19 @@ account action. See the [canonical release checklist](release-checklist.md).
   number and renewed relevant checks; do not change the immutable RC1 tag.
 - Development registration policy changes are not permission to alter live Firebase
   settings. See [DW-005 acceptance limits](testing.md#dw-005-development-evidence).
+
+## Rehearsal Security Boundary
+
+The [offline release rehearsal](distribution-readiness.md#offline-release-policy-rehearsal)
+uses synthetic configuration and inspection records. Never supply real Firebase
+configuration, credentials, archives or IPAs to its fixtures or public reports.
+Its `release_eligible=false` result is unconditional. Fixture signature/profile
+claims are not a check of current signing assets, and its temporary ledger does
+not reserve a build in App Store Connect.
+
+The rehearsal workflow has only a read-only repository token, no environment or
+release secrets, and no signing/upload adapter. Keep production adapters and
+credential/environment settings out of this stage. Future privileged work needs
+separate ownership and settings approval, private artifact storage and verified
+package-specific approval. Existing automatic signing/export remains the manual
+path; the rehearsal does not enable provisioning or change distribution settings.

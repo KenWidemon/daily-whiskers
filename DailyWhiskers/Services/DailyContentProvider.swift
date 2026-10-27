@@ -19,17 +19,19 @@ struct DailyContentProvider {
         vibe: "vast"
     )
 
-    init(calendar: Calendar = .current, bundle: Bundle = .main) {
+    init(calendar: Calendar = .autoupdatingCurrent, bundle: Bundle = .main) {
         self.calendar = calendar
         self.manifest = Self.loadManifest(from: bundle)
     }
 
-    init(calendar: Calendar = .current, manifest: DailyContentManifest) {
+    init(calendar: Calendar = .autoupdatingCurrent, manifest: DailyContentManifest) {
         self.calendar = calendar
         self.manifest = manifest.cards.isEmpty
             ? DailyContentManifest(cards: [Self.fallbackCard])
             : manifest
     }
+
+    var bonusCandidates: [DailyCard] { manifest.cards }
 
     func contentForToday() -> DailyCard? {
         content(for: Date())
@@ -41,6 +43,14 @@ struct DailyContentProvider {
             return Self.fallbackCard
         }
 
+#if DEBUG && CI_SMOKE_TESTING
+        if CISmokeMode.isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-shortest-card") {
+            return manifest.cards.min { $0.quote.count < $1.quote.count }
+        }
+        if CISmokeMode.isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-longest-card") {
+            return manifest.cards.max { $0.quote.count < $1.quote.count }
+        }
+#endif
         let seed = daySeed(for: date)
         return manifest.cards[seed % manifest.cards.count]
     }
@@ -136,7 +146,7 @@ struct DailyContentProvider {
             }
 
             guard resolveImage(normalizedCard.imageName) else {
-                logger.error("Card id \(normalizedCard.id, privacy: .public) references missing image asset \(normalizedCard.imageName, privacy: .public). Card was dropped.")
+                logger.error("Card id \(normalizedCard.id, privacy: .public) references missing original artwork \(normalizedCard.imageName, privacy: .public). Card was dropped.")
                 continue
             }
 
@@ -171,7 +181,7 @@ struct DailyContentProvider {
 
     private static func hasImageNamed(_ imageName: String, in bundle: Bundle) -> Bool {
         #if canImport(UIKit)
-        UIImage(named: imageName, in: bundle, compatibleWith: nil) != nil
+        BundledCardArtwork.image(named: imageName, bundle: bundle) != nil
         #else
         true
         #endif

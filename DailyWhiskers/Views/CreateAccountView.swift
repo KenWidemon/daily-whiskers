@@ -34,20 +34,20 @@ struct CreateAccountView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 Text("Email").font(.subheadline.weight(.semibold))
-                AuthTextField(label: "Email", text: $form.email, isFocused: focus(.email),
+                AuthTextField(label: "Email", text: emailBinding, isFocused: focus(.email),
                               isEnabled: !request.isWorking, contentType: .username, keyboardType: .emailAddress,
                               identifier: "registration-email") {
-                    focusedField = .password
+                    focusedField = form.canEditPassword ? .password : .email
                 }
                 .modifier(AuthFieldStyle())
                 .id(Field.email)
 
                 Text("Password").font(.subheadline.weight(.semibold))
                 passwordField
-                Text(RegistrationForm.passwordRequirements)
+                Text(form.canEditPassword ? RegistrationForm.passwordRequirements : RegistrationForm.emailFirstGuidance)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("registration-requirements")
+                    .accessibilityIdentifier(form.canEditPassword ? "registration-requirements" : "registration-email-first")
             }
 
             Button {
@@ -133,6 +133,13 @@ struct CreateAccountView: View {
         }
     }
 
+    private var emailBinding: Binding<String> {
+        Binding(get: { form.email }, set: { email in
+            form.email = email
+            if !form.canEditPassword && focusedField == .password { focusedField = .email }
+        })
+    }
+
     private func focus(_ field: Field) -> Binding<Bool> {
         Binding(get: { focusedField == field }, set: { focused in
             if focused { focusedField = field }
@@ -143,14 +150,19 @@ struct CreateAccountView: View {
     private var passwordField: some View {
         HStack(spacing: 8) {
             AuthTextField(label: "Password", text: $form.password, isFocused: focus(.password),
-                          isSecure: !form.passwordVisible, isEnabled: !request.isWorking,
+                          isSecure: !form.passwordVisible, isEnabled: !request.isWorking && form.canEditPassword,
                           contentType: .newPassword,
-                          identifier: "registration-password", returnKey: .done,
+                          identifier: "registration-password",
+                          accessibilityHint: form.canEditPassword ? nil : RegistrationForm.emailFirstGuidance,
+                          returnKey: .done,
                           passwordRules: RegistrationForm.passwordRules) {
                 submit()
             }
-            PasswordVisibilityButton(isVisible: $form.passwordVisible, isEnabled: !request.isWorking)
+            PasswordVisibilityButton(isVisible: $form.passwordVisible,
+                                     isEnabled: !request.isWorking && form.canEditPassword)
+                .accessibilityHint(form.canEditPassword ? "" : RegistrationForm.emailFirstGuidance)
         }
+        .disabled(request.isWorking || !form.canEditPassword)
         .modifier(AuthFieldStyle())
         .id(Field.password)
     }

@@ -1,0 +1,87 @@
+name: Release policy rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      controller_sha:
+        description: 'Exact reviewed controller commit (40 lowercase hex characters)'
+        required: true
+        type: string
+      candidate_sha:
+        description: 'Exact commit to identify in the fixture report; no candidate code is executed'
+        required: true
+        type: string
+      tag_object:
+        description: 'Optional annotated tag object SHA that must peel to candidate_sha'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-whiskers-release-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  fixtures:
+    name: Offline synthetic release policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify controller and candidate identities
+        env:
+          CONTROLLER_SHA: ${{ inputs.controller_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          TAG_OBJECT: ${{ inputs.tag_object }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/codex/develop ]] || exit 1
+          [[ "$CONTROLLER_SHA" =~ ^[0-9a-f]{40}$ && "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$CONTROLLER_SHA" == "$GITHUB_SHA" && "$(git rev-parse HEAD)" == "$CONTROLLER_SHA" ]] || exit 1
+          checkout_status="$(git status --porcelain)" || exit 1
+          [[ -z "$checkout_status" ]] || exit 1
+          [[ "$(git cat-file -t "$CANDIDATE_SHA")" == commit ]] || exit 1
+          if [[ -n "$TAG_OBJECT" ]]; then
+            [[ "$TAG_OBJECT" =~ ^[0-9a-f]{40}$ ]] || exit 1
+            [[ "$(git cat-file -t "$TAG_OBJECT")" == tag ]] || exit 1
+            [[ "$(git rev-parse "$TAG_OBJECT^{commit}")" == "$CANDIDATE_SHA" ]] || exit 1
+          fi
+      - name: Test offline policy
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s ci -p 'test_release*.py' -v
+      - name: Rehearse all synthetic scenarios
+        env:
+          CONTROLLER_SHA: ${{ inputs.controller_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-rehearsal
+          python3 -m ci.release.rehearse --controller-sha "$CONTROLLER_SHA" \
+            --candidate-sha "$CANDIDATE_SHA" > build/release-rehearsal/report.json
+      - name: Publish synthetic report
+        if: always()
+        run: |
+          echo '## Fixture rehearsal only — not release eligible' >> "$GITHUB_STEP_SUMMARY"
+          if test -s build/release-rehearsal/report.json; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat build/release-rehearsal/report.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Rehearsal did not produce a report; no success or approval is established.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve synthetic report only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-policy-fixture-report
+          path: build/release-rehearsal/report.json
+          retention-days: 7
+          if-no-files-found: error
