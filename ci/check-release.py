@@ -4,7 +4,8 @@ import sys
 
 
 def verify(binary):
-    forbidden = (b'CISmokeMode', b'--ci-smoke', b'Offline CI smoke', b'ci-smoke-offline')
+    forbidden = (b'CISmokeMode', b'--ci-smoke', b'Offline CI smoke', b'ci-smoke-offline',
+                 b'CISmokeStillnessFixture', b'DW_STILLNESS_TEST_ID', b'ci-stillness-system')
     return not any(marker in binary for marker in forbidden)
 
 

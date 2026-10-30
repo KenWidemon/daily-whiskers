@@ -17,6 +17,7 @@ struct DailyWhiskersApp: App {
             RootView()
                 .environmentObject(router)
 #if DEBUG && CI_SMOKE_TESTING
+                .modifier(CISmokeStillnessFixture())
                 // Reserve space for the offline marker so it cannot cover collection actions.
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if CISmokeMode.isEnabled {

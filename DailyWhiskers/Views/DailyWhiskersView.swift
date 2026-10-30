@@ -1,14 +1,14 @@
 import SwiftUI
 import Combine
 
-enum AccountSheet: String, Identifiable {
-    case signIn, deletion
+enum SettingsSheet: String, Identifiable {
+    case signIn, deletion, stillness
 
     var id: String { rawValue }
 
     func isAvailable(for state: AppRouter.AuthState) -> Bool {
         switch (self, state) {
-        case (.signIn, .signedOut), (.deletion, .signedIn): true
+        case (.stillness, _), (.signIn, .signedOut), (.deletion, .signedIn): true
         default: false
         }
     }
@@ -39,7 +39,7 @@ struct DailyWhiskersView: View {
     @State private var contentState = DailyContentState()
     @StateObject private var accountRequest = AuthRequestState()
     @StateObject private var deletionRequest = AuthRequestState()
-    @State private var accountSheet: AccountSheet?
+    @State private var settingsSheet: SettingsSheet?
     @StateObject private var shareState = DailyCardShareState()
     @State private var settingsFocused: Bool = false
 
@@ -70,12 +70,12 @@ struct DailyWhiskersView: View {
         return CardNavigationToolbar(options: .init(identifier: "daily-card-options",
             label: shareState.isRendering ? "Preparing Card" : (bonusCard == nil ? "Today's Card Options" : "Bonus Card Options"),
             hint: "Opens share, save, and remove actions for this card.", value: saveState.value,
-            image: "ellipsis", enabled: activeSnapshot != nil && !savedCards.busy && accountSheet == nil && !shareState.isRendering && shareState.export == nil,
+            image: "ellipsis", enabled: activeSnapshot != nil && !savedCards.busy && settingsSheet == nil && !shareState.isRendering && shareState.export == nil,
             menu: UIMenu(children: [share, save])),
             settings: .init(identifier: "Settings", label: "Settings",
-                hint: "Opens privacy, support, and optional account tools.", image: "gearshape",
+                hint: "Opens Stillness Mode, privacy, support, and optional account tools.", image: "gearshape",
                 enabled: !shareState.isRendering && shareState.export == nil,
-                hiddenFromAccessibility: accountSheet != nil, menu: nativeSettingsMenu),
+                hiddenFromAccessibility: settingsSheet != nil, menu: nativeSettingsMenu),
             export: shareState.export, onShareComplete: { failed in
                 shareState.completeActivity(failed: failed)
                 shareState.sheetDismissed()
@@ -84,6 +84,10 @@ struct DailyWhiskersView: View {
     }
 
     private var nativeSettingsMenu: UIMenu {
+        let stillness = CardNavigationToolbar.action("Stillness Mode", identifier: "open-stillness",
+            image: UIImage(systemName: "leaf"), hint: "Adjusts decorative motion on this device.") {
+                settingsFocused = false; settingsSheet = .stillness
+            }
         let clear = CardNavigationToolbar.action("Clear Saved Cards", disabled: !savedCards.canClear,
             destructive: true) { confirmingClear = true }
         let links = [CardNavigationToolbar.action("Privacy Policy") { UIApplication.shared.open(AppLinks.privacyPolicy) },
@@ -94,15 +98,16 @@ struct DailyWhiskersView: View {
             account = [CardNavigationToolbar.action("Checking Account...", disabled: true) {}]
         case .signedOut:
             account = [CardNavigationToolbar.action("Sign In", hint: "Optional. Daily cards are available without an account.") {
-                settingsFocused = false; accountSheet = .signIn
+                settingsFocused = false; settingsSheet = .signIn
             }]
         case .signedIn:
             account = [CardNavigationToolbar.action("Log Out", disabled: accountRequest.isWorking, destructive: true) { logOut() },
                        CardNavigationToolbar.action("Delete Account", disabled: accountRequest.isWorking, destructive: true) {
-                           deletionRequest.clearFeedback(); settingsFocused = false; accountSheet = .deletion
+                           deletionRequest.clearFeedback(); settingsFocused = false; settingsSheet = .deletion
                        }]
         }
-        return UIMenu(children: [UIMenu(options: .displayInline, children: [clear]),
+        return UIMenu(children: [UIMenu(options: .displayInline, children: [stillness]),
+                                 UIMenu(options: .displayInline, children: [clear]),
                                  UIMenu(options: .displayInline, children: links),
                                  UIMenu(options: .displayInline, children: account)])
     }
@@ -139,9 +144,9 @@ struct DailyWhiskersView: View {
             } message: { Text(bonusError ?? "") }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(item: $accountSheet, onDismiss: {
+            .sheet(item: $settingsSheet, onDismiss: {
                 // A previous dismissal must not focus Settings over a replacement sheet.
-                guard accountSheet == nil else { return }
+                guard settingsSheet == nil else { return }
                 deletionRequest.clearFeedback()
                 settingsFocused = true
             }) { sheet in
@@ -150,6 +155,8 @@ struct DailyWhiskersView: View {
                     NavigationStack { AuthView() }
                 case .deletion:
                     DeleteAccountView(request: deletionRequest)
+                case .stillness:
+                    StillnessSettingsView()
                 }
             }
             .alert("Couldn't Share Card", isPresented: $shareState.hasError) {
@@ -191,7 +198,7 @@ struct DailyWhiskersView: View {
     }
 
     private var logoutErrorPresented: Binding<Bool> {
-        Binding<Bool>(get: { accountSheet == nil && accountRequest.errorMessage != nil },
+        Binding<Bool>(get: { settingsSheet == nil && accountRequest.errorMessage != nil },
                       set: setLogoutErrorPresented)
     }
 
@@ -249,7 +256,7 @@ struct DailyWhiskersView: View {
             .accessibilityLabel(bonusCard == nil ? "Today, Card Menu" : "Bonus Card, Card Menu")
             .accessibilityHint(bonusCard == nil ? "Open your optional daily bonus." : "Return to today's card.")
             .accessibilityIdentifier("card-menu")
-            .disabled(openingBonus || accountSheet != nil || shareState.isRendering || shareState.export != nil)
+            .disabled(openingBonus || settingsSheet != nil || shareState.isRendering || shareState.export != nil)
         }
         ToolbarItem(placement: .topBarLeading) {
             NavigationLink { SavedCardsView(model: savedCards) } label: {
@@ -261,9 +268,9 @@ struct DailyWhiskersView: View {
     private func handleAuthStateChange(from previous: AppRouter.AuthState, to state: AppRouter.AuthState) {
         // Successful sign-in/deletion (or an external session change) closes
         // the obsolete account sheet without replacing the daily card.
-        if let sheet = accountSheet, sheet.shouldDismiss(from: previous, to: state) {
-            accountSheet = nil
-        } else if case .signedIn = previous, state == .signedOut {
+        if let sheet = settingsSheet, sheet.shouldDismiss(from: previous, to: state) {
+            settingsSheet = nil
+        } else if case .signedIn = previous, state == .signedOut, settingsSheet == nil {
             settingsFocused = true
         }
     }

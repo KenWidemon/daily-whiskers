@@ -1,6 +1,7 @@
 #if DEBUG && CI_SMOKE_TESTING
 import Foundation
 import UIKit
+import SwiftUI
 
 // Compiled only by the dedicated CI Debug command, never the Release app.
 // No fake successful authentication: unexpected backend calls fail closed.
@@ -32,6 +33,41 @@ enum CISmokeMode {
 
     static func rejectAuthOperation() throws {
         if isEnabled { throw OfflineError.unexpectedAuthOperation }
+    }
+}
+
+/// A fresh preference domain plus the actual read-only OS motion state.
+/// Each test supplies a new UUID; relaunches reuse it to exercise actual AppStorage writes.
+struct CISmokeStillnessFixture: ViewModifier {
+    private let preferences: UserDefaults?
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    init() {
+        if CISmokeMode.isEnabled,
+           let identifier = ProcessInfo.processInfo.environment["DW_STILLNESS_TEST_ID"],
+           UUID(uuidString: identifier) != nil {
+            preferences = UserDefaults(suiteName: "dw.stillness.tests." + identifier)
+        } else {
+            preferences = nil
+        }
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let preferences {
+            content
+                .defaultAppStorage(preferences)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Text(systemReduceMotion ? "System Reduce Motion: On" : "System Reduce Motion: Off")
+                        .accessibilityIdentifier("ci-stillness-system")
+                        .font(.caption)
+                        .dynamicTypeSize(.medium)
+                        .padding(.horizontal)
+                        .accessibilityHint("Read-only offline test precondition. Device settings are unchanged.")
+                }
+        } else {
+            content
+        }
     }
 }
 #endif
