@@ -27,6 +27,245 @@ struct CardRepositoryTests {
         #expect(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
     }
 
+    @Test func failedFirstReadStaysUnavailableAfterDismissalAndRetryPreservesExactStorage() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let repository = CardRepository(url: url)
+        let first = try sample(), second = try sample(quote: "Second quote", color: .blue)
+        try await repository.save(first)
+        try await repository.save(second)
+        let originalBytes = try Data(contentsOf: url)
+        let expected = try await repository.favorites()
+        var attempts = 0
+        let entered = AsyncStream<Void>.makeStream()
+        var release: CheckedContinuation<Void, Never>?
+        let model = SavedCardsModel(repository: repository, readFavorites: {
+            attempts += 1
+            if attempts == 1 {
+                await withCheckedContinuation { release = $0; entered.continuation.yield(()) }
+                throw CardStorageError.database(SQLITE_IOERR)
+            }
+            return try await repository.favorites()
+        })
+        #expect(model.loadState == .loading)
+        let refresh = Task { await model.refresh() }
+        var entries = entered.stream.makeAsyncIterator()
+        await entries.next()
+        #expect(model.loadState == .loading)
+        #expect(model.busy)
+        #expect(model.records.isEmpty)
+        await model.refresh() // Duplicate read while busy is ignored.
+        #expect(attempts == 1)
+        release?.resume()
+        await refresh.value
+        entered.continuation.finish()
+        #expect(model.isUnavailable)
+        #expect(model.errorMessage != nil)
+        #expect(!model.busy)
+        model.cancelError()
+        #expect(model.errorMessage == nil)
+        #expect(model.isUnavailable)
+        #expect(try Data(contentsOf: url) == originalBytes)
+        await model.refresh() // Same read-only action as the persistent in-place Retry.
+        #expect(model.loadState == .loaded)
+        #expect(model.records.map(\.id) == expected.map(\.id))
+        #expect(model.records.map(\.sequence) == expected.map(\.sequence))
+        #expect(model.records.map(\.quote) == expected.map(\.quote))
+        for card in [first, second] {
+            let retained = try await repository.load(card.snapshot.id)
+            #expect(retained.snapshot == card.snapshot)
+            #expect(retained.artwork == card.artwork)
+        }
+        await model.refresh()
+        #expect(model.records.count == 2)
+        #expect(try Data(contentsOf: url) == originalBytes)
+    }
+
+    @Test(arguments: [false, true])
+    func laterReadFailureRetainsLastSuccessfulCollection(empty: Bool) async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let repository = CardRepository(url: url)
+        if !empty { try await repository.save(sample()) }
+        var fail = false
+        let model = SavedCardsModel(repository: repository, readFavorites: {
+            if fail { throw CardStorageError.database(SQLITE_IOERR) }
+            return try await repository.favorites()
+        })
+        await model.refresh()
+        #expect(model.loadState == .loaded)
+        let original = model.records
+        let bytes = try Data(contentsOf: url)
+        fail = true
+        await model.refresh()
+        model.cancelError()
+        #expect(model.isUnavailable)
+        #expect(model.records.map(\.id) == original.map(\.id))
+        #expect(model.records.map(\.quote) == original.map(\.quote))
+        fail = false
+        await model.refresh()
+        #expect(model.loadState == .loaded)
+        #expect(model.records.map(\.sequence) == original.map(\.sequence))
+        #expect(try Data(contentsOf: url) == bytes)
+    }
+
+    @Test func readbackRetryDoesNotReplayCommittedClear() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let repository = CardRepository(url: url)
+        try await repository.save(sample())
+        var fail = false
+        let model = SavedCardsModel(repository: repository, readFavorites: {
+            if fail { throw CardStorageError.database(SQLITE_IOERR) }
+            return try await repository.favorites()
+        })
+        await model.refresh()
+        fail = true
+        await model.clear()
+        #expect(model.isUnavailable)
+        #expect(model.records.count == 1) // Last verified rows, explicitly stale.
+        #expect(try await repository.favorites().isEmpty)
+        let later = try sample(quote: "Saved after the clear")
+        try await repository.save(later)
+        fail = false
+        await model.retry()
+        #expect(model.loadState == .loaded)
+        #expect(model.records.map(\.id) == [later.snapshot.id])
+        #expect(try await repository.load(later.snapshot.id).artwork == later.artwork)
+    }
+
+    @Test func readbackRetryDoesNotReplayCommittedSaveOrResurrectLaterRemovedCard() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let storage = CardRepository(url: url)
+        let original = try sample(), saved = try sample(quote: "Committed save", color: .blue)
+        let later = try sample(quote: "Saved after readback failed", color: .green)
+        try await storage.save(original)
+        let commits = SavedCardsCommitCounter()
+        let repository = CardRepository(url: url, beforeCommit: { commits.record() })
+        var failRead = false
+        let model = SavedCardsModel(repository: repository, readFavorites: {
+            if failRead { throw CardStorageError.database(SQLITE_IOERR) }
+            return try await repository.favorites()
+        })
+        await model.refresh()
+        failRead = true
+        await model.toggle(saved)
+        #expect(model.isUnavailable)
+        #expect(model.errorMessage != nil)
+        #expect(model.records.map(\.id) == [original.snapshot.id])
+        #expect(try await storage.favorites().map(\.id) == [saved.snapshot.id, original.snapshot.id])
+        #expect(commits.count == 1) // The save committed; only its readback failed.
+
+        // Another repository client changes the collection before alert Retry.
+        try await storage.remove(saved.snapshot.id)
+        try await storage.save(later)
+        let expected = try await storage.favorites()
+        let bytes = try Data(contentsOf: url)
+        failRead = false
+        await model.retry()
+        #expect(model.loadState == .loaded)
+        #expect(model.errorMessage == nil)
+        #expect(commits.count == 1) // No write transaction was replayed, even idempotently.
+        #expect(model.records.map(\.id) == [later.snapshot.id, original.snapshot.id])
+        #expect(model.records.map(\.sequence) == expected.map(\.sequence))
+        #expect(model.records.map(\.quote) == expected.map(\.quote))
+        #expect(try Data(contentsOf: url) == bytes)
+        await #expect(throws: Error.self) { try await storage.load(saved.snapshot.id) }
+        for card in [original, later] {
+            let retained = try await storage.load(card.snapshot.id)
+            #expect(retained.snapshot == card.snapshot)
+            #expect(retained.artwork == card.artwork)
+        }
+    }
+
+    @Test func readbackRetryDoesNotReplayCommittedRemoveOrDeleteLaterResavedCard() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let storage = CardRepository(url: url)
+        let original = try sample(), removed = try sample(quote: "Committed removal", color: .blue)
+        let later = try sample(quote: "Saved after removal", color: .green)
+        try await storage.save(original)
+        try await storage.save(removed)
+        let commits = SavedCardsCommitCounter()
+        let repository = CardRepository(url: url, beforeCommit: { commits.record() })
+        var failRead = false
+        let model = SavedCardsModel(repository: repository, readFavorites: {
+            if failRead { throw CardStorageError.database(SQLITE_IOERR) }
+            return try await repository.favorites()
+        })
+        await model.refresh()
+        failRead = true
+        await model.toggle(removed)
+        #expect(model.isUnavailable)
+        #expect(model.errorMessage != nil)
+        #expect(model.records.map(\.id) == [removed.snapshot.id, original.snapshot.id])
+        #expect(try await storage.favorites().map(\.id) == [original.snapshot.id])
+        #expect(commits.count == 1) // The removal committed; only its readback failed.
+
+        // Re-saving the same identity makes replaying the old removal destructive.
+        try await storage.save(removed)
+        try await storage.save(later)
+        let expected = try await storage.favorites()
+        let bytes = try Data(contentsOf: url)
+        failRead = false
+        await model.retry()
+        #expect(model.loadState == .loaded)
+        #expect(model.errorMessage == nil)
+        #expect(commits.count == 1)
+        #expect(model.records.map(\.id) == [later.snapshot.id, removed.snapshot.id, original.snapshot.id])
+        #expect(model.records.map(\.sequence) == expected.map(\.sequence))
+        #expect(model.records.map(\.quote) == expected.map(\.quote))
+        #expect(try Data(contentsOf: url) == bytes)
+        for card in [original, removed, later] {
+            let retained = try await storage.load(card.snapshot.id)
+            #expect(retained.snapshot == card.snapshot)
+            #expect(retained.artwork == card.artwork)
+        }
+    }
+
+    @Test func unreadableDatabaseIsNotRecreatedByRefreshOrRetry() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let bytes = Data("unreadable collection fixture".utf8)
+        try bytes.write(to: url)
+        let model = SavedCardsModel(repository: CardRepository(url: url))
+        await model.refresh()
+        #expect(model.isUnavailable)
+        model.cancelError()
+        await model.refresh()
+        #expect(model.isUnavailable)
+        #expect(try Data(contentsOf: url) == bytes)
+    }
+
+    @Test(arguments: ["save", "remove", "clear"])
+    func failedMutationRetryPreservesIntentAndTransaction(operation: String) async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let original = try sample(), other = try sample(quote: "Other card")
+        let repository = CardRepository(url: url)
+        try await repository.save(original)
+        let bytes = try Data(contentsOf: url)
+        let failure = SavedCardsCommitFailure()
+        let failing = CardRepository(url: url, beforeCommit: { try failure.check() })
+        let model = SavedCardsModel(repository: failing)
+        await model.refresh()
+        switch operation {
+        case "save": await model.toggle(other)
+        case "remove": await model.toggle(original)
+        default: await model.clear()
+        }
+        #expect(model.errorMessage != nil)
+        #expect(model.loadState == .loaded) // A failed write doesn't invalidate a verified read.
+        #expect(model.records.map(\.id) == [original.snapshot.id])
+        #expect(try Data(contentsOf: url) == bytes)
+        failure.allowCommit()
+        await model.retry()
+        #expect(model.errorMessage == nil)
+        #expect(model.loadState == .loaded)
+        #expect(model.records.map(\.id) == (operation == "save" ? [other.snapshot.id, original.snapshot.id] : []))
+    }
+
     @Test func savedPresentationMatchesStateAndNextAction() {
         let unsaved = CardSaveState(isSaved: false)
         #expect(unsaved.actionLabel == "Save Card")
@@ -271,5 +510,31 @@ struct CardRepositoryTests {
                 #expect(snapshot.artwork == original)
             }
         }
+    }
+}
+
+private final class SavedCardsCommitFailure: @unchecked Sendable {
+    private let lock = NSLock()
+    private var failing = true
+    func check() throws {
+        lock.lock(); defer { lock.unlock() }
+        if failing { throw CardStorageError.database(SQLITE_FULL) }
+    }
+    func allowCommit() {
+        lock.lock(); defer { lock.unlock() }
+        failing = false
+    }
+}
+
+private final class SavedCardsCommitCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int {
+        lock.lock(); defer { lock.unlock() }
+        return value
+    }
+    func record() {
+        lock.lock(); defer { lock.unlock() }
+        value += 1
     }
 }

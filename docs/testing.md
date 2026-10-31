@@ -403,11 +403,30 @@ by passing unit tests or opening a draft PR.
 
 ## Saved Cards
 
-Use the `CardRepositoryTests` unit suite and `SavedCardsTests` interaction class
+Use the `CardRepositoryTests` unit suite and `SavedCardsTests` /
+`SavedCardsLoadStateTests` interaction classes
 with the same offline smoke compilation/launch gate documented in the app README.
 Keep result bundles, screenshots and accessibility hierarchies privately; report
 the exact source/diff, OS, simulator, selected checks and skips separately from CI.
 
+- Run the isolated load-state fixture at ordinary and largest text. While the first
+  read is held, only loading may appear. Fail the populated first read, dismiss the
+  alert, and verify persistent unavailable status and reachable **Retry**. Retry
+  must restore the exact IDs/order/quotes/artwork without duplicates or file-byte
+  changes (the unit fixture checks bytes). A later failed refresh retains prior
+  rows with explicit status; a failed refresh of a previously empty collection
+  must also replace empty guidance with unavailable status. Only successful empty
+  reads show the save-a-card prompt. Observe VoiceOver reading order, status,
+  Retry announcement and focus separately: hierarchy/hittability assertions do
+  not establish speech or focus acceptance. The fixture uses a unique
+  `DW_SAVED_LOAD_TEST_ID` and the offline gate; never point it at owner storage.
+- Preserve failed-write/transaction regressions. If a write commits but its readback
+  fails, alert Retry must only read again, never replay Clear or another mutation.
+  Cover committed save and remove separately from failed-commit rollback: remove a
+  newly saved card or re-save a removed identity through another repository client
+  before Retry. Assert no further write commits, exact current rows/order/content,
+  and unchanged database bytes. A repeated old save must not resurrect a later
+  removal; a repeated old remove must not delete a later re-save.
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
 - Open Options on Today, Bonus and saved detail. Verify Share and Save/Remove,

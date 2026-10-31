@@ -15,16 +15,47 @@ struct SavedCardsView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if model.records.isEmpty {
-                    VStack(spacing: 16) {
-                        CardSaveState(isSaved: false).icon
-                            .resizable().frame(width: 40, height: 40).accessibilityHidden(true)
-                        Text("Save a card to come back to it.")
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("saved-cards-empty")
+                switch model.loadState {
+                case .loading:
+                    ProgressView("Loading Saved Cards…")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("saved-cards-loading")
+                case .unavailable(let message):
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Saved Cards Unavailable", systemImage: "exclamationmark.triangle")
+                            .font(.headline)
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("saved-cards-unavailable")
+                        Text(model.records.isEmpty
+                             ? "Your saved cards couldn't be loaded. Try again to see your collection."
+                             : "Showing previously loaded cards. Your collection couldn't be refreshed.")
+                            .accessibilityIdentifier("saved-cards-read-status")
+                        Text(message).font(.footnote).foregroundStyle(.secondary)
+                        Button { Task { await model.refresh() } } label: {
+                            Text("Retry").frame(minHeight: 44)
+                        }
+                            .buttonStyle(.bordered)
+                            .disabled(model.busy)
+                            .accessibilityHint("Tries to load your saved cards again.")
+                            .accessibilityIdentifier("saved-cards-retry")
                     }
-                    .frame(maxWidth: .infinity).padding(.vertical, 44)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 24))
+                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(.white.opacity(0.16), lineWidth: 1))
+                case .loaded:
+                    if model.records.isEmpty {
+                        VStack(spacing: 16) {
+                            CardSaveState(isSaved: false).icon
+                                .resizable().frame(width: 40, height: 40).accessibilityHidden(true)
+                            Text("Save a card to come back to it.")
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("saved-cards-empty")
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 44)
+                    }
                 }
                 LazyVGrid(columns: [GridItem(textSize.isAccessibilitySize ? .flexible() : .adaptive(minimum: 300), spacing: 20)], spacing: 20) {
                     ForEach(model.records) { record in
@@ -51,6 +82,9 @@ struct SavedCardsView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(record.quote)
+#if DEBUG && CI_SMOKE_TESTING
+                        .accessibilityValue(CISmokeMode.savedCardsFixtureURL != nil ? record.id : "")
+#endif
                         .accessibilityHint("Opens the saved card.")
                         .accessibilityIdentifier("saved-card-row")
                     }
@@ -66,7 +100,10 @@ struct SavedCardsView: View {
                 .ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
         }
         .navigationTitle("Saved Cards")
-        .task { await model.refresh() }
+        .task {
+            // Preserve a failed read and reachable Retry when navigating from Today.
+            if !model.isUnavailable { await model.refresh() }
+        }
         .modifier(SavedCardsError(model: model))
     }
 }

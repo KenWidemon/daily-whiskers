@@ -588,3 +588,116 @@ extension XCUIApplication {
         dismissCardOptions()
     }
 }
+
+/// Isolated issue #115 fixtures never clear or seed the ordinary app collection.
+final class SavedCardsLoadStateTests: XCTestCase {
+    private var app: XCUIApplication!
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        app = XCUIApplication()
+    }
+    override func tearDownWithError() throws {
+        capture("Saved load final state")
+        app.terminate()
+    }
+    private func capture(_ name: String) {
+        let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        image.name = name; image.lifetime = .keepAlways; add(image)
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = name + " accessibility"; tree.lifetime = .keepAlways; add(tree)
+    }
+    private var empty: XCUIElement { app.staticTexts["saved-cards-empty"] }
+    private var unavailable: XCUIElement { app.descendants(matching: .any)["saved-cards-unavailable"].firstMatch }
+    private var rows: XCUIElementQuery { app.buttons.matching(identifier: "saved-card-row") }
+    private func launch(largestText: Bool = false, emptyFixture: Bool = false) {
+        app.launchEnvironment["DW_SAVED_LOAD_TEST_ID"] = UUID().uuidString
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-saved-load-fixture",
+            "-UIPreferredContentSizeCategoryName",
+            largestText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
+        if emptyFixture { app.launchArguments.append("--ci-smoke-saved-empty-fixture") }
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["saved-cards-loading"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertFalse(empty.exists)
+        XCTAssertEqual(rows.count, 0)
+        capture("Saved loading before first read")
+        let finish = app.buttons["fixture-finish-read"]
+        XCTAssertTrue(finish.isHittable)
+        XCTAssertGreaterThanOrEqual(finish.frame.height, 44)
+        XCTAssertFalse(finish.frame.intersects(app.staticTexts["ci-smoke-offline"].frame))
+        finish.tap()
+        dismissError()
+        XCTAssertTrue(unavailable.waitForExistence(timeout: 5))
+        XCTAssertFalse(empty.exists)
+        XCTAssertEqual(rows.count, 0)
+        capture("Saved unavailable after alert dismissal")
+    }
+    private func dismissError() {
+        let alert = app.alerts["Couldn't Update Saved Cards"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        alert.buttons["Cancel"].tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: alert)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed)
+    }
+    private func retry() {
+        let retry = app.buttons["saved-cards-retry"]
+        XCTAssertTrue(retry.exists)
+        for _ in 0..<8 where !retry.isHittable { app.scrollViews["saved-cards-collection"].swipeUp() }
+        XCTAssertTrue(retry.isHittable)
+        XCTAssertEqual(retry.label, "Retry")
+        XCTAssertGreaterThanOrEqual(retry.frame.height, 44)
+        capture("Saved accessible in-place Retry")
+        retry.tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: unavailable)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 10), .completed)
+    }
+    func testFailedFirstReadDismissRetryAndLaterRefreshPreserveRows() {
+        launch()
+        retry()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows.allElementsBoundByIndex.map(\.label), ["Second saved fixture.", "First saved fixture."])
+        let ids = rows.allElementsBoundByIndex.map { $0.value as? String }
+        XCTAssertTrue(ids.allSatisfy { $0?.isEmpty == false })
+        XCTAssertEqual(Set(ids).count, 2)
+        capture("Saved recovered original rows")
+        app.buttons["fixture-refresh"].tap()
+        dismissError()
+        XCTAssertTrue(unavailable.exists)
+        XCTAssertFalse(empty.exists)
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows.allElementsBoundByIndex.map { $0.value as? String }, ids)
+        XCTAssertEqual(app.staticTexts["saved-cards-read-status"].label,
+                       "Showing previously loaded cards. Your collection couldn't be refreshed.")
+        capture("Saved stale rows after refresh failure")
+        retry()
+        XCTAssertEqual(rows.allElementsBoundByIndex.map { $0.value as? String }, ids)
+        XCTAssertEqual(rows.allElementsBoundByIndex.map(\.label), ["Second saved fixture.", "First saved fixture."])
+        rows.firstMatch.tap()
+        let quote = app.descendants(matching: .any)["saved-card-quote"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 10))
+        XCTAssertEqual(quote.label, "Second saved fixture.")
+        capture("Saved recovered retained detail")
+    }
+    func testLargestTextUnavailableRetryRemainsReachable() {
+        launch(largestText: true)
+        retry()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertFalse(empty.exists)
+        capture("Saved largest text recovered collection")
+    }
+    func testOnlySuccessfulEmptyReadShowsEmptyGuidance() {
+        launch(emptyFixture: true)
+        retry()
+        XCTAssertTrue(empty.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 0)
+        capture("Saved verified empty collection")
+        app.buttons["fixture-refresh"].tap()
+        dismissError()
+        XCTAssertTrue(unavailable.exists)
+        XCTAssertFalse(empty.exists)
+        retry()
+        XCTAssertTrue(empty.waitForExistence(timeout: 10))
+    }
+}
