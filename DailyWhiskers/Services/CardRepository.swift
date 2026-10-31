@@ -21,8 +21,13 @@ struct FavoriteRecord: Identifiable, Sendable {
 /// All durable content and references commit in one SQLite transaction, on one actor.
 /// No identity, ownership, or lifecycle dependency on the authentication session.
 actor CardRepository {
-    static let shared = CardRepository(url: FileManager.default.urls(for: .applicationSupportDirectory,
-        in: .userDomainMask)[0].appendingPathComponent("SavedCards/cards.sqlite"))
+    static let shared: CardRepository = {
+#if DEBUG && CI_SMOKE_TESTING
+        if let url = CISmokeMode.savedCardsFixtureURL { return CardRepository(url: url) }
+#endif
+        return CardRepository(url: FileManager.default.urls(for: .applicationSupportDirectory,
+            in: .userDomainMask)[0].appendingPathComponent("SavedCards/cards.sqlite"))
+    }()
     let url: URL
     private var database: OpaquePointer?
     private let beforeCommit: (@Sendable () throws -> Void)?
