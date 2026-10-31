@@ -420,6 +420,15 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   Retry announcement and focus separately: hierarchy/hittability assertions do
   not establish speech or focus acceptance. The fixture uses a unique
   `DW_SAVED_LOAD_TEST_ID` and the offline gate; never point it at owner storage.
+- The unavailable panel has one concise recovery explanation and a filled Retry
+  action. Detailed storage errors remain in the alert. On iPhone/iPad and largest
+  Dynamic Type, inspect the actual rendered text, stale-row explanation and Retry
+  reachability. Measure text/control contrast against their rendered backgrounds;
+  a native button style alone does not establish accessibility conformance.
+  Hold a Retry, request another refresh while busy, background/foreground the app,
+  then inject read cancellation. The model test also cancels an actual Retry task.
+  Repeated failure must keep recovery available, and a
+  later successful read must preserve exact retained content and order.
 - Preserve failed-write/transaction regressions. If a write commits but its readback
   fails, alert Retry must only read again, never replay Clear or another mutation.
   Cover committed save and remove separately from failed-commit rollback: remove a

@@ -12,7 +12,7 @@ struct SavedCardsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("On this device").font(.headline)
                     Text("Saved on this device. Daily Whiskers does not sync your saved cards. Your device backup may include them.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(theme.quote)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 switch model.loadState {
@@ -20,29 +20,46 @@ struct SavedCardsView: View {
                     ProgressView("Loading Saved Cards…")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("saved-cards-loading")
-                case .unavailable(let message):
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Saved Cards Unavailable", systemImage: "exclamationmark.triangle")
+                case .unavailable:
+                    VStack(alignment: .leading, spacing: 16) {
+                        Group {
+                            if textSize.isAccessibilitySize {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .accessibilityHidden(true)
+                                    Text("Saved Cards Unavailable")
+                                }
+                                .accessibilityElement(children: .combine)
+                            } else {
+                                Label("Saved Cards Unavailable", systemImage: "exclamationmark.triangle")
+                            }
+                        }
                             .font(.headline)
                             .accessibilityAddTraits(.isHeader)
                             .accessibilityIdentifier("saved-cards-unavailable")
                         Text(model.records.isEmpty
-                             ? "Your saved cards couldn't be loaded. Try again to see your collection."
-                             : "Showing previously loaded cards. Your collection couldn't be refreshed.")
+                             ? "Try again to load your collection."
+                             : "Showing previously loaded cards. Retry to check for updates.")
+                            .foregroundStyle(theme.quote)
                             .accessibilityIdentifier("saved-cards-read-status")
-                        Text(message).font(.footnote).foregroundStyle(.secondary)
                         Button { Task { await model.refresh() } } label: {
-                            Text("Retry").frame(minHeight: 44)
+                            Text("Retry").font(.headline)
+                                .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.roundedRectangle(radius: 16))
+                            .tint(theme.frameA)
+                            .foregroundStyle(theme.bgBottom)
                             .disabled(model.busy)
                             .accessibilityHint("Tries to load your saved cards again.")
                             .accessibilityIdentifier("saved-cards-retry")
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 24))
+                    .padding(20)
+                    // An opaque celestial surface keeps text/control contrast stable
+                    // over the glow and stars; the collection's cosmic backdrop stays.
+                    .background(theme.bgBottom, in: RoundedRectangle(cornerRadius: 24))
                     .overlay(RoundedRectangle(cornerRadius: 24).stroke(.white.opacity(0.16), lineWidth: 1))
                 case .loaded:
                     if model.records.isEmpty {

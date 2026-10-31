@@ -521,9 +521,11 @@ Close and process relaunch, plus single-password Done submission to the rejectin
 offline boundary. The Saved Cards tests cover save/relaunch/reopen/share,
 remove/resave and confirmed clear, largest-text portrait/landscape reachability,
 ordinary-phone full-card fit, and paired Today/Saved geometry and options.
-The three load-state tests cover held/failed first reads, alert dismissal, in-place
+The four load-state tests cover held/failed first reads, alert dismissal, in-place
 Retry, retained rows after a later failed refresh, verified empty guidance, and
-largest-text Retry reachability. They seed a disposable SQLite file selected by
+largest-text Retry reachability. A held Retry crosses app background/foreground,
+receives an injected read cancellation, fails again, and then recovers without duplicates.
+They seed a disposable SQLite file selected by
 `DW_SAVED_LOAD_TEST_ID` (a UUID), requiring the offline compile/launch gate plus
 `--ci-smoke-saved-load-fixture`. They never clear the ordinary collection.
 These classes use accessible identifiers and

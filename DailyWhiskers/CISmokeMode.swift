@@ -60,6 +60,11 @@ private final class SavedCardsFixtureReader {
             await withCheckedContinuation { continuation = $0 }
             throw CardStorageError.database(10)
         }
+        if attempt == 2,
+           ProcessInfo.processInfo.arguments.contains("--ci-smoke-saved-interrupted-retry") {
+            await withCheckedContinuation { continuation = $0 }
+            throw CancellationError()
+        }
         if attempt == 3 { throw CardStorageError.database(10) }
         return try await CardRepository.shared.favorites()
     }
@@ -108,7 +113,7 @@ struct SavedCardsLoadFixtureView: View {
             }
             HStack(spacing: 24) {
                 Button { fixture.reader.finishFirstRead() } label: {
-                    Text("Finish first read").frame(minHeight: 44)
+                    Text("Finish pending read").frame(minHeight: 44)
                 }
                 .accessibilityIdentifier("fixture-finish-read")
                 Button { Task { await fixture.model.refresh() } } label: {

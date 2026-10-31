@@ -610,12 +610,14 @@ final class SavedCardsLoadStateTests: XCTestCase {
     private var empty: XCUIElement { app.staticTexts["saved-cards-empty"] }
     private var unavailable: XCUIElement { app.descendants(matching: .any)["saved-cards-unavailable"].firstMatch }
     private var rows: XCUIElementQuery { app.buttons.matching(identifier: "saved-card-row") }
-    private func launch(largestText: Bool = false, emptyFixture: Bool = false) {
+    private func launch(largestText: Bool = false, emptyFixture: Bool = false,
+                        interruptedRetry: Bool = false) {
         app.launchEnvironment["DW_SAVED_LOAD_TEST_ID"] = UUID().uuidString
         app.launchArguments = ["--ci-smoke", "--ci-smoke-saved-load-fixture",
             "-UIPreferredContentSizeCategoryName",
             largestText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
         if emptyFixture { app.launchArguments.append("--ci-smoke-saved-empty-fixture") }
+        if interruptedRetry { app.launchArguments.append("--ci-smoke-saved-interrupted-retry") }
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["saved-cards-loading"].firstMatch.waitForExistence(timeout: 15))
         XCTAssertFalse(empty.exists)
@@ -668,7 +670,7 @@ final class SavedCardsLoadStateTests: XCTestCase {
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(rows.allElementsBoundByIndex.map { $0.value as? String }, ids)
         XCTAssertEqual(app.staticTexts["saved-cards-read-status"].label,
-                       "Showing previously loaded cards. Your collection couldn't be refreshed.")
+                       "Showing previously loaded cards. Retry to check for updates.")
         capture("Saved stale rows after refresh failure")
         retry()
         XCTAssertEqual(rows.allElementsBoundByIndex.map { $0.value as? String }, ids)
@@ -686,6 +688,38 @@ final class SavedCardsLoadStateTests: XCTestCase {
         XCTAssertEqual(rows.count, 2)
         XCTAssertFalse(empty.exists)
         capture("Saved largest text recovered collection")
+    }
+    func testInterruptedAndRepeatedRetryKeepsRecoveryAvailable() {
+        launch(interruptedRetry: true)
+        app.buttons["saved-cards-retry"].tap()
+        let loading = app.descendants(matching: .any)["saved-cards-loading"].firstMatch
+        XCTAssertTrue(loading.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["saved-cards-retry"].exists)
+        XCTAssertFalse(empty.exists)
+        // Requests during the held read must not queue another read or mutation.
+        app.buttons["fixture-refresh"].tap()
+        app.buttons["fixture-refresh"].tap()
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(loading.waitForExistence(timeout: 5))
+        capture("Saved Retry in progress after foregrounding")
+        app.buttons["fixture-finish-read"].tap()
+        dismissError()
+        XCTAssertTrue(unavailable.exists)
+        XCTAssertFalse(empty.exists)
+        XCTAssertEqual(rows.count, 0)
+        XCTAssertTrue(app.buttons["saved-cards-retry"].isHittable)
+        capture("Saved interrupted Retry remains available")
+        // The next read fails again; only the following read succeeds.
+        app.buttons["saved-cards-retry"].tap()
+        dismissError()
+        XCTAssertTrue(unavailable.exists)
+        XCTAssertFalse(empty.exists)
+        retry()
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows.allElementsBoundByIndex.map(\.label), ["Second saved fixture.", "First saved fixture."])
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.compactMap { $0.value as? String }).count, 2)
+        capture("Saved repeated Retry restores original collection")
     }
     func testOnlySuccessfulEmptyReadShowsEmptyGuidance() {
         launch(emptyFixture: true)

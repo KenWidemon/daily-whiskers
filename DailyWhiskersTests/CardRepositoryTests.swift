@@ -81,6 +81,57 @@ struct CardRepositoryTests {
         #expect(try Data(contentsOf: url) == originalBytes)
     }
 
+    @Test func interruptedAndRepeatedReadRetriesPreserveStorage() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let repository = CardRepository(url: url)
+        let first = try sample(), second = try sample(quote: "Second quote", color: .blue)
+        try await repository.save(first)
+        try await repository.save(second)
+        let bytes = try Data(contentsOf: url)
+        let expected = try await repository.favorites()
+        var attempts = 0
+        let entered = AsyncStream<Void>.makeStream()
+        var release: CheckedContinuation<Void, Never>?
+        let model = SavedCardsModel(repository: repository, readFavorites: {
+            attempts += 1
+            if attempts == 2 {
+                await withCheckedContinuation { release = $0; entered.continuation.yield(()) }
+                try Task.checkCancellation()
+            }
+            if attempts < 4 { throw CardStorageError.database(SQLITE_IOERR) }
+            return try await repository.favorites()
+        })
+        await model.refresh()
+        model.cancelError()
+        let retry = Task { await model.refresh() }
+        var entries = entered.stream.makeAsyncIterator()
+        await entries.next()
+        #expect(model.busy && model.loadState == .loading)
+        await model.refresh()
+        #expect(attempts == 2)
+        retry.cancel()
+        release?.resume()
+        await retry.value
+        entered.continuation.finish()
+        #expect(model.isUnavailable && !model.busy)
+        model.cancelError()
+        await model.refresh()
+        #expect(attempts == 3 && model.isUnavailable)
+        model.cancelError()
+        await model.refresh()
+        #expect(model.loadState == .loaded)
+        #expect(model.records.map(\.id) == expected.map(\.id))
+        #expect(model.records.map(\.sequence) == expected.map(\.sequence))
+        #expect(model.records.map(\.quote) == expected.map(\.quote))
+        for original in [first, second] {
+            let retained = try await repository.load(original.snapshot.id)
+            #expect(retained.snapshot == original.snapshot)
+            #expect(retained.artwork == original.artwork)
+        }
+        #expect(try Data(contentsOf: url) == bytes)
+    }
+
     @Test(arguments: [false, true])
     func laterReadFailureRetainsLastSuccessfulCollection(empty: Bool) async throws {
         let url = try location()
