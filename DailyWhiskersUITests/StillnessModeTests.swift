@@ -3,13 +3,16 @@ import UIKit
 
 final class StillnessModeTests: XCTestCase {
     private var app: XCUIApplication!
+    // Keep motion/geometry assertions independent of midnight across lifecycle
+    // changes. This existing offline fixture selects content; it never changes time.
+    private let contentArguments = ["--ci-smoke", "--ci-smoke-shortest-card"]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launchEnvironment["DW_STILLNESS_TEST_ID"] = UUID().uuidString
-        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = contentArguments + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["ci-stillness-system"].waitForExistence(timeout: 5))
@@ -132,7 +135,7 @@ final class StillnessModeTests: XCTestCase {
 
     func testLargestTextSettingInPortraitAndLandscape() {
         app.terminate()
-        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launchArguments = contentArguments + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
         openSettings()
@@ -159,12 +162,23 @@ final class StillnessModeTests: XCTestCase {
     private func setStillness(_ enabled: Bool) {
         let toggle = app.switches["stillness-toggle"]
         let expected = enabled ? "1" : "0"
-        if toggle.value as? String != expected { toggle.tap() }
+        if toggle.value as? String != expected {
+            // SwiftUI exposes the whole Form row as a Switch. Its center is not
+            // the native control's hit target; use the nested switch from AX.
+            let control = toggle.switches.firstMatch
+            XCTAssertTrue(control.waitForExistence(timeout: 5))
+            XCTAssertTrue(control.isHittable)
+            control.tap()
+            let changed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", expected), object: toggle)
+            XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+            XCTAssertEqual(control.value as? String, expected)
+        }
         XCTAssertEqual(toggle.value as? String, expected)
     }
 
     private func assertStaticBackground(_ name: String) {
-        let samples = motionSamples()
+        let samples = motionSamples(name)
         guard samples.count == 3 else { return }
         XCTAssertEqual(samples[0], samples[1], "Rendered content changed with stillness effective")
         XCTAssertEqual(samples[1], samples[2], "Rendered content changed with stillness effective")
@@ -172,20 +186,28 @@ final class StillnessModeTests: XCTestCase {
     }
 
     private func assertAnimatedBackground(_ name: String) {
-        let samples = motionSamples()
+        let samples = motionSamples(name)
         guard samples.count == 3 else { return }
         XCTAssertTrue(samples[0] != samples[1] || samples[1] != samples[2],
                       "Positive control failed: this region did not detect decorative motion")
         capture(name)
     }
 
-    private func motionSamples() -> [Data] {
+    private func motionSamples(_ name: String) -> [Data] {
         // Let menus/sheets settle before sampling. No retries or discarded failed samples.
         separateFrames()
+        guard let bounds = motionSampleBounds() else {
+            XCTFail("Motion sample requires measured content and navigation bounds")
+            return []
+        }
+        let region = XCTAttachment(string: "Window coordinates: \(bounds)")
+        region.name = name + " sampled region"
+        region.lifetime = .keepAlways
+        add(region)
         var samples: [Data] = []
         for index in 0..<3 {
             if index > 0 { separateFrames() }
-            guard let pixels = contentPixels() else {
+            guard let pixels = contentPixels(in: bounds) else {
                 XCTFail("Motion sample must contain actual pixels")
                 return []
             }
@@ -200,21 +222,54 @@ final class StillnessModeTests: XCTestCase {
         wait(for: [pause], timeout: 3)
     }
 
-    private func contentPixels() -> Data? {
+    private func motionSampleBounds() -> CGRect? {
         let window = app.windows.firstMatch
-        let screenshot = window.screenshot().image
-        guard let image = screenshot.cgImage else { return nil }
-        let scale = CGFloat(image.width) / screenshot.size.width
         let ids = ["auth-form", "saved-card-content", "bonus-card-content", "daily-card-content"]
         guard let content = ids.map({ app.scrollViews[$0] }).first(where: { $0.exists && $0.isHittable }) else { return nil }
-        // Sample the full rendered content viewport, including broad exposed background
-        // on iPad and the upper/marginal background on iPhone. Exclude toolbar, clock and
-        // fixture control. Positive controls must demonstrate sensitivity on each device.
-        let bounds = content.frame.intersection(window.frame).insetBy(dx: 2, dy: 2)
+        let viewport = content.frame.intersection(window.frame)
+        guard !viewport.isNull, !viewport.isEmpty else { return nil }
+        // Card ScrollView AX frames can span the entire window, including the
+        // navigation/status area. Auth's viewport may begin just below the bar,
+        // so require horizontal overlap rather than vertical intersection.
+        let navigation = app.navigationBars.allElementsBoundByIndex.map(\.frame)
+            .filter { !$0.isEmpty && $0.maxX > viewport.minX && $0.minX < viewport.maxX
+                && $0.maxY <= viewport.maxY }
+        guard let navigationBottom = navigation.map(\.maxY).max() else { return nil }
+        var top = max(viewport.minY, navigationBottom)
+        var bottom = viewport.maxY
+        for toolbar in app.toolbars.allElementsBoundByIndex where toolbar.isHittable {
+            let frame = toolbar.frame
+            guard frame.intersects(viewport) else { continue }
+            if frame.midY > viewport.midY { bottom = min(bottom, frame.minY) }
+            else { top = max(top, frame.maxY) }
+        }
+        for id in ["ci-stillness-system", "ci-smoke-offline"] {
+            let marker = app.staticTexts[id]
+            if marker.exists && marker.isHittable && marker.frame.intersects(viewport) {
+                bottom = min(bottom, marker.frame.minY)
+            }
+        }
+        guard bottom > top else { return nil }
+        // Keep broad exposed backgrounds on both devices, while excluding the
+        // edge scroll indicators. Positive controls must prove motion sensitivity.
+        let bounds = CGRect(x: viewport.minX, y: top, width: viewport.width, height: bottom - top)
+            .insetBy(dx: 8, dy: 2)
         guard bounds.width > 0, bounds.height > 0 else { return nil }
-        let rect = CGRect(x: (bounds.minX - window.frame.minX) * scale,
-                          y: (bounds.minY - window.frame.minY) * scale,
-                          width: bounds.width * scale, height: bounds.height * scale)
+        return bounds
+    }
+
+    private func contentPixels(in bounds: CGRect) -> Data? {
+        let window = app.windows.firstMatch
+        let frame = window.frame
+        let screenshot = window.screenshot().image
+        guard let image = screenshot.cgImage, frame.width > 0, frame.height > 0 else { return nil }
+        // AX geometry is in screen points; derive each scale from the same window,
+        // rather than assuming UIImage.size uses those coordinate units.
+        let scaleX = CGFloat(image.width) / frame.width
+        let scaleY = CGFloat(image.height) / frame.height
+        let rect = CGRect(x: (bounds.minX - frame.minX) * scaleX,
+                          y: (bounds.minY - frame.minY) * scaleY,
+                          width: bounds.width * scaleX, height: bounds.height * scaleY)
         guard let cropped = image.cropping(to: rect) else { return nil }
         // This detects visible changes only. It cannot establish timeline shutdown or power use.
         return UIImage(cgImage: cropped).pngData()
