@@ -113,8 +113,8 @@ struct SavedCardsView: View {
                 .frame(maxWidth: textSize.isAccessibilitySize ? 560 : 780)
                 .frame(maxWidth: .infinity)
             }
+            .accessibilityIdentifier("saved-cards-collection")
         }
-        .accessibilityIdentifier("saved-cards-collection")
         .background {
             CosmicBackground(theme: theme, reduceMotion: true)
                 .ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
