@@ -461,7 +461,11 @@ reservation. This is operational removal evidence, not an atomic cancellation or
 delivery barrier. Missing requests, interrupted intents/cancellations, unknown
 inventory or a closer deadline preserve uncertainty instead. Readback after each
 add checks retention. Corrupt/missing initialized state fails closed without
-resetting history. Atomic file replacement, synchronization and readback do not
+resetting history. Persistent quarantine or invalid history directs the user to
+Support and explicitly says reopening cannot repair it. A potentially temporary
+storage/verification failure requires a complete app restart to recheck; the
+current process cannot resume additions after uncertainty. Neither path resets
+the ledger. Atomic file replacement, synchronization and readback do not
 establish universal power-loss or backup-restoration guarantees.
 
 Disabling removes this feature's pending and delivered notifications while keeping

@@ -57,7 +57,7 @@ struct ReminderJournal: Codable, Equatable, Sendable {
     }
 }
 
-enum ReminderStorageError: Error { case unreadable, verification }
+enum ReminderStorageError: Error { case unreadable, verification, quarantined }
 
 protocol ReminderJournalStore: Sendable {
     func load() throws -> ReminderJournal?
@@ -79,9 +79,14 @@ struct FileReminderJournalStore: ReminderJournalStore {
         let marker = FileManager.default.fileExists(atPath: markerURL.path)
         guard exists || marker else { return nil }
         guard exists, marker else { throw ReminderStorageError.unreadable }
-        let envelope = try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: journalURL))
+        let data = try Data(contentsOf: journalURL) // An I/O failure may be temporary.
+        guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else {
+            throw ReminderStorageError.unreadable
+        }
         guard digest(envelope.payload) == envelope.sha256 else { throw ReminderStorageError.unreadable }
-        let journal = try JSONDecoder().decode(ReminderJournal.self, from: envelope.payload)
+        guard let journal = try? JSONDecoder().decode(ReminderJournal.self, from: envelope.payload) else {
+            throw ReminderStorageError.unreadable
+        }
         try journal.validate()
         return journal
     }

@@ -28,6 +28,7 @@ actor ReminderScheduler {
     private var tail: Task<ReminderStatus, Never>?
     private var journal: ReminderJournal?
     private var faulted = false
+    private var storageFailureMessage: String?
 
     init(client: any ReminderNotificationClient, store: any ReminderJournalStore,
          now: @escaping @Sendable () -> Date = { Date() },
@@ -37,13 +38,18 @@ actor ReminderScheduler {
     }
 
     func submit(_ command: ReminderCommand) async -> ReminderStatus {
+        await enqueue(command).value
+    }
+
+    /// Registration is synchronous on the actor; waiting never changes queue order.
+    func enqueue(_ command: ReminderCommand) -> Task<ReminderStatus, Never> {
         let previous = tail
         let task = Task {
             _ = await previous?.value
             return await self.perform(command)
         }
         tail = task
-        return await task.value
+        return task
     }
 
     private func persist(_ value: ReminderJournal) throws {
@@ -61,17 +67,17 @@ actor ReminderScheduler {
             else {
                 // No ledger + OS-owned requests is not a fresh install. Never
                 // synthesize blank history from a missing file or an empty list.
-                guard let pending = await client.pending() else { throw ReminderStorageError.unreadable }
+                guard let pending = await client.pending() else { throw ReminderStorageError.verification }
                 let delivered = await client.delivered()
                 if !pending.filter(ReminderRequest.owns).isEmpty ||
                     !delivered.filter(ReminderRequest.owns).isEmpty {
                     var quarantine = ReminderJournal(); quarantine.requiresRecovery = true
                     try persist(quarantine)
-                    throw ReminderStorageError.unreadable
+                    throw ReminderStorageError.quarantined
                 }
                 state = ReminderJournal(); try persist(state)
             }
-            guard !state.requiresRecovery else { throw ReminderStorageError.unreadable }
+            guard !state.requiresRecovery else { throw ReminderStorageError.quarantined }
             switch command {
             case .refresh: break
             case .enable(let enabled):
@@ -93,6 +99,14 @@ actor ReminderScheduler {
             // Once a persistence outcome is uncertain, do not issue another add
             // in this process. Preserve the file for recovery; never reset it.
             faulted = true
+            if storageFailureMessage == nil {
+                switch error as? ReminderStorageError {
+                case .quarantined, .unreadable:
+                    storageFailureMessage = "Reminders are paused because saved scheduling history needs recovery. Reopening won't repair it. Contact Support from Settings. Your saved history hasn't been reset."
+                default:
+                    storageFailureMessage = "Reminders are paused because saved scheduling state couldn't be verified. Close the app completely, then reopen to recheck. If this continues, contact Support from Settings. Your saved history hasn't been reset."
+                }
+            }
             let ids = Set((journal?.entries ?? []).map(\.id))
                 .union((await client.pending() ?? []).filter(ReminderRequest.owns))
             await client.removePending(ids)
@@ -100,7 +114,7 @@ actor ReminderScheduler {
                 await client.removeDelivered(await client.delivered().filter(ReminderRequest.owns))
             }
             var result = status(journal ?? ReminderJournal(), authorization: authorization,
-                                message: "Reminders are paused because saved scheduling state couldn't be verified. Reopen the app to retry.")
+                                message: storageFailureMessage)
             result.storageBlocked = true; result.queued = 0; result.coverageEnd = nil
             return result
         }
@@ -121,7 +135,7 @@ actor ReminderScheduler {
             state.requiresRecovery = true; try persist(state)
             await client.removePending(unknown)
             // Cannot reconstruct eligibility from an unknown request identifier.
-            throw ReminderStorageError.unreadable
+            throw ReminderStorageError.quarantined
         }
         // Decide cancellation before the capacity gate. A nil inventory must not
         // leave known old-zone requests active after travel/reopening.

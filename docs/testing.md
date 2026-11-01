@@ -67,7 +67,11 @@ evidence below remain useful without overriding this candidate's scoped decision
 
 Run `ReminderTests` with the `DailyWhiskers` scheme for calendar, fourteen-date
 coverage/refill, queue budget, permission intent, serialization, journal failures
-and conservative recovery. `ReminderUITests` uses the normal interaction scheme's
+and conservative recovery, including an add completion held while disable/edit
+commands queue and a write that commits before reporting failure. Check persistent
+quarantine guidance separately from retryable storage errors. `ReminderUITests`
+changes the native time picker to verify Cancel discards and Save persists without
+enabling. It uses the normal interaction scheme's
 `DEBUG + CI_SMOKE_TESTING` seam and a per-test UUID. Its notification client is
 entirely fake: UI permission transitions and simulated taps do not establish OS
 permission, physical delivery or notification-response callback evidence. The

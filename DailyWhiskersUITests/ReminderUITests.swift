@@ -43,6 +43,25 @@ final class ReminderUITests: XCTestCase {
         let tree = XCTAttachment(string: app.debugDescription); tree.name = name + " accessibility"; tree.lifetime = .keepAlways; add(tree)
     }
 
+    private func editDraftTime(hour: String, minute: String) {
+        let picker = app.datePickers["reminder-time-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.buttons["Time Picker"].tap()
+        capture("Native reminder time picker opened")
+        let hourWheel = app.pickerWheels.element(boundBy: 0)
+        XCTAssertTrue(hourWheel.waitForExistence(timeout: 5))
+        hourWheel.adjust(toPickerWheelValue: hour)
+        app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: minute)
+        app.buttons["PopoverDismissRegion"].tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: hourWheel)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
+
+    private func waitTime(_ value: String) {
+        let wait = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", value), object: app.buttons["reminder-time"])
+        XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 10), .completed)
+    }
+
     func testDefaultOffTimeSaveCancelAndRelaunch() {
         app.launch(); openSettings()
         let toggle = app.switches["reminder-enabled"]
@@ -50,15 +69,20 @@ final class ReminderUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["reminder-permission"].label.contains("only when you turn"))
         app.buttons["reminder-time"].tap()
         XCTAssertTrue(app.buttons["reminder-time-cancel"].waitForExistence(timeout: 5))
+        editDraftTime(hour: "11", minute: "30")
         app.buttons["reminder-time-cancel"].tap()
         waitValue(toggle, "0")
+        waitTime("9:00")
         app.buttons["reminder-time"].tap()
         XCTAssertTrue(app.buttons["reminder-time-save"].waitForExistence(timeout: 5))
+        editDraftTime(hour: "10", minute: "15")
         app.buttons["reminder-time-save"].tap()
         waitValue(toggle, "0")
+        waitTime("10:15")
         capture("Reminder off after saving time")
         app.terminate(); app.launch(); openSettings()
         waitValue(app.switches["reminder-enabled"], "0")
+        waitTime("10:15")
         XCTAssertTrue(app.staticTexts["reminder-permission"].label.contains("only when you turn"))
     }
 

@@ -14,6 +14,7 @@ private final class ReminderMemoryStore: ReminderJournalStore, @unchecked Sendab
     var value: ReminderJournal?
     var writes = 0
     var failAt: Int?
+    var commitThenFailAt: Int?
     var failLoad = false
     var afterSave: ((Int) -> Void)?
     func load() throws -> ReminderJournal? {
@@ -23,6 +24,7 @@ private final class ReminderMemoryStore: ReminderJournalStore, @unchecked Sendab
         writes += 1
         if failAt == writes { throw ReminderStorageError.verification }
         value = journal
+        if commitThenFailAt == writes { throw ReminderStorageError.verification }
         afterSave?(writes)
     }
 }
@@ -42,6 +44,15 @@ private actor ReminderFakeCenter: ReminderNotificationClient {
     var evictExisting = false
     var addInFlight = 0
     var maximumAddsInFlight = 0
+    private var holdNextCompletion = false
+    private var heldCompletion: CheckedContinuation<Void, Never>?
+    private var heldObservers: [CheckedContinuation<Void, Never>] = []
+    func holdNextAddCompletion() { holdNextCompletion = true }
+    func waitForHeldAdd() async {
+        if heldCompletion != nil { return }
+        await withCheckedContinuation { heldObservers.append($0) }
+    }
+    func releaseHeldAdd() { heldCompletion?.resume(); heldCompletion = nil }
     func authorization() -> ReminderAuthorization { permission }
     func requestAlerts() { permissionRequests += 1; permission = requestOutcome }
     func pending() -> Set<String>? { inventoryUnknown ? nil : ids }
@@ -53,6 +64,14 @@ private actor ReminderFakeCenter: ReminderNotificationClient {
         adds.append(target)
         if evictExisting, let first = ids.first { ids.remove(first) }
         if !loseAfterAdd { ids.insert(id) }
+        if holdNextCompletion {
+            holdNextCompletion = false
+            await withCheckedContinuation { continuation in
+                heldCompletion = continuation
+                for observer in heldObservers { observer.resume() }
+                heldObservers.removeAll()
+            }
+        }
         if failAdd { throw ReminderStorageError.verification }
     }
     func removePending(_ values: Set<String>) { removals.append(values); if !holdRemoval { ids.subtract(values) } }
@@ -391,5 +410,76 @@ struct ReminderTests {
         #expect(result.message != nil && result.queued == 0)
         #expect(await center.adds.isEmpty)
         #expect(store.value?.exposures.first?.day == "2027-01-10")
+    }
+
+    @Test func quarantinedAndInvalidHistoryDoNotPromiseRecoveryByReopening() async {
+        let store = ReminderMemoryStore(), center = ReminderFakeCenter(), clock = ReminderTestClock()
+        await center.seed([ReminderRequest.prefix + "orphan"])
+        let scheduler = engine(store, center, clock)
+        let first = await scheduler.submit(.refresh)
+        #expect(first.message?.contains("Reopening won't repair it") == true)
+        #expect(first.message?.contains("Contact Support") == true)
+        let preserved = store.value
+        let sameProcess = await scheduler.submit(.refresh)
+        let relaunched = await engine(store, center, clock).submit(.refresh)
+        #expect(sameProcess.message == first.message && relaunched.message == first.message)
+        #expect(store.value == preserved && store.value?.requiresRecovery == true)
+        #expect(await center.adds.isEmpty)
+        let invalid = ReminderMemoryStore(); invalid.failLoad = true
+        #expect(await engine(invalid, center, clock).submit(.refresh).message == first.message)
+    }
+
+    @Test func retryableStorageFailureRequiresAProcessRestartAndPreservesHistory() async {
+        let store = ReminderMemoryStore(), center = ReminderFakeCenter(), clock = ReminderTestClock()
+        store.failAt = 4
+        let scheduler = engine(store, center, clock)
+        let failed = await scheduler.submit(.enable(true))
+        #expect(failed.storageBlocked && failed.message?.contains("Close the app completely") == true)
+        #expect(failed.message?.contains("Reopening won't repair it") == false)
+        let preserved = store.value
+        store.failAt = nil
+        let sameProcess = await scheduler.submit(.refresh)
+        #expect(sameProcess.storageBlocked && sameProcess.message == failed.message)
+        #expect(store.value == preserved)
+        let relaunched = await engine(store, center, clock).submit(.refresh)
+        #expect(!relaunched.storageBlocked && relaunched.enabled && relaunched.queued == 14)
+    }
+
+    @Test(arguments: [4, 5]) func committedWriteWithThrownResultNeverReplaysTheUncertainDate(_ write: Int) async {
+        let store = ReminderMemoryStore(), center = ReminderFakeCenter(), clock = ReminderTestClock()
+        store.commitThenFailAt = write
+        let failed = await engine(store, center, clock).submit(.enable(true))
+        #expect(failed.storageBlocked)
+        #expect(store.value?.entries.first?.phase == (write == 4 ? .intent : .pending))
+        #expect(await center.adds.count == (write == 4 ? 0 : 1))
+        store.commitThenFailAt = nil
+        let recovered = await engine(store, center, clock).submit(.refresh)
+        #expect(!recovered.storageBlocked && recovered.queued == 13)
+        #expect(store.value?.exposures.contains { $0.day == "2027-01-10" } == true)
+        #expect(store.value?.entries.contains { $0.target.day == "2027-01-10" } == false)
+        #expect(await center.adds.filter { $0.day == "2027-01-10" }.count == (write == 4 ? 0 : 1))
+    }
+
+    @Test func disableAndTimeChangeWaitForHeldAddCompletionWithoutInterleaving() async {
+        let store = ReminderMemoryStore(), center = ReminderFakeCenter(), clock = ReminderTestClock()
+        let scheduler = engine(store, center, clock, budget: 2)
+        await center.holdNextAddCompletion()
+        let enabling = await scheduler.enqueue(.enable(true))
+        await center.waitForHeldAdd()
+        let disabling = await scheduler.enqueue(.enable(false))
+        let editing = await scheduler.enqueue(.time(ReminderTime(hour: 10, minute: 15)))
+        // These commands are registered in order while add completion is held.
+        #expect(store.value?.enabled == true && store.value?.time == ReminderTime())
+        #expect(store.value?.entries.first?.phase == .intent)
+        #expect(await center.adds.count == 1)
+        #expect(await center.removals.isEmpty)
+        await center.releaseHeldAdd()
+        #expect(await enabling.value.queued == 2)
+        #expect(await disabling.value.enabled == false)
+        let final = await editing.value
+        #expect(!final.enabled && final.time == ReminderTime(hour: 10, minute: 15) && final.queued == 0)
+        #expect(await center.ids.isEmpty)
+        #expect(await center.adds.count == 2)
+        #expect(await center.maximumAddsInFlight == 1)
     }
 }
