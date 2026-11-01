@@ -72,12 +72,13 @@ final class ReminderUITests: XCTestCase {
         let blocked = app.staticTexts["reminder-permission"]
         let wait = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Blocked in iOS Settings'"), object: blocked)
         XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 10), .completed)
-        app.buttons["sheet-reminder-test-regrant"].tap()
+        let regrant = app.buttons["sheet-reminder-test-regrant"]
+        reveal(regrant); regrant.tap()
         let allowed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Notifications allowed.'"), object: blocked)
         XCTAssertEqual(XCTWaiter.wait(for: [allowed], timeout: 10), .completed)
         for _ in 0..<6 { if toggle.isHittable { break }; app.swipeDown() }
         waitEnabled(toggle); tapToggle(toggle); waitValue(toggle, "0"); waitEnabled(toggle)
-        reveal(revoke); revoke.tap(); app.buttons["sheet-reminder-test-regrant"].tap()
+        reveal(revoke); revoke.tap(); reveal(regrant); regrant.tap()
         for _ in 0..<6 { if toggle.isHittable { break }; app.swipeDown() }
         waitValue(toggle, "0")
         capture("Reminder disabled after permission regrant")
