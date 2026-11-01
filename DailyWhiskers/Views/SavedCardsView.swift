@@ -4,6 +4,8 @@ import ImageIO
 struct SavedCardsView: View {
     @ObservedObject var model: SavedCardsModel
     @Environment(\.dynamicTypeSize) private var textSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MotionPolicy.preferenceKey) private var stillnessEnabled = false
     private let theme = ArchetypeTheme.forArchetype("celestial")
 
     var body: some View {
@@ -116,7 +118,8 @@ struct SavedCardsView: View {
             .accessibilityIdentifier("saved-cards-collection")
         }
         .background {
-            CosmicBackground(theme: theme, reduceMotion: true)
+            CosmicBackground(theme: theme, reduceMotion: true,
+                hideSparkles: MotionPolicy.requiresStillness(appPreference: stillnessEnabled, systemReduceMotion: reduceMotion))
                 .ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
         }
         .navigationTitle("Saved Cards")

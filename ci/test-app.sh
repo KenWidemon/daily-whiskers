@@ -21,6 +21,7 @@ case "${1:?Specify resolve, unit, ui or release}" in
       'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
       -only-testing:DailyWhiskersUITests/RegressionSmokeTests \
       -only-testing:DailyWhiskersUITests/SavedCardsTests \
+      -only-testing:DailyWhiskersUITests/StillnessModeTests \
       -only-testing:DailyWhiskersUITests/SavedCardsLoadStateTests \
       -destination "platform=iOS Simulator,id=$SIMULATOR_ID,arch=arm64" \
       -derivedDataPath build/SmokeDerivedData -resultBundlePath build/SmokeResults.xcresult \

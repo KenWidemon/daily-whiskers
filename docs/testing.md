@@ -52,7 +52,8 @@ evidence below remain useful without overriding this candidate's scoped decision
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
 - Required offline UI CI runs all five `RegressionSmokeTests` and all
-  `SavedCardsTests`, including the complete Favorites lifecycle. Both classes
+  `SavedCardsTests`, `SavedCardsLoadStateTests` and `StillnessModeTests`, including
+  the Favorites lifecycle, read-failure recovery and persisted motion preference. All four classes
   are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
   synthetic native replacements across email/password focus changes, intentional
@@ -566,3 +567,68 @@ changed or missing content pack. A corrupt retained snapshot shows an error and
 never consumes a second selection. No content match should produce a usable Today
 and a retryable unavailable message. The known registration-focus risk and deferred
 account checks elsewhere in this guide remain unchanged by bonus-card validation.
+
+## Stillness Mode
+
+Run `MotionPolicyTests` in the unit scheme and `StillnessModeTests` in the interaction
+scheme with the existing offline CI build/launch gate on dedicated iPhone and iPad
+simulators. Retain screenshots and original failures outside Git.
+
+The Stillness class supplies a unique `DW_STILLNESS_TEST_ID` UUID for each test.
+Only the offline `DEBUG`/`CI_SMOKE_TESTING` build accepts it. It selects an empty
+UserDefaults suite for the real `AppStorage` bindings, reused across that test's
+relaunches. The initial native switch value is asserted before any write. This
+models fresh preference storage; it does not uninstall the app or clear owner data.
+A visible, read-only marker reports the actual system Reduce Motion value.
+Motion-positive tests fail clearly if it is on; they never change OS settings.
+
+Rendered checks cover live app-preference changes on the mounted daily card and
+motion resumption, with the actual system setting verified off. The full
+content viewport is sampled, excluding toolbar/status/fixture controls, with
+app-off/system-off positive controls on each tested device and on Sign In.
+A failed positive control fails the test; a region that sees no animation cannot
+pass as evidence of stillness. Three separated frames check visible changes only:
+pixel equality cannot prove that timelines stopped or that power use decreased.
+
+Mandatory manual acceptance remains: a genuinely fresh install; all four actual
+app/system combinations; turning the app preference off while system Reduce Motion
+is on; live OS notification/update propagation and resumption (including while
+auth/Settings sheets are open); auth-state transitions; every navigation/lifecycle
+surface; VoiceOver; and profiling timeline shutdown/power behavior. SwiftUI exposes
+Reduce Motion as read-only, so no public environment injection is used. The unit
+truth table does not substitute for rendered OS checks. Auth and registration
+static sampling is supplemental, not live OS-change coverage on those sheets.
+
+- Verify a fresh installation defaults off, then all four app/system preference
+  combinations. System Reduce Motion must always win. Toggle both while screens
+  are open; inspect Today, Bonus, saved detail, Sign In and Create Account.
+- Enable Stillness in Settings, dismiss, background/foreground and terminate/relaunch.
+  The switch and static presentation must persist. Disable it and repeat; motion
+  may resume only with system Reduce Motion off. Static branches must remove the
+  timelines, rather than conceal their drawing. Existing inactive-scene pauses
+  remain in animated branches; preserve OS power scheduling.
+- Use optional auth navigation without submitting live requests in offline tests.
+  Separately authorized real sign-in, logout and deletion must retain the preference.
+  Unit routing checks cover availability across account states; they do not prove
+  a live Firebase transition. Do not create accounts or change credentials for this.
+- Inspect regular and largest Dynamic Type, portrait/landscape, and iPhone/iPad.
+  The switch, explanatory copy and Done must remain readable and reachable, with
+  no changes to card artwork, quote, Vibe or progress feedback. Capture static
+  presentation at separated times and compare unchanged content/geometry.
+- Observe VoiceOver announcing the setting name, native On/Off state, hint, and
+  return focus to Settings. Accessibility hierarchy assertions are not speech or
+  focus acceptance. Device-wide settings and physical-device checks require their
+  own explicit authorization; never alter an owner's settings to force a pass.
+
+Owner-approved acceptance exception (November 1, 2026): live authentication
+transition retention checks for Stillness are deferred, not passed. The isolated
+offline build rejects backend operations; successful sign-in, logout and deletion
+remain unverified. This exception authorizes no account or backend changes.
+
+Owner-approved profiling exception for Stillness #58 (November 1, 2026): measured
+timeline/power profiling is deferred, not passed. Instruments could discover the
+paired physical device but could not attach to the independently verified offline
+app by PID or exact process name; neither attempt created a trace. Source review,
+automated motion checks and scoped owner physical observations support this bounded
+acceptance exception. They establish no measured timeline shutdown, CPU reduction
+or energy savings. Final-head CI and independent integration review remain required.

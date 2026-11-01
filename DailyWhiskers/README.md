@@ -30,6 +30,24 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
 
+## Stillness Mode
+
+**Settings > Stillness Mode** opens a small, guest-accessible motion settings sheet.
+The native toggle defaults off and persists in local app preferences across launches
+and account transitions. No account or cloud sync is involved. The effective rule is
+**Stillness Mode OR system Reduce Motion**; switching the app setting off cannot
+override the system. Both preferences update already-open surfaces.
+
+Today, Bonus, saved-card detail and sign-in/registration use calm gradient backgrounds
+without decorative sparkles when stillness is effective. The auth glow becomes static.
+Those branches contain no animation timelines; essential loading feedback is retained.
+The animated branches still pause when the scene is inactive. The saved collection
+already uses a static background. Card content, layout, exports and contrast treatments
+are unchanged. This adds only a focused sheet to the existing Settings menu; it does
+not implement the separate Settings redesign or Daily Den.
+
+See [Stillness acceptance](../docs/testing.md#stillness-mode).
+
 ## Bonus Card
 
 The navigation bar's **Today** menu offers **Open Bonus Card**, an optional complete
@@ -515,12 +533,12 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, offline smoke and Saved Cards interaction tests, and an unsigned Release build for
+unit suite, offline smoke, Saved Cards and Stillness Mode tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
 The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
-and `SavedCardsLoadStateTests`
+`SavedCardsLoadStateTests` and `StillnessModeTests`
 from the interaction scheme. The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
@@ -528,6 +546,12 @@ Close and process relaunch, plus single-password Done submission to the rejectin
 offline boundary. The Saved Cards tests cover save/relaunch/reopen/share,
 remove/resave and confirmed clear, largest-text portrait/landscape reachability,
 ordinary-phone full-card fit, and paired Today/Saved geometry and options.
+Stillness checks use a fresh preference-domain fixture and verify the actual system
+Reduce Motion value is off before motion-positive controls. They cover defaults,
+live app-toggle stop/resume, persistence, local account navigation, foreground return
+and largest-text settings layouts. All actual app/system combinations, live OS
+preference propagation, VoiceOver and timeline/power profiling remain mandatory
+manual checks.
 The four load-state tests cover held/failed first reads, alert dismissal, in-place
 Retry, retained rows after a later failed refresh, verified empty guidance, and
 largest-text Retry reachability. A held Retry crosses app background/foreground,
@@ -642,7 +666,7 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 Use the fake `ci/firebase-test-config.plist` copied to the app resource location,
 as in CI; this command builds an unsigned simulator app.
 The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects the
-offline smoke and Saved Cards classes; the broader UI suite restores portrait orientation and passes text size as a launch argument,
+offline smoke, Saved Cards and Stillness Mode classes; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
 Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air
