@@ -615,7 +615,7 @@ final class SavedCardsTests: XCTestCase {
         let dismiss = app.otherElements["PopoverDismissRegion"]
         if dismiss.exists {
             // Resolve the active display through its element, not main-screen coordinates.
-            XCTAssertFalse(sheet.frame.contains(CGPoint(x: dismiss.frame.midX, y: dismiss.frame.midY)))
+            XCTAssertTrue(dismiss.isHittable)
             dismiss.tap()
         } else if app.buttons["Close"].firstMatch.isHittable {
             app.buttons["Close"].firstMatch.tap()
