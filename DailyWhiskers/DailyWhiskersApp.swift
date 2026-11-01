@@ -14,7 +14,14 @@ struct DailyWhiskersApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            Group {
+#if DEBUG && CI_SMOKE_TESTING
+                if CISmokeMode.savedCardsFixtureURL != nil { SavedCardsLoadFixtureView() }
+                else { RootView() }
+#else
+                RootView()
+#endif
+            }
                 .environmentObject(router)
 #if DEBUG && CI_SMOKE_TESTING
                 .modifier(CISmokeStillnessFixture())

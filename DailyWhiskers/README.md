@@ -105,6 +105,19 @@ Saving an identical version again
 keeps its original position; different artwork or quote versions remain separate.
 Ordering uses a monotonic insertion sequence, independent of wall-clock changes.
 
+The collection distinguishes loading, a successful empty/populated read, and an
+unavailable read. Empty guidance appears only after a successful empty read.
+Dismissing a read-error alert leaves an in-place **Retry**; it only reads the
+collection again. A later failed refresh retains the last successful rows with an
+explicit previously-loaded status. Errors never reset or recreate unreadable
+storage. A successful save/remove/clear followed by failed readback retries the
+read, without replaying the committed write.
+
+Known limitation: Today/detail save-action labels and Clear eligibility still
+reflect the last successfully read rows. After a read failure they can be stale
+until recovery succeeds. This pre-existing behavior is not resolved by the
+collection loading/error presentation change.
+
 Compact portrait windows keep the phone quote typography and spacing. Artwork
 uses its natural aspect ratio at the available card width; text is never truncated
 or scaled down to force a fit. The visible window dimensions and measured content
@@ -517,12 +530,13 @@ unit suite, offline smoke, Saved Cards and Stillness Mode tests, and an unsigned
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests` and `StillnessModeTests`
+The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
+`SavedCardsLoadStateTests` and `StillnessModeTests`
 from the interaction scheme. The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
-offline boundary. The five Saved Cards tests cover save/relaunch/reopen/share,
+offline boundary. The Saved Cards tests cover save/relaunch/reopen/share,
 remove/resave and confirmed clear, largest-text portrait/landscape reachability,
 ordinary-phone full-card fit, and paired Today/Saved geometry and options.
 Stillness checks use a fresh preference-domain fixture and verify the actual system
@@ -530,7 +544,15 @@ Reduce Motion value is off before motion-positive controls. They cover defaults,
 live app-toggle stop/resume, persistence, local account navigation, foreground return
 and largest-text settings layouts. All actual app/system combinations, live OS
 preference propagation, VoiceOver and timeline/power profiling remain mandatory
-manual checks. These classes use accessible identifiers and
+manual checks.
+The four load-state tests cover held/failed first reads, alert dismissal, in-place
+Retry, retained rows after a later failed refresh, verified empty guidance, and
+largest-text Retry reachability. A held Retry crosses app background/foreground,
+receives an injected read cancellation, fails again, and then recovers without duplicates.
+They seed a disposable SQLite file selected by
+`DW_SAVED_LOAD_TEST_ID` (a UUID), requiring the offline compile/launch gate plus
+`--ci-smoke-saved-load-fixture`. They never clear the ordinary collection.
+These classes use accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and
 `--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
@@ -589,7 +611,7 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout is 45 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
+The app timeout is 60 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with seven-day retention. Hard termination can prevent artifact upload; missing

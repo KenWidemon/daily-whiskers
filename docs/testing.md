@@ -52,8 +52,8 @@ evidence below remain useful without overriding this candidate's scoped decision
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
 - Required offline UI CI runs all five `RegressionSmokeTests` and all
-  `SavedCardsTests` and `StillnessModeTests`, including the Favorites lifecycle and
-  persisted motion preference. All three classes
+  `SavedCardsTests`, `SavedCardsLoadStateTests` and `StillnessModeTests`, including
+  the Favorites lifecycle, read-failure recovery and persisted motion preference. All four classes
   are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
   synthetic native replacements across email/password focus changes, intentional
@@ -404,11 +404,39 @@ by passing unit tests or opening a draft PR.
 
 ## Saved Cards
 
-Use the `CardRepositoryTests` unit suite and `SavedCardsTests` interaction class
+Use the `CardRepositoryTests` unit suite and `SavedCardsTests` /
+`SavedCardsLoadStateTests` interaction classes
 with the same offline smoke compilation/launch gate documented in the app README.
 Keep result bundles, screenshots and accessibility hierarchies privately; report
 the exact source/diff, OS, simulator, selected checks and skips separately from CI.
 
+- Run the isolated load-state fixture at ordinary and largest text. While the first
+  read is held, only loading may appear. Fail the populated first read, dismiss the
+  alert, and verify persistent unavailable status and reachable **Retry**. Retry
+  must restore the exact IDs/order/quotes/artwork without duplicates or file-byte
+  changes (the unit fixture checks bytes). A later failed refresh retains prior
+  rows with explicit status; a failed refresh of a previously empty collection
+  must also replace empty guidance with unavailable status. Only successful empty
+  reads show the save-a-card prompt. Observe VoiceOver reading order, status,
+  Retry announcement and focus separately: hierarchy/hittability assertions do
+  not establish speech or focus acceptance. The fixture uses a unique
+  `DW_SAVED_LOAD_TEST_ID` and the offline gate; never point it at owner storage.
+- The unavailable panel has one concise recovery explanation and a filled Retry
+  action. Detailed storage errors remain in the alert. On iPhone/iPad and largest
+  Dynamic Type, inspect the actual rendered text, stale-row explanation and Retry
+  reachability. Measure text/control contrast against their rendered backgrounds;
+  a native button style alone does not establish accessibility conformance.
+  Hold a Retry, request another refresh while busy, background/foreground the app,
+  then inject read cancellation. The model test also cancels an actual Retry task.
+  Repeated failure must keep recovery available, and a
+  later successful read must preserve exact retained content and order.
+- Preserve failed-write/transaction regressions. If a write commits but its readback
+  fails, alert Retry must only read again, never replay Clear or another mutation.
+  Cover committed save and remove separately from failed-commit rollback: remove a
+  newly saved card or re-save a removed identity through another repository client
+  before Retry. Assert no further write commits, exact current rows/order/content,
+  and unchanged database bytes. A repeated old save must not resurrect a later
+  removal; a repeated old remove must not delete a later re-save.
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
 - Open Options on Today, Bonus and saved detail. Verify Share and Save/Remove,
@@ -572,3 +600,8 @@ static sampling is supplemental, not live OS-change coverage on those sheets.
   return focus to Settings. Accessibility hierarchy assertions are not speech or
   focus acceptance. Device-wide settings and physical-device checks require their
   own explicit authorization; never alter an owner's settings to force a pass.
+
+Owner-approved acceptance exception (November 1, 2026): live authentication
+transition retention checks for Stillness are deferred, not passed. The isolated
+offline build rejects backend operations; successful sign-in, logout and deletion
+remain unverified. This exception authorizes no account or backend changes.
