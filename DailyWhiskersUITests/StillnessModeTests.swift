@@ -44,6 +44,19 @@ final class StillnessModeTests: XCTestCase {
 
         XCUIDevice.shared.press(.home)
         app.activate()
+        // Activation may return while SpringBoard is still scaling the app window.
+        // Require the original geometry to settle; never accept a different layout.
+        var matchedSince: Date?
+        let foreground = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard self.app.state == .runningForeground, quote.exists, quote.frame == bounds else {
+                matchedSince = nil
+                return false
+            }
+            if matchedSince == nil { matchedSince = Date() }
+            return Date().timeIntervalSince(matchedSince!) >= 0.5
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [foreground], timeout: 5), .completed,
+                       "Original card geometry must settle after foregrounding")
         XCTAssertEqual(quote.label, original)
         XCTAssertEqual(quote.frame, bounds)
         assertStaticBackground("Today after foreground")
