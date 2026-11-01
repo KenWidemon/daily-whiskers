@@ -98,6 +98,8 @@ struct ArchetypeTheme {
 
 struct DailyRitualCardView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MotionPolicy.preferenceKey) private var stillnessEnabled = false
+    private var isStill: Bool { MotionPolicy.requiresStillness(appPreference: stillnessEnabled, systemReduceMotion: reduceMotion) }
     @Environment(\.dynamicTypeSize) private var textSize
     let data: DailyCardData
     var retainedArtwork: UIImage? = nil
@@ -106,7 +108,7 @@ struct DailyRitualCardView: View {
 
     var body: some View {
         ZStack {
-            CosmicBackground(theme: theme, reduceMotion: reduceMotion)
+            CosmicBackground(theme: theme, reduceMotion: isStill, hideSparkles: isStill)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -286,6 +288,7 @@ struct CardViewportLayout: Layout {
 struct CosmicBackground: View {
     let theme: ArchetypeTheme
     let reduceMotion: Bool
+    var hideSparkles = false
 
     var body: some View {
         ZStack {
@@ -306,11 +309,13 @@ struct CosmicBackground: View {
             )
             .blendMode(.screen)
 
-            SparkleField(reduceMotion: reduceMotion)
-                .compositingGroup()
-                .blendMode(.plusLighter)
-                .opacity(0.4)
-                .accessibilityHidden(true)
+            if !hideSparkles {
+                SparkleField(reduceMotion: reduceMotion)
+                    .compositingGroup()
+                    .blendMode(.plusLighter)
+                    .opacity(0.4)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }

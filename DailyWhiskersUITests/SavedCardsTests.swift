@@ -36,20 +36,28 @@ final class SavedCardsTests: XCTestCase {
     func testSaveRelaunchReopenShareRemoveAndConfirmedClear() {
         let save = app.buttons["daily-card-options"]
         XCTAssertTrue(save.waitForExistence(timeout: 10))
+        let originalQuote = app.descendants(matching: .any)["daily-card-quote"].firstMatch.label
+        let originalVibe = app.descendants(matching: .any)["daily-card-vibe"].firstMatch.label
         app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Saved"))
         capture("01 Today saved")
         app.terminate(); app.launch()
-        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
+        // Today may have advanced at midnight. Persistence belongs to the
+        // originally saved card, not whichever card a new launch selects.
+        XCTAssertTrue(app.buttons["open-saved-cards"].waitForExistence(timeout: 10))
         app.buttons["open-saved-cards"].tap()
-        let row = app.buttons["saved-card-row"].firstMatch
+        let row = app.buttons.matching(identifier: "saved-card-row")
+            .matching(NSPredicate(format: "label == %@", originalQuote)).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         XCTAssertEqual(app.buttons.matching(identifier: "saved-card-row").count, 1)
         capture("02 Saved Cards on this device")
         row.tap()
         XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForOptionsValue("Saved"))
         swipeSavedContent()
         XCTAssertTrue(app.otherElements["saved-card-quote"].exists || app.staticTexts["saved-card-quote"].exists)
+        XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, originalQuote)
+        XCTAssertEqual(app.descendants(matching: .any)["saved-card-vibe"].firstMatch.label, originalVibe)
         capture("03 Reopened original full card")
         app.buttons["saved-card-options"].tap()
         let share = app.buttons["saved-card-share"]
@@ -100,7 +108,18 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
         capture("06 Explicit clear confirmation")
         app.alerts["Clear Saved Cards?"].buttons["Cancel"].tap()
-        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
+        app.buttons["open-saved-cards"].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.buttons.matching(identifier: "saved-card-row").count, 1)
+        row.tap()
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+        XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, originalQuote)
+        XCTAssertEqual(app.descendants(matching: .any)["saved-card-vibe"].firstMatch.label, originalVibe)
+        capture("06 Cancel clear retains original saved card after relaunch")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
         clear()
         XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Not saved"))
         app.buttons["open-saved-cards"].tap()
