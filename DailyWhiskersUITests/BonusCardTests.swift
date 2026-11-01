@@ -268,8 +268,13 @@ final class BonusCardTests: XCTestCase {
     }
     private func assertMenuFits() {
         let menu = app.buttons["card-menu"].frame
-        XCTAssertGreaterThanOrEqual(menu.minX, app.buttons["open-saved-cards"].frame.maxX)
-        XCTAssertLessThanOrEqual(menu.maxX, app.buttons["daily-card-options"].frame.minX)
+        // System bars may put actions vertically beside the content on Duo.
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(menu))
+        for id in ["open-saved-cards", "daily-card-options"] {
+            let action = app.buttons[id]
+            XCTAssertFalse(menu.intersects(action.frame), "Title menu overlaps \(id)")
+            XCTAssertTrue(action.isHittable)
+        }
         XCTAssertTrue(app.buttons["card-menu"].isHittable)
     }
 

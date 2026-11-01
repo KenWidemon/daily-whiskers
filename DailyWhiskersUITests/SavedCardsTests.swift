@@ -470,8 +470,14 @@ final class SavedCardsTests: XCTestCase {
             let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
             XCTAssertTrue(quote.waitForExistence(timeout: 10))
             labels.append(quote.label)
-            assertCardVisible(prefix: "daily-card")
-            capture("iPad \(fixture) portrait")
+            let bottom = app.staticTexts["ci-smoke-offline"].frame.minY
+            if app.descendants(matching: .any)["daily-card-frame"].firstMatch.frame.maxY <= bottom {
+                assertCardVisible(prefix: "daily-card")
+            } else {
+                captureScrollableQuote(quote, vibe: app.descendants(matching: .any)["daily-card-vibe"].firstMatch,
+                                       name: "Compact portrait \(fixture)", landscape: false)
+            }
+            capture("Window \(fixture) portrait")
             XCUIDevice.shared.orientation = .landscapeLeft
             let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
@@ -484,6 +490,7 @@ final class SavedCardsTests: XCTestCase {
                 captureScrollableQuote(quote, vibe: app.descendants(matching: .any)["daily-card-vibe"].firstMatch,
                                        name: "Narrow landscape \(fixture)", landscape: true)
             }
+            XCTAssertEqual(quote.label, labels.last)
             capture("Window \(fixture) landscape")
             let save = app.buttons["daily-card-options"]
             if save.value as? String != "Saved" { app.toggleDailyCardSave() }
@@ -499,8 +506,8 @@ final class SavedCardsTests: XCTestCase {
         else { XCTAssertGreaterThan(rows.element(boundBy: 1).frame.minY, rows.element(boundBy: 0).frame.maxY) }
         capture("Window short and long Saved tiles portrait")
         XCUIDevice.shared.orientation = .landscapeLeft
-        // iPad tiles reserve equal quote areas; the phone retains natural tile heights.
-        if UIDevice.current.userInterfaceIdiom == .pad { assertAlignedTiles(rows) }
+        // Every multi-column collection reserves equal quote areas, including opened phones.
+        if app.windows.firstMatch.frame.width >= 660 { assertAlignedTiles(rows) }
         capture("Window short and long Saved tiles landscape")
         rows.firstMatch.tap()
         XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
@@ -564,6 +571,78 @@ final class SavedCardsTests: XCTestCase {
         captureScrollableQuote(quote, vibe: vibe, name: "iPad longest accessibility portrait", landscape: false)
         XCUIDevice.shared.orientation = .landscapeLeft
         captureScrollableQuote(quote, vibe: vibe, name: "iPad longest accessibility landscape", landscape: true)
+    }
+
+    // Run once per native Device Hub pose. XCUIDevice's sensor orientation alone
+    // does not resize the Duo simulator's active display/window.
+    func testAdaptiveCardsInCurrentWindow() {
+        var labels: [String] = []
+        for fixture in ["shortest", "longest"] {
+            app.terminate()
+            app.launchArguments = ["--ci-smoke", "--ci-smoke-\(fixture)-card",
+                                   "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+            app.launch()
+            XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+            let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
+            XCTAssertTrue(quote.waitForExistence(timeout: 10))
+            labels.append(quote.label)
+            checkCurrentCard(prefix: "daily-card", name: fixture)
+            app.toggleDailyCardSave()
+            XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
+            XCTAssertEqual(quote.label, labels.last)
+        }
+        app.buttons["open-saved-cards"].tap()
+        let rows = app.buttons.matching(identifier: "saved-card-row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.label)), Set(labels))
+        if abs(rows.element(boundBy: 0).frame.minY - rows.element(boundBy: 1).frame.minY) < 1 {
+            assertAlignedTiles(rows)
+        } else {
+            XCTAssertGreaterThan(rows.element(boundBy: 1).frame.minY, rows.element(boundBy: 0).frame.maxY)
+        }
+        capture("Current native window Saved collection")
+        rows.firstMatch.tap()
+        XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.descendants(matching: .any)["saved-card-quote"].firstMatch.label, labels.last)
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+        checkCurrentCard(prefix: "saved-card", name: "Retained longest")
+        app.openCardOptions()
+        app.buttons["saved-card-share"].tap()
+        let sheet = app.otherElements["ActivityListView"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 15))
+        capture("Current native window retained share")
+        let dismiss = app.otherElements["PopoverDismissRegion"]
+        if dismiss.exists {
+            // Resolve the active display through its element, not main-screen coordinates.
+            XCTAssertFalse(sheet.frame.contains(CGPoint(x: dismiss.frame.midX, y: dismiss.frame.midY)))
+            dismiss.tap()
+        } else if app.buttons["Close"].firstMatch.isHittable {
+            app.buttons["Close"].firstMatch.tap()
+        } else {
+            let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.20))
+            XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
+            outside.tap()
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: sheet)], timeout: 10), .completed)
+        XCTAssertTrue(app.buttons["saved-card-options"].isHittable)
+        XCTAssertTrue(waitForOptionsValue("Saved"))
+    }
+
+    private func checkCurrentCard(prefix: String, name: String) {
+        let card = app.descendants(matching: .any)["\(prefix)-frame"].firstMatch
+        let quote = app.descendants(matching: .any)["\(prefix)-quote"].firstMatch
+        let vibe = app.descendants(matching: .any)["\(prefix)-vibe"].firstMatch
+        let window = app.windows.firstMatch.frame
+        XCTAssertLessThanOrEqual(card.frame.width, window.width)
+        if card.frame.maxY <= app.staticTexts["ci-smoke-offline"].frame.minY {
+            assertCardVisible(prefix: prefix)
+        } else {
+            captureScrollableQuote(quote, vibe: vibe, name: name,
+                                   landscape: window.width > window.height)
+        }
+        capture("Current native window \(name)")
     }
 
     private func assertCardVisible(prefix: String) {

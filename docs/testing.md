@@ -492,13 +492,32 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   differs.
 - Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
   offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
-  spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve
-  the artwork size, not merely fit the card bounds. Compare two iPad Saved tile
+  spacing, uncropped artwork and readable quote/Vibe. Full-size iPad layouts must
+  preserve the artwork size; smaller columns may scale the complete artwork
+  uniformly. Compare multi-column Saved tile
   top/bottom edges for unequal quote lengths. Resize an iPad window narrower and
   wider while a saved detail stays open; content identity and save state must remain.
   `DailyCardShareVisualTests` compares rendered artwork pixels at identical scale
   across stacked, wide, narrow and accessibility presentations, and verifies the
-  natural-height scrolling fallback. Repeat at the largest accessibility size:
+  natural-height scrolling fallback. `testDuoViewportVisualMatrix` additionally
+  checks opened tall/wide, outer tall/wide, intermediate and short content viewports,
+  including either side of the column-width boundary. It compares normalized
+  artwork pixels against the source so column scaling cannot silently crop or
+  stretch the image. These renderer viewports do not prove native safe areas.
+  `SavedCardsTests/testAdaptiveCardsInCurrentWindow` checks current-window layout,
+  unequal Saved tiles, retained identity and share/cancel without assuming that a
+  sensor orientation change resizes the native display. Run it in each native pose.
+  On an isolated Duo simulator use Device Hub's supported fold controls and repeat
+  both orientations on each display. Keep Today, Bonus, saved detail, sharing and
+  focused auth fields open while folding; verify identity, saved state, navigation,
+  reachable controls and retained field text. Capture actual native frames and
+  private before/after screenshots tied to the candidate. Do not substitute display
+  power overrides for fold transitions. On the Duo simulator, XCTest's main-screen
+  screenshot can capture the inactive outer display as black even when interaction
+  and bounds refer to the inner display. Inspect actual pixels; enumerate screens
+  with `simctl io <device> enumerate` and capture the active inner screen explicitly
+  for private visual evidence. Physical-device and VoiceOver acceptance
+  remain separate observed checks. Repeat at the largest accessibility size:
   one column, complete quotes, reachable
   full detail and Vibe through scrolling. These simulator fixtures never inspect
   an owner device or its saved collection.
@@ -506,7 +525,7 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   Check empty and multi-card collections, centered tablet widths, and single-column
   accessibility layouts. Check ordinary phone portrait fit and complete artwork;
   shorter windows, larger text and unusually long content must scroll instead of
-  shrinking artwork or text. The secondary
+  reducing text or artwork below the useful column minimum. The secondary
   removal action retains its complete accessible label and a 44-point touch target.
   Saved thumbnails/quote excerpts must be usable and the reopened quote/vibe and
   actions reachable. VoiceOver speech/focus require separate observed acceptance;

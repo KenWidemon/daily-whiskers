@@ -135,7 +135,7 @@ struct DailyRitualCardView: View {
     }
 }
 
-/// Content-driven selection: a natural-height stack, then full-size columns when
+/// Content-driven selection: a natural-height stack, then height-aware columns when
 /// readable, then a natural-height scrolling stack. No device or orientation rule.
 struct AdaptiveRitualCardPresentation: View {
     @Environment(\.dynamicTypeSize) private var textSize
@@ -156,10 +156,11 @@ struct AdaptiveRitualCardPresentation: View {
         CardViewportProposal(size: viewport) {
             ViewThatFits(in: .vertical) {
                 stacked
-                if !textSize.isAccessibilitySize && viewport.width >= 840 {
+                if let columns = CardColumnSizing(viewport: viewport, artwork: artwork, textSize: textSize) {
                     RitualCardPresentation(data: data, artwork: artwork, compact: false,
                                            tightQuotePanel: true, sideBySide: true,
-                                           quoteColumnWidth: min(440, viewport.width - 520),
+                                           artworkColumnWidth: columns.artworkWidth,
+                                           quoteColumnWidth: columns.quoteWidth,
                                            accessibilityPrefix: accessibilityPrefix)
                         .fixedSize()
                 }
@@ -167,6 +168,22 @@ struct AdaptiveRitualCardPresentation: View {
                 stacked
             }
         }
+    }
+}
+
+/// A column candidate must leave both a useful uncropped image and readable text.
+/// Text is still measured by ViewThatFits; these bounds never force it to fit.
+struct CardColumnSizing {
+    let artworkWidth: CGFloat
+    let quoteWidth: CGFloat
+
+    init?(viewport: CGSize, artwork: UIImage?, textSize: DynamicTypeSize) {
+        guard !textSize.isAccessibilitySize else { return nil }
+        let aspect = max(artwork.map { $0.size.width / $0.size.height } ?? 2 / 3, 0.01)
+        let width = min(520, viewport.height * aspect, viewport.width - 320)
+        guard width >= 300 else { return nil }
+        artworkWidth = width
+        quoteWidth = min(440, viewport.width - width)
     }
 }
 
@@ -180,6 +197,7 @@ struct RitualCardPresentation: View {
     // Screen-only variants; export defaults remain unchanged.
     var tightQuotePanel = false
     var sideBySide = false
+    var artworkColumnWidth: CGFloat = 520
     var quoteColumnWidth: CGFloat = 440
     var accessibilityPrefix = "card"
     private var theme: ArchetypeTheme { .forArchetype(data.archetype) }
@@ -188,7 +206,7 @@ struct RitualCardPresentation: View {
         RitualCard(theme: theme) {
             if sideBySide {
                 HStack(spacing: 0) {
-                    artworkContent.frame(width: 520, height: 520 / artworkAspectRatio)
+                    artworkContent.frame(width: artworkColumnWidth, height: artworkColumnWidth / artworkAspectRatio)
                     quotePanel.frame(width: quoteColumnWidth)
                 }
                 .fixedSize(horizontal: true, vertical: true)
