@@ -605,3 +605,11 @@ Owner-approved acceptance exception (November 1, 2026): live authentication
 transition retention checks for Stillness are deferred, not passed. The isolated
 offline build rejects backend operations; successful sign-in, logout and deletion
 remain unverified. This exception authorizes no account or backend changes.
+
+Owner-approved profiling exception for Stillness #58 (November 1, 2026): measured
+timeline/power profiling is deferred, not passed. Instruments could discover the
+paired physical device but could not attach to the independently verified offline
+app by PID or exact process name; neither attempt created a trace. Source review,
+automated motion checks and scoped owner physical observations support this bounded
+acceptance exception. They establish no measured timeline shutdown, CPU reduction
+or energy savings. Final-head CI and independent integration review remain required.
