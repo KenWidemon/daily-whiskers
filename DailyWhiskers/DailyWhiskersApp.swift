@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct DailyWhiskersApp: App {
+    @UIApplicationDelegateAdaptor(ReminderAppDelegate.self) private var reminderDelegate
     @StateObject private var router = AppRouter()
 
     init() {

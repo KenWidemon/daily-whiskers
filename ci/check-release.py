@@ -4,7 +4,8 @@ import sys
 
 
 def verify(binary):
-    forbidden = (b'CISmokeMode', b'--ci-smoke', b'Offline CI smoke', b'ci-smoke-offline')
+    forbidden = (b'CISmokeMode', b'--ci-smoke', b'Offline CI smoke', b'ci-smoke-offline',
+                 b'ReminderSmokeClient', b'DW_REMINDER_TEST_ID', b'reminder-test-tap')
     return not any(marker in binary for marker in forbidden)
 
 

@@ -426,6 +426,57 @@ Load-time integrity checks:
 Image import details:
 - See [content pipeline](../docs/content-pipeline.md).
 
+## Optional Daily Reminder
+
+Settings → Daily Reminder is device-local and available without an account.
+It starts off, with an editable 9 a.m. suggestion. Only explicit enablement can
+request alert permission; saving a time does not enable it. Save/Cancel edits the
+time separately. Notifications use the evergreen title “Daily Whiskers” and body
+“Your daily whisker of encouragement is ready.” There is no sound, badge, push,
+server scheduling or foreground banner. Focus, Scheduled Summary and iOS settings
+control actual presentation; this is not an exact-delivery alarm.
+
+The scheduler queues date-specific, nonrepeating UTC targets for the current
+Gregorian civil date plus the next thirteen labels in the current time zone.
+Passed targets and wholly nonexistent dates are skipped without backfilling a
+fifteenth date. Reopening extends this finite window; no background renewal is
+assumed. Repeated times select the first occurrence. A missing wall time resolves
+to the next valid instant on that same date, including half-hour/midnight gaps.
+Queued requests retain their old zone until reopening. During unopened date-line
+travel, two scheduling dates can fall on one experienced local date. Settings
+discloses both finite coverage and this travel exception.
+
+A serialized scheduler writes a versioned, checksummed Application Support journal
+before notification side effects. Possibly-presented date/interval history survives
+edits, disable/re-enable and zones. Empty Notification Center is not proof of
+nondelivery. Interrupted add/cancel intents, elapsed targets and uncertain removals
+retain reservations; suppression is preferred to replay. Known obsolete requests
+are cancelled before any capacity check or addition. The app uses a conservative
+32-pending-request budget, reserving space for unrelated requests; this is an app
+policy, not an assertion about a modern iOS maximum.
+
+For an acknowledged request observed pending, removal followed by two absent
+readbacks more than sixty seconds before its target permits replacing its future
+reservation. This is operational removal evidence, not an atomic cancellation or
+delivery barrier. Missing requests, interrupted intents/cancellations, unknown
+inventory or a closer deadline preserve uncertainty instead. Readback after each
+add checks retention. Corrupt/missing initialized state fails closed without
+resetting history. Atomic file replacement, synchronization and readback do not
+establish universal power-loss or backup-restoration guarantees.
+
+Disabling removes this feature's pending and delivered notifications while keeping
+the chosen time and eligibility history. OS permission revocation retains enabled
+intent; regrant resumes on reopening only if the user had left the reminder enabled.
+Denied permission never causes automatic prompts or blocks daily cards. A reminder
+tap ignores old content dates and returns to current Today, dismissing navigation
+and sheets without deleting saved cards or rerolling daily/bonus selections.
+
+The focused tests use injected clocks, journals and notification clients. The
+compile-only offline UI seam never accesses the system notification center.
+See [reminder acceptance](../docs/testing.md#daily-reminder-acceptance) for the
+separate integrated-device checks. The broader Settings shell remains outside this
+feature's minimal entry/editor.
+
 ## Tests
 - Repeatable acceptance checks and evidence limits: [testing](../docs/testing.md).
 - Unit tests live in `DailyWhiskersTests/`.

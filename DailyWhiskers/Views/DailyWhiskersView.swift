@@ -42,6 +42,10 @@ struct DailyWhiskersView: View {
     @State private var accountSheet: AccountSheet?
     @StateObject private var shareState = DailyCardShareState()
     @State private var settingsFocused: Bool = false
+    @StateObject private var reminders = ReminderModel.shared
+    @State private var reminderSheet = false
+    @State private var navigationPath = NavigationPath()
+    @State private var todayGeneration = UUID()
 
     private var activeSnapshot: RetainedCard? {
         if let bonusCard { return bonusCard }
@@ -73,9 +77,9 @@ struct DailyWhiskersView: View {
             image: "ellipsis", enabled: activeSnapshot != nil && !savedCards.busy && accountSheet == nil && !shareState.isRendering && shareState.export == nil,
             menu: UIMenu(children: [share, save])),
             settings: .init(identifier: "Settings", label: "Settings",
-                hint: "Opens privacy, support, and optional account tools.", image: "gearshape",
+                hint: "Opens reminders, privacy, support, and optional account tools.", image: "gearshape",
                 enabled: !shareState.isRendering && shareState.export == nil,
-                hiddenFromAccessibility: accountSheet != nil, menu: nativeSettingsMenu),
+                hiddenFromAccessibility: accountSheet != nil || reminderSheet, menu: nativeSettingsMenu),
             export: shareState.export, onShareComplete: { failed in
                 shareState.completeActivity(failed: failed)
                 shareState.sheetDismissed()
@@ -84,6 +88,9 @@ struct DailyWhiskersView: View {
     }
 
     private var nativeSettingsMenu: UIMenu {
+        let reminder = CardNavigationToolbar.action("Daily Reminder", identifier: "open-daily-reminder", hint: "An optional daily notification.") {
+            settingsFocused = false; reminderSheet = true
+        }
         let clear = CardNavigationToolbar.action("Clear Saved Cards", disabled: !savedCards.canClear,
             destructive: true) { confirmingClear = true }
         let links = [CardNavigationToolbar.action("Privacy Policy") { UIApplication.shared.open(AppLinks.privacyPolicy) },
@@ -102,19 +109,28 @@ struct DailyWhiskersView: View {
                            deletionRequest.clearFeedback(); settingsFocused = false; accountSheet = .deletion
                        }]
         }
-        return UIMenu(children: [UIMenu(options: .displayInline, children: [clear]),
+        return UIMenu(children: [UIMenu(options: .displayInline, children: [reminder]),
+                                 UIMenu(options: .displayInline, children: [clear]),
                                  UIMenu(options: .displayInline, children: links),
                                  UIMenu(options: .displayInline, children: account)])
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             cardContent
             .onAppear {
                 contentState.refresh(at: Date(), force: true)
+                consumeReminderTap()
+            }
+            .task { await reminders.send(.refresh) }
+            .onChange(of: reminders.todayRequest) { _, request in
+                if request != nil { consumeReminderTap() }
             }
             .onChange(of: scenePhase) { (_: ScenePhase, newPhase: ScenePhase) in
-                if newPhase == .active { refreshDay() }
+                if newPhase == .active {
+                    refreshDay()
+                    Task { await reminders.send(.refresh) }
+                }
             }
             .onReceive(dayCheck) { _ in refreshDay() }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshDay() }
@@ -139,6 +155,12 @@ struct DailyWhiskersView: View {
             } message: { Text(bonusError ?? "") }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: String.self) { destination in
+                if destination == "saved" { SavedCardsView(model: savedCards) }
+            }
+            .sheet(isPresented: $reminderSheet, onDismiss: { settingsFocused = true }) {
+                ReminderSettingsView(model: reminders)
+            }
             .sheet(item: $accountSheet, onDismiss: {
                 // A previous dismissal must not focus Settings over a replacement sheet.
                 guard accountSheet == nil else { return }
@@ -171,6 +193,12 @@ struct DailyWhiskersView: View {
                 Text(accountRequest.errorMessage ?? "")
             }
         }
+        .id(todayGeneration)
+#if DEBUG && CI_SMOKE_TESTING
+        .safeAreaInset(edge: .bottom) {
+            if ReminderSmoke.controlsEnabled { ReminderSmokeControls(model: reminders) }
+        }
+#endif
         .preferredColorScheme(.dark)
     }
 
@@ -252,7 +280,7 @@ struct DailyWhiskersView: View {
             .disabled(openingBonus || accountSheet != nil || shareState.isRendering || shareState.export != nil)
         }
         ToolbarItem(placement: .topBarLeading) {
-            NavigationLink { SavedCardsView(model: savedCards) } label: {
+            NavigationLink(value: "saved") {
                 Label("Saved Cards", systemImage: "rectangle.stack")
             }.accessibilityIdentifier("open-saved-cards")
         }
@@ -276,12 +304,30 @@ struct DailyWhiskersView: View {
         contentState.refresh(at: now)
     }
 
+    private func consumeReminderTap() {
+        guard reminders.todayRequest != nil else { return }
+        reminders.consumedTodayRequest()
+        // Reset presentation/navigation, not stored cards or daily selections.
+        // Recreating the stack dismisses detail-owned SwiftUI sheets. Owned UIKit
+        // share presenters handle reminderOpenToday before this reset. A
+        // generation check prevents in-flight Bonus work reopening.
+        todayGeneration = UUID()
+        navigationPath = NavigationPath()
+        accountSheet = nil; reminderSheet = false
+        confirmingClear = false; bonusError = nil; captureError = nil
+        bonusCard = nil; shareState.finish()
+        settingsFocused = false; cardOptionsFocused = false
+        refreshDay()
+        contentState.refresh(at: Date(), force: true)
+    }
+
     private func openBonus() async {
         guard !openingBonus else { return }
         refreshDay()
         openingBonus = true
         bonusError = nil
         let requestedDay = bonusDay
+        let requestedGeneration = todayGeneration
         defer { openingBonus = false }
         do {
             let selected: RetainedCard
@@ -295,10 +341,11 @@ struct DailyWhiskersView: View {
                     candidates: DailyContentProvider().bonusCandidates)
             }
             refreshDay()
-            guard requestedDay.key == bonusDay.key, !Task.isCancelled else { return }
+            guard requestedDay.key == bonusDay.key, requestedGeneration == todayGeneration, !Task.isCancelled else { return }
             bonusCard = selected
             await savedCards.refresh()
         } catch {
+            guard requestedGeneration == todayGeneration else { return }
             bonusError = (error as? LocalizedError)?.errorDescription ?? "Your bonus couldn't be opened. Please try again; your daily selection is kept."
         }
     }
