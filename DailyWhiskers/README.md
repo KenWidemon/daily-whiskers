@@ -97,8 +97,10 @@ button remains separate collection navigation; Today/Bonus switching and Setting
 remain separate controls. No extra Options menu is added to the collection list.
 Saved cards appear in a guest-accessible, newest-first
 collection labeled **On this device**, with uncropped artwork tiles on a centered,
-adaptive grid. On iPad at ordinary text sizes, each tile reserves three quote lines
-so neighboring tile edges align. Accessibility text sizes use one column and complete quote labels.
+adaptive grid. At ordinary text sizes, multi-column grids reserve three quote lines
+per tile so neighboring edges align; this follows available grid width, including
+opened iPhone Duo windows. Single-column tiles keep natural quote height.
+Accessibility text sizes use one column and complete quote labels.
 Reopen the full card, share its
 retained version, or deliberately remove it with the secondary destructive action.
 Saving an identical version again
@@ -121,11 +123,19 @@ collection loading/error presentation change.
 Compact portrait windows keep the phone quote typography and spacing. Artwork
 uses its natural aspect ratio at the available card width; text is never truncated
 or scaled down to force a fit. The visible window dimensions and measured content
-choose between a stacked card and a wide two-column card. When a stack is too tall
-and there is room for the full-size artwork plus a readable quote panel, artwork
-stays on the left with the full quote and Vibe on the right. Narrow or short windows,
-unusually long content and accessibility text use stacked scrolling instead of
-shrinking artwork. Larger stacked presentations retain the tighter quote spacing.
+choose between a stacked card and a wide two-column card. Tall and square windows
+keep the iPad-style stacked artwork and quote, scrolling when needed. Only a wider-than-tall
+container can consider columns; this uses the current safe container geometry before
+card padding, not device idiom or sensor orientation. When a stack is too tall
+in a wide container and both columns fit, artwork stays on the left with the full quote and Vibe on the
+right. Artwork scales uniformly from both available width and height, up to the
+existing 520-point iPad width. Columns require at least 300 points of artwork and
+320 points of quote-panel width; the full text must still fit the visible height.
+These are minimum useful content sizes within a wide container, not device-specific thresholds.
+Narrow or short windows, unusually long content and accessibility text use natural
+stacked scrolling. Text is never reduced and artwork is never cropped to force
+columns. Existing iPad layouts retain their artwork size where it fits. Larger
+stacked presentations retain the tighter quote spacing.
 Today, Bonus and saved detail reflow without changing the selected content or save
 state. The export layout is independent of this
 viewport adjustment. Today and saved detail use the same card renderer, including

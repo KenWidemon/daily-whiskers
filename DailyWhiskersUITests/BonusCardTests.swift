@@ -268,8 +268,13 @@ final class BonusCardTests: XCTestCase {
     }
     private func assertMenuFits() {
         let menu = app.buttons["card-menu"].frame
-        XCTAssertGreaterThanOrEqual(menu.minX, app.buttons["open-saved-cards"].frame.maxX)
-        XCTAssertLessThanOrEqual(menu.maxX, app.buttons["daily-card-options"].frame.minX)
+        // System bars may put actions vertically beside the content on Duo.
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(menu))
+        for id in ["open-saved-cards", "daily-card-options"] {
+            let action = app.buttons[id]
+            XCTAssertFalse(menu.intersects(action.frame), "Title menu overlaps \(id)")
+            XCTAssertTrue(action.isHittable)
+        }
         XCTAssertTrue(app.buttons["card-menu"].isHittable)
     }
 
@@ -283,9 +288,11 @@ final class BonusCardTests: XCTestCase {
             let distance = min(abs(delta), bottom - top - 40)
             let startY = delta > 0 ? bottom - 20 : top + 20
             let endY = startY + (delta > 0 ? -distance : distance)
-            let origin = app.coordinate(withNormalizedOffset: .zero)
-            origin.withOffset(CGVector(dx: window.midX, dy: startY))
-                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: endY)),
+            // Anchor to the active window, which may be the Duo inner display.
+            // Application-level coordinates can target the inactive outer screen.
+            let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.midX - window.minX, dy: startY - window.minY))
+                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX - window.minX, dy: endY - window.minY)),
                        withVelocity: .slow, thenHoldForDuration: 0.25)
         }
         for _ in 0..<12 where abs(quote.frame.minY - (top + 8)) > 12 {
