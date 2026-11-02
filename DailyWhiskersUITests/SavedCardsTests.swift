@@ -714,7 +714,7 @@ extension XCUIApplication {
     }
 
     func dismissCardOptions() {
-        coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
+        windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !self.buttons["share-daily-card"].exists && !self.buttons["saved-card-share"].exists
         }, object: nil)
