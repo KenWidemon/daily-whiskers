@@ -7,7 +7,10 @@ struct DailyWhiskersApp: App {
 
     init() {
 #if DEBUG && CI_SMOKE_TESTING
-        if CISmokeMode.isEnabled { return }
+        if CISmokeMode.isEnabled {
+            StillnessDiagnosticTrace.startIfRequested()
+            return
+        }
 #endif
         FirebaseApp.configure()
     }

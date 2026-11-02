@@ -12,6 +12,7 @@ final class StillnessModeTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launchEnvironment["DW_STILLNESS_TEST_ID"] = UUID().uuidString
+        app.launchEnvironment["DW_STILLNESS_DIAGNOSTICS"] = "1"
         app.launchArguments = contentArguments + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
@@ -181,6 +182,7 @@ final class StillnessModeTests: XCTestCase {
             let control = toggle.switches.firstMatch
             XCTAssertTrue(control.waitForExistence(timeout: 5))
             XCTAssertTrue(control.isHittable)
+            recordDiagnosticToggle(expected: expected, row: toggle, control: control)
             control.tap()
             let changed = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == %@", expected), object: toggle)
@@ -188,6 +190,31 @@ final class StillnessModeTests: XCTestCase {
             XCTAssertEqual(control.value as? String, expected)
         }
         XCTAssertEqual(toggle.value as? String, expected)
+    }
+
+    // Observation only: no extra success condition, settling wait or retry.
+    // App-window pixels can contradict stale automatic AX snapshots.
+    private func recordDiagnosticToggle(expected: String, row: XCUIElement, control: XCUIElement) {
+        let window = app.windows.firstMatch
+        let fields: [String: Any] = [
+            "phase": "immediately-before-original-tap", "expected": expected,
+            "epoch": Date().timeIntervalSince1970, "uptime": ProcessInfo.processInfo.systemUptime,
+            "window": NSCoder.string(for: window.frame),
+            "authFormExists": app.scrollViews["auth-form"].exists,
+            "stillnessSheetExists": app.navigationBars["Stillness Mode"].exists,
+            "doneExists": app.buttons["Done"].exists,
+            "rowFrame": NSCoder.string(for: row.frame), "rowValue": row.value as? String ?? "unknown",
+            "controlFrame": NSCoder.string(for: control.frame), "controlValue": control.value as? String ?? "unknown",
+            "controlEnabled": control.isEnabled, "controlHittable": control.isHittable
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys]))
+            ?? Data("{\"captureError\":\"JSON encoding failed\"}".utf8)
+        let state = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        state.name = "Diagnostic before original toggle to " + expected
+        state.lifetime = .keepAlways; add(state)
+        let pixels = XCTAttachment(screenshot: window.screenshot())
+        pixels.name = "Diagnostic active window before original toggle to " + expected
+        pixels.lifetime = .keepAlways; add(pixels)
     }
 
     private func assertStaticBackground(_ name: String) {

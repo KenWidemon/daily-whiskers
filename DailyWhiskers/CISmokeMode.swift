@@ -58,6 +58,7 @@ struct CISmokeStillnessFixture: ViewModifier {
            let identifier = ProcessInfo.processInfo.environment["DW_STILLNESS_TEST_ID"],
            UUID(uuidString: identifier) != nil {
             preferences = UserDefaults(suiteName: "dw.stillness.tests." + identifier)
+            if let preferences { StillnessDiagnosticTrace.observePreferences(preferences) }
         } else {
             preferences = nil
         }

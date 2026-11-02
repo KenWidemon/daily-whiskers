@@ -10,7 +10,7 @@ struct StillnessSettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Toggle("Stillness Mode", isOn: $isEnabled)
+                    Toggle("Stillness Mode", isOn: diagnosticBinding)
                         .accessibilityIdentifier("stillness-toggle")
                         .accessibilityHint("Removes decorative sparkles and ambient animation. Saved on this device.")
                 } footer: {
@@ -30,6 +30,28 @@ struct StillnessSettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+#if DEBUG && CI_SMOKE_TESTING
+            .onAppear { StillnessDiagnosticTrace.sheet(visible: true, value: isEnabled) }
+            .onDisappear { StillnessDiagnosticTrace.sheet(visible: false, value: isEnabled) }
+            .onChange(of: isEnabled) { oldValue, newValue in
+                StillnessDiagnosticTrace.stateChanged(old: oldValue, new: newValue)
+            }
+#endif
         }
+    }
+
+    // Diagnostic-only forwarding: preserve the original transaction and one write.
+    // The wrapper and observations may affect timing; a pass is not acceptance.
+    private var diagnosticBinding: Binding<Bool> {
+#if DEBUG && CI_SMOKE_TESTING
+        if StillnessDiagnosticTrace.enabled {
+            return Binding(get: { isEnabled }, set: { value, transaction in
+                StillnessDiagnosticTrace.binding("binding.before", old: isEnabled, requested: value)
+                $isEnabled.transaction(transaction).wrappedValue = value
+                StillnessDiagnosticTrace.binding("binding.after", old: isEnabled, requested: value)
+            })
+        }
+#endif
+        return $isEnabled
     }
 }

@@ -1,170 +1,54 @@
-name: iOS CI
+name: Stillness diagnostic observation only
 
 on:
-  pull_request:
-    branches: [main, codex/develop, release/rc]
-  push:
-    branches: [main, codex/develop, release/rc]
   workflow_dispatch:
     inputs:
-      cache_epoch:
-        description: 'Cache namespace for reproducible cold/warm comparisons (same value for both runs)'
+      expected_sha:
+        description: Independently reviewed diagnostic commit SHA
+        required: true
         type: string
-        default: v2
 
 permissions:
   contents: read
 
+# Separate from PR127 and normal CI: never cancel either workload.
 concurrency:
-  group: ios-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: stillness-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  classify:
-    name: Classify changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      mode: ${{ steps.scope.outputs.mode }}
+  comparison:
+    name: Focused observation (not CI Gate)
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      EXPECTED_DIAGNOSTIC_SHA: ${{ inputs.expected_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Classify changes (unknown means full validation)
-        id: scope
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 ci/policy.py classify
-
-  checks:
-    name: Documentation and CI policy
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24.12.0'
-          package-manager-cache: false
-      - name: Lint workflows
-        run: |
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/actionlint.tar.gz" \
-            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
-          printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
-          mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
-          "$RUNNER_TEMP/actionlint" -shellcheck= "${workflows[@]}"
-      - name: Test classification and gate policy
-        run: python3 -m unittest discover -s ci -p 'test_*.py' -v
-      - name: Install locked documentation tools
-        run: npm ci --ignore-scripts --prefix ci/checks
-      - name: Test documentation checker
-        run: npm test --prefix ci/checks
-      - name: Check Markdown format and local links
-        run: npm run check --prefix ci/checks
-
-  build-and-test:
-    name: App regression
-    needs: classify
-    if: needs.classify.outputs.mode == 'full'
-    runs-on: macos-26
-    timeout-minutes: 60
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Record tested checkout
-        run: echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-      - name: Verify toolchain and prepare project
-        id: prepare
-        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
-      - name: Restore SwiftPM dependencies
-        id: packages
+      - name: Check diagnostic evidence guards
+        run: python3 -m unittest discover -s ci -p test_stillness_diagnostic.py -v
+      - name: Restore locked SwiftPM dependencies
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
-      - name: Report cache state
-        env:
-          CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
-        run: printf 'SwiftPM cache hit = %s\n' "$CACHE_HIT" >> "$GITHUB_STEP_SUMMARY"
-      - name: Resolve locked dependencies
-        id: resolve
-        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
-      - name: Debug unit tests
-        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
-        run: python3 ci/run-stage.py unit bash ci/test-app.sh unit
-      - name: Offline UI smoke tests
-        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
-        run: python3 ci/run-stage.py ui bash ci/test-app.sh ui
-      - name: Unsigned Release simulator build
-        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
-        run: python3 ci/run-stage.py release bash ci/test-app.sh release
-      - name: Verify test-result evidence
-        if: always()
-        run: python3 ci/results.py collect
-      # GitHub isolates pull_request caches to refs/pull/<number>/merge. A PR
-      # cannot populate the base branch's cache; shared caches are saved on pushes.
-      - name: Save validated SwiftPM dependencies
-        if: success() && steps.packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: build/SourcePackages
-          key: ${{ steps.packages.outputs.cache-primary-key }}
-      - name: Upload test results and build logs
-        id: artifacts
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-v2
+      - name: Observe one full lifecycle per pinned revision
+        run: python3 ci/stillness-diagnostic.py
+      - name: Preserve both observations including failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ios-test-results
+          name: stillness-diagnostic-observations-${{ github.run_id }}
           path: |
-            build/TestResults.xcresult
-            build/SmokeResults.xcresult
-            build/*.log
-            build/*-status.json
-            build/*-results.json
-            build/results.json
-            build/toolchain.txt
+            build/stillness-diagnostic/provenance.json
+            build/stillness-diagnostic/trace.patch
+            build/stillness-diagnostic/observations.json
+            build/stillness-diagnostic/cleanup.json
+            build/stillness-diagnostic/baseline/artifacts/
+            build/stillness-diagnostic/candidate/artifacts/
           retention-days: 7
           if-no-files-found: warn
-      - name: Publish app evidence summary
-        if: always()
-        env:
-          ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-          APP_JOB_STATUS: ${{ job.status }}
-        run: python3 ci/results.py render
-
-  gate:
-    name: CI Gate
-    needs: [classify, checks, build-and-test]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Require every applicable result
-        if: ${{ !cancelled() }}
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-        run: python3 ci/policy.py gate
-      - name: Reject cancelled workflow
-        if: cancelled()
-        run: exit 1
-      - name: Publish overall run summary
-        if: always()
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          export TESTED_SHA="$(git rev-parse HEAD)"
-          python3 ci/results.py gate
