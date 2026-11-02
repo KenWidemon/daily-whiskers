@@ -64,6 +64,56 @@ evidence below remain useful without overriding this candidate's scoped decision
 - Keep the known largest-text Sign In landscape assertion and keyboard precondition
   intact. A skipped/deferred test is not a pass; report exact selected tests/results.
 
+## Daily Reminder Acceptance
+
+Run `ReminderTests` with the `DailyWhiskers` scheme for calendar, fourteen-date
+coverage/refill, queue budget, permission intent, serialization, journal failures
+and conservative recovery, including an add completion held while disable/edit
+commands queue and a write that commits before reporting failure. Check persistent
+quarantine guidance separately from retryable storage errors. `ReminderUITests`
+changes the native time picker to verify Cancel discards and Save persists without
+enabling. It uses the normal interaction scheme's
+`DEBUG + CI_SMOKE_TESTING` seam and a per-test UUID. Its notification client is
+entirely fake: UI permission transitions and simulated taps do not establish OS
+permission, physical delivery or notification-response callback evidence. The
+Release check rejects the fixture markers.
+
+The combined Stillness/Reminder regression opens both entries in the shared
+Settings menu, simulates a reminder response while Stillness is presented, and
+checks that Today returns with both preferences retained. Run both feature UI
+suites after changes to shared Settings navigation; a synthetic response does not
+replace physical notification-tap acceptance.
+
+For separately authorized physical acceptance, record the exact candidate and
+existing Focus/Summary/Watch routing conditions before any changes. Agree on the
+number/timing of real alerts and restore owner settings afterward. Check:
+
+1. Fresh install stays off without a prompt. Saving/cancelling a time does not
+   enable it. Enable explicitly and inspect alert-only authorization.
+2. Observe a chosen reminder with the app normally backgrounded/locked and with
+   it terminated. Keep the complete agreed observation windows; document any
+   shortened window as a limitation rather than a pass. Foreground presentation
+   must remain suppressed.
+3. Edit/disable and verify removal of owned pending/delivered requests while
+   preserving unrelated notifications. Re-enable after possible delivery must not
+   replay today's reminder. Readback is not an atomic cancellation guarantee.
+4. Revoke/regrant permission, reopen, and verify retained intent, no repeated
+   prompts, and no automatic enablement of a user-disabled reminder.
+5. Tap an older delivered notification during a cold launch and from Today,
+   Saved Cards/detail, Bonus, a time/account sheet and a system share sheet. It
+   must show current Today, with no lost saved content or late Bonus replacement.
+6. Check VoiceOver order/state/focus, localized 12/24-hour time, largest text,
+   small/large iPhone and iPad. Accessibility trees/screenshots alone do not prove
+   VoiceOver speech or real notification taps.
+7. Check finite coverage/refill and the displayed travel limitation against the
+   actual queue. Do not change device clocks/zones as an implicit test step.
+   Synthetic calendar tests cover transitions; they do not prove every physical
+   delivery situation, power-loss recovery or behavior of OS-restored backups.
+
+Historical isolated feasibility probes are not acceptance of the integrated
+feature. Report each production check as passed, failed, pending or waived with
+its own source/device evidence.
+
 ## Physical Acceptance Protocol
 
 Record source/build, installation provenance, model, exact OS, date, text size,

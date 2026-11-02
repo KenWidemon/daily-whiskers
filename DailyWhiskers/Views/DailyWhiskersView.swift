@@ -2,13 +2,13 @@ import SwiftUI
 import Combine
 
 enum SettingsSheet: String, Identifiable {
-    case signIn, deletion, stillness
+    case signIn, deletion, stillness, reminder
 
     var id: String { rawValue }
 
     func isAvailable(for state: AppRouter.AuthState) -> Bool {
         switch (self, state) {
-        case (.stillness, _), (.signIn, .signedOut), (.deletion, .signedIn): true
+        case (.reminder, _), (.stillness, _), (.signIn, .signedOut), (.deletion, .signedIn): true
         default: false
         }
     }
@@ -42,6 +42,9 @@ struct DailyWhiskersView: View {
     @State private var settingsSheet: SettingsSheet?
     @StateObject private var shareState = DailyCardShareState()
     @State private var settingsFocused: Bool = false
+    @StateObject private var reminders = ReminderModel.shared
+    @State private var navigationPath = NavigationPath()
+    @State private var todayGeneration = UUID()
 
     private var activeSnapshot: RetainedCard? {
         if let bonusCard { return bonusCard }
@@ -73,7 +76,7 @@ struct DailyWhiskersView: View {
             image: "ellipsis", enabled: activeSnapshot != nil && !savedCards.busy && settingsSheet == nil && !shareState.isRendering && shareState.export == nil,
             menu: UIMenu(children: [share, save])),
             settings: .init(identifier: "Settings", label: "Settings",
-                hint: "Opens Stillness Mode, privacy, support, and optional account tools.", image: "gearshape",
+                hint: "Opens reminders, Stillness Mode, privacy, support, and optional account tools.", image: "gearshape",
                 enabled: !shareState.isRendering && shareState.export == nil,
                 hiddenFromAccessibility: settingsSheet != nil, menu: nativeSettingsMenu),
             export: shareState.export, onShareComplete: { failed in
@@ -84,6 +87,9 @@ struct DailyWhiskersView: View {
     }
 
     private var nativeSettingsMenu: UIMenu {
+        let reminder = CardNavigationToolbar.action("Daily Reminder", identifier: "open-daily-reminder", hint: "An optional daily notification.") {
+            settingsFocused = false; settingsSheet = .reminder
+        }
         let stillness = CardNavigationToolbar.action("Stillness Mode", identifier: "open-stillness",
             image: UIImage(systemName: "leaf"), hint: "Adjusts decorative motion on this device.") {
                 settingsFocused = false; settingsSheet = .stillness
@@ -106,20 +112,28 @@ struct DailyWhiskersView: View {
                            deletionRequest.clearFeedback(); settingsFocused = false; settingsSheet = .deletion
                        }]
         }
-        return UIMenu(children: [UIMenu(options: .displayInline, children: [stillness]),
+        return UIMenu(children: [UIMenu(options: .displayInline, children: [reminder, stillness]),
                                  UIMenu(options: .displayInline, children: [clear]),
                                  UIMenu(options: .displayInline, children: links),
                                  UIMenu(options: .displayInline, children: account)])
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             cardContent
             .onAppear {
                 contentState.refresh(at: Date(), force: true)
+                consumeReminderTap()
+            }
+            .task { await reminders.send(.refresh) }
+            .onChange(of: reminders.todayRequest) { _, request in
+                if request != nil { consumeReminderTap() }
             }
             .onChange(of: scenePhase) { (_: ScenePhase, newPhase: ScenePhase) in
-                if newPhase == .active { refreshDay() }
+                if newPhase == .active {
+                    refreshDay()
+                    Task { await reminders.send(.refresh) }
+                }
             }
             .onReceive(dayCheck) { _ in refreshDay() }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshDay() }
@@ -144,6 +158,9 @@ struct DailyWhiskersView: View {
             } message: { Text(bonusError ?? "") }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: String.self) { destination in
+                if destination == "saved" { SavedCardsView(model: savedCards) }
+            }
             .sheet(item: $settingsSheet, onDismiss: {
                 // A previous dismissal must not focus Settings over a replacement sheet.
                 guard settingsSheet == nil else { return }
@@ -157,6 +174,8 @@ struct DailyWhiskersView: View {
                     DeleteAccountView(request: deletionRequest)
                 case .stillness:
                     StillnessSettingsView()
+                case .reminder:
+                    ReminderSettingsView(model: reminders)
                 }
             }
             .alert("Couldn't Share Card", isPresented: $shareState.hasError) {
@@ -178,6 +197,12 @@ struct DailyWhiskersView: View {
                 Text(accountRequest.errorMessage ?? "")
             }
         }
+        .id(todayGeneration)
+#if DEBUG && CI_SMOKE_TESTING
+        .safeAreaInset(edge: .bottom) {
+            if ReminderSmoke.controlsEnabled { ReminderSmokeControls(model: reminders) }
+        }
+#endif
         .preferredColorScheme(.dark)
     }
 
@@ -259,7 +284,7 @@ struct DailyWhiskersView: View {
             .disabled(openingBonus || settingsSheet != nil || shareState.isRendering || shareState.export != nil)
         }
         ToolbarItem(placement: .topBarLeading) {
-            NavigationLink { SavedCardsView(model: savedCards) } label: {
+            NavigationLink(value: "saved") {
                 Label("Saved Cards", systemImage: "rectangle.stack")
             }.accessibilityIdentifier("open-saved-cards")
         }
@@ -283,12 +308,30 @@ struct DailyWhiskersView: View {
         contentState.refresh(at: now)
     }
 
+    private func consumeReminderTap() {
+        guard reminders.todayRequest != nil else { return }
+        reminders.consumedTodayRequest()
+        // Reset presentation/navigation, not stored cards or daily selections.
+        // Recreating the stack dismisses detail-owned SwiftUI sheets. Owned UIKit
+        // share presenters handle reminderOpenToday before this reset. A
+        // generation check prevents in-flight Bonus work reopening.
+        todayGeneration = UUID()
+        navigationPath = NavigationPath()
+        settingsSheet = nil
+        confirmingClear = false; bonusError = nil; captureError = nil
+        bonusCard = nil; shareState.finish()
+        settingsFocused = false; cardOptionsFocused = false
+        refreshDay()
+        contentState.refresh(at: Date(), force: true)
+    }
+
     private func openBonus() async {
         guard !openingBonus else { return }
         refreshDay()
         openingBonus = true
         bonusError = nil
         let requestedDay = bonusDay
+        let requestedGeneration = todayGeneration
         defer { openingBonus = false }
         do {
             let selected: RetainedCard
@@ -302,10 +345,11 @@ struct DailyWhiskersView: View {
                     candidates: DailyContentProvider().bonusCandidates)
             }
             refreshDay()
-            guard requestedDay.key == bonusDay.key, !Task.isCancelled else { return }
+            guard requestedDay.key == bonusDay.key, requestedGeneration == todayGeneration, !Task.isCancelled else { return }
             bonusCard = selected
             await savedCards.refresh()
         } catch {
+            guard requestedGeneration == todayGeneration else { return }
             bonusError = (error as? LocalizedError)?.errorDescription ?? "Your bonus couldn't be opened. Please try again; your daily selection is kept."
         }
     }
