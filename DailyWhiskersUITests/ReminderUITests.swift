@@ -139,6 +139,31 @@ final class ReminderUITests: XCTestCase {
         XCTAssertEqual(app.buttons["card-menu"].label, "Today, Card Menu")
     }
 
+    func testReminderDismissesStillnessAndPreservesBothSettings() {
+        app.launchEnvironment["DW_STILLNESS_TEST_ID"] = UUID().uuidString
+        app.launch(); openSettings()
+        waitValue(app.switches["reminder-enabled"], "0")
+        app.buttons["reminder-done"].tap()
+        app.buttons["Settings"].tap()
+        let stillness = app.buttons["open-stillness"]
+        XCTAssertTrue(stillness.waitForExistence(timeout: 5)); stillness.tap()
+        let toggle = app.switches["stillness-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        waitValue(toggle, "0"); tapToggle(toggle); waitValue(toggle, "1")
+        let reminderTap = app.buttons["stillness-reminder-test-tap"]
+        XCTAssertTrue(reminderTap.isHittable); reminderTap.tap()
+        XCTAssertTrue(app.buttons["card-menu"].waitForExistence(timeout: 10))
+        XCTAssertFalse(toggle.exists)
+        XCTAssertEqual(app.buttons["card-menu"].label, "Today, Card Menu")
+
+        app.buttons["Settings"].tap(); app.buttons["open-stillness"].tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5)); waitValue(toggle, "1")
+        app.buttons["Done"].tap(); openSettings()
+        waitValue(app.switches["reminder-enabled"], "0")
+        waitTime("9:00")
+        capture("Reminder and Stillness retained after returning to Today")
+    }
+
     func testLargestTextSettingsAndTimeControlsRemainReachable() {
         app.launchArguments.removeAll { $0 == "--ci-smoke-reminders" }
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]

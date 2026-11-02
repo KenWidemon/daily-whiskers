@@ -47,6 +47,41 @@ enum CISmokeMode {
     }
 }
 
+/// A fresh preference domain plus the actual read-only OS motion state.
+/// Each test supplies a new UUID; relaunches reuse it to exercise actual AppStorage writes.
+struct CISmokeStillnessFixture: ViewModifier {
+    private let preferences: UserDefaults?
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    init() {
+        if CISmokeMode.isEnabled,
+           let identifier = ProcessInfo.processInfo.environment["DW_STILLNESS_TEST_ID"],
+           UUID(uuidString: identifier) != nil {
+            preferences = UserDefaults(suiteName: "dw.stillness.tests." + identifier)
+        } else {
+            preferences = nil
+        }
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let preferences {
+            content
+                .defaultAppStorage(preferences)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Text(systemReduceMotion ? "System Reduce Motion: On" : "System Reduce Motion: Off")
+                        .accessibilityIdentifier("ci-stillness-system")
+                        .font(.caption)
+                        .dynamicTypeSize(.medium)
+                        .padding(.horizontal)
+                        .accessibilityHint("Read-only offline test precondition. Device settings are unchanged.")
+                }
+        } else {
+            content
+        }
+    }
+}
+
 /// Real collection view and SQLite content, with a deterministic read boundary.
 /// The first read waits for the UI test, then fails; the next succeeds. A later
 /// refresh fails once more. No corruption, reset or owner data is involved.
