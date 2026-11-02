@@ -123,6 +123,7 @@ struct DailyRitualCardView: View {
                 ScrollView {
                     AdaptiveRitualCardPresentation(data: data, artwork: artwork, viewport: viewport,
                                                    compact: compact, tightQuotePanel: roomy,
+                                                   containerSize: geometry.size,
                                                    accessibilityPrefix: accessibilityPrefix)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("\(accessibilityPrefix)-frame")
@@ -137,8 +138,8 @@ struct DailyRitualCardView: View {
     }
 }
 
-/// Content-driven selection: a natural-height stack, then height-aware columns when
-/// readable, then a natural-height scrolling stack. No device or orientation rule.
+/// Tall windows retain the iPad-style stack. Wide windows may use height-aware
+/// columns when readable; otherwise the natural-height stack scrolls.
 struct AdaptiveRitualCardPresentation: View {
     @Environment(\.dynamicTypeSize) private var textSize
     let data: DailyCardData
@@ -146,6 +147,7 @@ struct AdaptiveRitualCardPresentation: View {
     let viewport: CGSize
     var compact: Bool
     var tightQuotePanel: Bool
+    var containerSize: CGSize? = nil
     var accessibilityPrefix = "card"
 
     private var stacked: some View {
@@ -158,7 +160,8 @@ struct AdaptiveRitualCardPresentation: View {
         CardViewportProposal(size: viewport) {
             ViewThatFits(in: .vertical) {
                 stacked
-                if let columns = CardColumnSizing(viewport: viewport, artwork: artwork, textSize: textSize) {
+                if let columns = CardColumnSizing(viewport: viewport, containerSize: containerSize,
+                                                  artwork: artwork, textSize: textSize) {
                     RitualCardPresentation(data: data, artwork: artwork, compact: false,
                                            tightQuotePanel: true, sideBySide: true,
                                            artworkColumnWidth: columns.artworkWidth,
@@ -179,8 +182,11 @@ struct CardColumnSizing {
     let artworkWidth: CGFloat
     let quoteWidth: CGFloat
 
-    init?(viewport: CGSize, artwork: UIImage?, textSize: DynamicTypeSize) {
-        guard !textSize.isAccessibilitySize else { return nil }
+    init?(viewport: CGSize, containerSize: CGSize? = nil, artwork: UIImage?, textSize: DynamicTypeSize) {
+        // Use the actual container before card padding; insets must not turn a
+        // nearly square portrait window into a landscape presentation.
+        let container = containerSize ?? viewport
+        guard container.width > container.height, !textSize.isAccessibilitySize else { return nil }
         let aspect = max(artwork.map { $0.size.width / $0.size.height } ?? 2 / 3, 0.01)
         let width = min(520, viewport.height * aspect, viewport.width - 320)
         guard width >= 300 else { return nil }

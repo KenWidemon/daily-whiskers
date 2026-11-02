@@ -123,12 +123,15 @@ collection loading/error presentation change.
 Compact portrait windows keep the phone quote typography and spacing. Artwork
 uses its natural aspect ratio at the available card width; text is never truncated
 or scaled down to force a fit. The visible window dimensions and measured content
-choose between a stacked card and a wide two-column card. When a stack is too tall
-and both columns fit, artwork stays on the left with the full quote and Vibe on the
+choose between a stacked card and a wide two-column card. Tall and square windows
+keep the iPad-style stacked artwork and quote, scrolling when needed. Only a wider-than-tall
+container can consider columns; this uses the current safe container geometry before
+card padding, not device idiom or sensor orientation. When a stack is too tall
+in a wide container and both columns fit, artwork stays on the left with the full quote and Vibe on the
 right. Artwork scales uniformly from both available width and height, up to the
 existing 520-point iPad width. Columns require at least 300 points of artwork and
 320 points of quote-panel width; the full text must still fit the visible height.
-These are minimum useful content sizes, not a device or orientation threshold.
+These are minimum useful content sizes within a wide container, not device-specific thresholds.
 Narrow or short windows, unusually long content and accessibility text use natural
 stacked scrolling. Text is never reduced and artwork is never cropped to force
 columns. Existing iPad layouts retain their artwork size where it fits. Larger

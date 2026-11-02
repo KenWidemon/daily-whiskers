@@ -655,6 +655,13 @@ final class SavedCardsTests: XCTestCase {
         let vibe = app.descendants(matching: .any)["\(prefix)-vibe"].firstMatch
         let window = app.windows.firstMatch.frame
         XCTAssertLessThanOrEqual(card.frame.width, window.width)
+        if window.height >= window.width {
+            // Portrait/tall windows preserve the iPad stack: quote below artwork,
+            // even when a smaller side-by-side candidate could have fit.
+            // Accessibility bounds include the card's 3-point outer stroke.
+            XCTAssertLessThanOrEqual(card.frame.width, 523.5)
+            XCTAssertGreaterThan(quote.frame.minY, card.frame.minY + card.frame.width)
+        }
         if card.frame.maxY <= app.staticTexts["ci-smoke-offline"].frame.minY {
             assertCardVisible(prefix: prefix)
         } else {

@@ -105,6 +105,7 @@ final class DailyCardShareVisualTests: XCTestCase {
             ("inner-tall", CGSize(width: 625, height: 800)),
             ("inner-wide", CGSize(width: 850, height: 540)),
             ("intermediate", CGSize(width: 600, height: 650)),
+            ("constrained-ipad-tall", CGSize(width: 900, height: 950)),
             ("below-column-boundary", CGSize(width: 619, height: 540)),
             ("column-boundary", CGSize(width: 620, height: 540)),
             ("outer-wide", CGSize(width: 600, height: 330)),
@@ -125,21 +126,20 @@ final class DailyCardShareVisualTests: XCTestCase {
                     let image = try XCTUnwrap(renderer.uiImage)
                     XCTAssertLessThanOrEqual(image.size.width, size.width + 1)
                     let columnsExpected = !text.isAccessibilitySize &&
-                        ["inner-tall", "inner-wide", "column-boundary", "ipad-wide"].contains(name)
+                        ["inner-wide", "column-boundary", "ipad-wide"].contains(name)
                     if columnsExpected {
                         XCTAssertGreaterThan(image.size.width, 520, name)
                         XCTAssertLessThanOrEqual(image.size.height, size.height + 1, name)
                         // Sample the same central artwork region in source and output.
                         // Scaling is allowed; cropping, stretching or letterboxing is not.
-                        let artWidth: CGFloat = name == "inner-tall" ? 305 :
-                            name == "inner-wide" ? 360 : name == "column-boundary" ? 300 : 520
+                        let artWidth: CGFloat = name == "inner-wide" ? 360 : name == "column-boundary" ? 300 : 520
                         let reference = try artworkSamples(artwork, width: artwork.size.width)
                         let actual = try artworkSamples(image, width: artWidth)
                         let differences = zip(reference, actual).map { abs(Int($0) - Int($1)) }
                         XCTAssertLessThan(Double(differences.reduce(0, +)) / Double(differences.count), 5, name)
                     } else {
                         XCTAssertEqual(image.size.width, min(size.width, 520), accuracy: 1, name)
-                        if name != "ipad-tall" {
+                        if name != "ipad-tall" && name != "constrained-ipad-tall" {
                             XCTAssertGreaterThan(image.size.height, size.height, name)
                         }
                     }
@@ -148,6 +148,25 @@ final class DailyCardShareVisualTests: XCTestCase {
                     attachment.lifetime = .keepAlways; add(attachment)
                 }
             }
+        }
+    }
+
+    func testTallWindowKeepsStackWhenPaddingMakesContentViewportWide() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "daily_whiskers_content", withExtension: "json"))
+        let cards = try JSONDecoder().decode(DailyContentManifest.self, from: Data(contentsOf: url)).cards
+        let card = try XCTUnwrap(cards.max { $0.quote.count < $1.quote.count })
+        let artwork = try XCTUnwrap(BundledCardArtwork.image(named: card.imageName))
+        let data = DailyCardData(archetype: card.archetype, imageName: card.imageName,
+                                 quote: card.quote, vibe: card.vibe ?? "")
+        // The safe container is tall/square, but unequal card padding leaves a
+        // slightly wider-than-tall content proposal. Portrait must still stack.
+        for container in [CGSize(width: 669, height: 670), CGSize(width: 669, height: 669)] {
+            let renderer = ImageRenderer(content: AdaptiveRitualCardPresentation(
+                data: data, artwork: artwork, viewport: CGSize(width: 625, height: container.height - 56),
+                compact: false, tightQuotePanel: true, containerSize: container))
+            let image = try XCTUnwrap(renderer.uiImage)
+            XCTAssertEqual(image.size.width, 520, accuracy: 1)
+            XCTAssertGreaterThan(image.size.height, container.height)
         }
     }
 

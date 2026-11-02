@@ -505,6 +505,11 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   including either side of the column-width boundary. It compares normalized
   artwork pixels against the source so column scaling cannot silently crop or
   stretch the image. These renderer viewports do not prove native safe areas.
+  Opened portrait/tall and square containers must retain stacked artwork/quote;
+  wide containers may use columns only when both content panels fit. Include a
+  near-square tall container whose card padding produces a wide content proposal,
+  so padding cannot accidentally select the landscape presentation. Regress iPad
+  portrait stacking, landscape artwork size, and constrained iPad windows.
   `SavedCardsTests/testAdaptiveCardsInCurrentWindow` checks current-window layout,
   unequal Saved tiles, retained identity and share/cancel without assuming that a
   sensor orientation change resizes the native display. Run it in each native pose.
