@@ -48,6 +48,7 @@ jobs:
             build/stillness-diagnostic/trace.patch
             build/stillness-diagnostic/observations.json
             build/stillness-diagnostic/cleanup.json
+            build/stillness-diagnostic/ownership.json
             build/stillness-diagnostic/baseline/artifacts/
             build/stillness-diagnostic/candidate/artifacts/
           retention-days: 7

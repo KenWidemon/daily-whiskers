@@ -96,7 +96,7 @@ def pair_pass(records):
             and all(r.get("status") == "completed" and r.get("test_attempts") == 1
                     and r.get("build_exit") == 0 and r.get("test_exit") == 0 and r.get("exact_test_pass") is True
                     and r.get("trace_coverage", {}).get("minimum_trace_present") is True
-                    and r.get("video_present") is True and not r.get("collection_errors")
+                    and r.get("video_valid") is True and not r.get("collection_errors")
                     for r in records.values()))
 
 
@@ -111,10 +111,117 @@ def verify_device(device):
     if (item["deviceTypeIdentifier"] != "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro"
             or runtime["version"] != "26.4.1" or runtime["buildversion"] != "23E254a"):
         raise RuntimeError("CI model/runtime/build mismatch; no fallback or installation permitted")
-    if item["state"] == "Shutdown":
+    return {"model": item["deviceTypeIdentifier"], "runtime": runtime["version"],
+            "build": runtime["buildversion"], "initial_state": item["state"]}
+
+
+def claim_and_boot(device, owner, ownership_path, record):
+    # Selection is only metadata until both identity and environment are accepted.
+    record["selected_device"] = device
+    if owner.get("device") is not None and device != owner["device"]:
+        record["rejected_device"] = device
+        raise RuntimeError("The pair must use the same official simulator")
+    environment = verify_device(device)  # Inventory reads only; no boot/mutation.
+    owner.update(device=device, environment=environment)
+    # Retain ownership outside run_revision before the first mutating call, so
+    # boot/bootstatus exceptions cannot orphan the accepted resource.
+    write_json(ownership_path, owner)
+    record.update(device=device, environment=environment)
+    if environment["initial_state"] == "Shutdown":
         subprocess.run(["xcrun", "simctl", "boot", device], check=True)
     subprocess.run(["xcrun", "simctl", "bootstatus", device, "-b"], check=True)
-    return {"model": item["deviceTypeIdentifier"], "runtime": runtime["version"], "build": runtime["buildversion"]}
+
+
+def cleanup_owned(owner, artifacts_root):
+    device = owner.get("device")
+    if not device:
+        write_json(artifacts_root / "cleanup.json", {"owned_device": None, "mutation": "none"})
+        return False
+    cleanup = subprocess.run(["xcrun", "simctl", "shutdown", device], capture_output=True, text=True)
+    state = "unknown"
+    try:
+        inventory = json.loads(output(["xcrun", "simctl", "list", "devices", "--json"]))["devices"]
+        states = [x["state"] for items in inventory.values() for x in items if x["udid"] == device]
+        state = states[0] if len(states) == 1 else "unknown"
+    except (subprocess.CalledProcessError, ValueError):
+        pass
+    write_json(artifacts_root / "cleanup.json", {"owned_device": device, "shutdown_exit": cleanup.returncode,
+               "verified_state": state, "output": cleanup.stdout, "error": cleanup.stderr})
+    return state == "Shutdown"
+
+
+def wait_recorder_ready(video, log, timing):
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if video.poll() is not None:
+            raise RuntimeError("Recorder exited before readiness")
+        if "Recording started" in log.read_text():
+            timing.update(ready_epoch=time.time(), ready_monotonic=time.monotonic())
+            return
+        time.sleep(0.05)
+    raise RuntimeError("Recorder did not confirm readiness within 10 seconds")
+
+
+def stop_recorder(video, timing, errors):
+    # An exit before our intentional SIGINT is never a successful capture, even
+    # if the exit code is zero or a partial MP4 exists. Preserve the media either way.
+    timing["exit_before_stop"] = video.poll()
+    timing["intentional_stop"] = False
+    if timing["exit_before_stop"] is None:
+        try:
+            os.killpg(video.pid, signal.SIGINT)
+            timing["intentional_stop"] = True
+            timing.update(stop_epoch=time.time(), stop_monotonic=time.monotonic())
+        except ProcessLookupError:
+            errors.append("Recorder exited before intentional stop could be delivered")
+    try:
+        timing["exit"] = video.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        os.killpg(video.pid, signal.SIGKILL)
+        timing["exit"] = video.wait()
+        errors.append("Recorder did not finalize within 20 seconds")
+    if not timing["intentional_stop"] or timing["exit"] != 0:
+        errors.append("Recorder exited unexpectedly or failed graceful finalization")
+
+
+def recording_valid(timing, media):
+    # Conservatively bound the unknown media-zero wall time between process
+    # launch and the recorder's ready message. A one-second postroll after the
+    # test allows frame quantization/startup latency without weakening its waits.
+    required = ("spawn_monotonic", "ready_monotonic", "test_start_monotonic", "test_end_monotonic", "stop_monotonic")
+    if (not timing.get("intentional_stop") or timing.get("exit_before_stop") is not None
+            or timing.get("exit") != 0 or not all(isinstance(timing.get(k), (int, float)) for k in required)):
+        return False
+    spawn, ready, start, end, stop = (timing[k] for k in required)
+    if not spawn <= ready <= start < end <= stop:
+        return False
+    # The native probe decodes every video frame. Require samples spanning the
+    # complete test interval, not just a metadata duration or a nonempty header.
+    return (media.get("decoded_all") is True and media.get("frame_count", 0) > 1
+            and media.get("first_pts", float("inf")) <= start - ready
+            and media.get("last_pts", -1) >= end - spawn)
+    # Variable-rate video legitimately holds a frame until the next timestamp.
+    # The probe reports its maximum frame gap for human inspection; spacing
+    # alone cannot distinguish a static UI from a frozen capture. Coverage means
+    # all encoded frames decode and bracket the full test, not UI-motion proof.
+
+
+def validate_recording(root, artifacts, record):
+    try:
+        result = subprocess.run(["xcrun", "swift", "-module-cache-path", str(root / "build/VideoProbeModuleCache"),
+                                 str(root / "ci/stillness-video-probe.swift"),
+                                 str(artifacts / "active-display.mp4")],
+                                capture_output=True, text=True, timeout=180)
+        (artifacts / "video-probe.log").write_text(result.stderr)
+        (artifacts / "video-probe.json").write_text(result.stdout)
+        media = json.loads(result.stdout) if result.returncode == 0 else {}
+        record["video_probe_exit"] = result.returncode
+        record["video_valid"] = result.returncode == 0 and recording_valid(record["recorder"], media)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        record["video_valid"] = False
+        record["collection_errors"].append("Media probe failed: " + type(error).__name__)
+    if not record["video_valid"]:
+        record["collection_errors"].append("Readable frame coverage of the complete lifecycle interval was not verified")
 
 
 def collect_artifacts(checkout, derived, artifacts, record, started):
@@ -151,7 +258,7 @@ def collect_artifacts(checkout, derived, artifacts, record, started):
     (artifacts / "actual-checkout.diff").write_text(output(["git", "diff", "HEAD"], cwd=checkout))
 
 
-def run_revision(name, sha, checkout, root, artifacts, packages, expected_device):
+def run_revision(name, sha, checkout, root, artifacts, packages, owner, ownership_path):
     artifacts.mkdir(parents=True)
     record = {"source": sha, "status": "preparing", "test_attempts": 0, "collection_errors": []}
     record_path = artifacts / "observation.json"
@@ -169,10 +276,7 @@ def run_revision(name, sha, checkout, root, artifacts, packages, expected_device
             raise RuntimeError("Official preparation failed: " + str(code))
         device_lines = (temporary / "prepare.env").read_text().splitlines()
         device = next(x.split("=", 1)[1] for x in reversed(device_lines) if x.startswith("SIMULATOR_ID="))
-        record["device"] = device
-        if expected_device is not None and device != expected_device:
-            raise RuntimeError("The pair must use the same official simulator")
-        record["environment"] = verify_device(device)
+        claim_and_boot(device, owner, ownership_path, record)
         record["toolchain"] = (checkout / "build/toolchain.txt").read_text()
         # Both revisions receive a fresh synthetic app container. No preferences
         # are set, and the test itself asserts the actual OS motion precondition.
@@ -193,32 +297,34 @@ def run_revision(name, sha, checkout, root, artifacts, packages, expected_device
         record["build_exit"] = code
         if code:
             raise RuntimeError("Build failed; no lifecycle execution started")
-        video_log = (artifacts / "video.log").open("w")
+        video_log_path = artifacts / "video.log"
+        video_log = video_log_path.open("w")
         video_path = artifacts / "active-display.mp4"
+        timing = {"spawn_epoch": time.time(), "spawn_monotonic": time.monotonic()}
+        record["recorder"] = timing
         video = subprocess.Popen(["xcrun", "simctl", "io", device, "recordVideo", "--codec=h264", str(video_path)],
                                  stdout=video_log, stderr=subprocess.STDOUT, start_new_session=True)
-        started = time.time()
-        test = ["xcodebuild", "test-without-building", *common, "-only-testing:" + TEST,
-                "-resultBundlePath", str(artifacts / "Lifecycle.xcresult")]
-        record.update(status="running", test_attempts=1, started_epoch=started, test_command=test)
-        write_json(record_path, record)
+        started = None
         try:
-            record["test_exit"] = logged(test, artifacts / "test.log", cwd=checkout, env=env)
-        finally:
-            if video.poll() is None:
-                try:
-                    os.killpg(video.pid, signal.SIGINT)
-                except ProcessLookupError:
-                    pass
+            wait_recorder_ready(video, video_log_path, timing)
+            started = time.time()
+            timing["test_start_monotonic"] = time.monotonic()
+            test = ["xcodebuild", "test-without-building", *common, "-only-testing:" + TEST,
+                    "-resultBundlePath", str(artifacts / "Lifecycle.xcresult")]
+            record.update(status="running", test_attempts=1, started_epoch=started, test_command=test)
+            write_json(record_path, record)
             try:
-                record["video_exit"] = video.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                os.killpg(video.pid, signal.SIGKILL)
-                video.wait()
-                record["collection_errors"].append("Video did not finish on SIGINT")
+                record["test_exit"] = logged(test, artifacts / "test.log", cwd=checkout, env=env)
+            finally:
+                timing.update(test_end_epoch=time.time(), test_end_monotonic=time.monotonic())
+            time.sleep(1)  # Capture postroll only after the unchanged lifecycle has ended.
+        finally:
+            stop_recorder(video, timing, record["collection_errors"])
             video_log.close()
             record["video_present"] = video_path.exists() and video_path.stat().st_size > 0
-            collect_artifacts(checkout, derived, artifacts, record, started)
+            validate_recording(root, artifacts, record)
+            if started is not None:
+                collect_artifacts(checkout, derived, artifacts, record, started)
         record["status"] = "completed"
     except (OSError, RuntimeError, subprocess.CalledProcessError, StopIteration, ValueError) as error:
         record["status"] = "error"
@@ -226,6 +332,23 @@ def run_revision(name, sha, checkout, root, artifacts, packages, expected_device
     finally:
         write_json(record_path, record)
     return record
+
+
+def run_pair(root, artifacts_root, source_roots):
+    records = {}
+    owner = {}  # Never derived from returned selection/error metadata.
+    try:
+        for name, sha in (("baseline", BASELINE), ("candidate", CANDIDATE)):
+            record = run_revision(name, sha, source_roots[name], root,
+                                  artifacts_root / name / "artifacts", root / "build/SourcePackages",
+                                  owner, artifacts_root / "ownership.json")
+            records[name] = record
+            write_json(artifacts_root / "observations.json", records)
+            if record["test_attempts"] != 1:
+                break
+    finally:
+        cleanup_ok = cleanup_owned(owner, artifacts_root)
+    return records, cleanup_ok
 
 
 def main():
@@ -266,33 +389,7 @@ def main():
                   "attempt": 1, "applied_trace_source_hashes": applied_hashes,
                   "created_utc": datetime.datetime.now(datetime.timezone.utc).isoformat()}
     write_json(artifacts_root / "provenance.json", provenance)
-    records = {}
-    device = None
-    cleanup_ok = False
-    try:
-        for name, sha in (("baseline", BASELINE), ("candidate", CANDIDATE)):
-            record = run_revision(name, sha, source_roots[name], root,
-                                  artifacts_root / name / "artifacts", root / "build/SourcePackages", device)
-            records[name] = record
-            device = record.get("device", device)
-            write_json(artifacts_root / "observations.json", records)
-            # A test assertion failure still gets its paired observation. A setup
-            # failure stops rather than substituting an environment or retrying.
-            if record["test_attempts"] != 1:
-                break
-    finally:
-        if device:
-            cleanup = subprocess.run(["xcrun", "simctl", "shutdown", device], capture_output=True, text=True)
-            state = "unknown"
-            try:
-                inventory = json.loads(output(["xcrun", "simctl", "list", "devices", "--json"]))["devices"]
-                states = [x["state"] for items in inventory.values() for x in items if x["udid"] == device]
-                state = states[0] if len(states) == 1 else "unknown"
-            except (subprocess.CalledProcessError, ValueError):
-                pass
-            cleanup_ok = state == "Shutdown"
-            write_json(artifacts_root / "cleanup.json", {"shutdown_exit": cleanup.returncode, "verified_state": state,
-                       "output": cleanup.stdout, "error": cleanup.stderr})
+    records, cleanup_ok = run_pair(root, artifacts_root, source_roots)
     passed = pair_pass(records) and cleanup_ok
     summary = ["## Stillness diagnostic observation only", "",
                "This is not PR #127's CI Gate and does not resolve the original failure.",
