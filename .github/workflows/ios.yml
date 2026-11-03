@@ -1,4 +1,4 @@
-name: Stillness diagnostic observation only
+name: Stillness suite-context observation only
 
 on:
   workflow_dispatch:
@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  comparison:
-    name: Focused observation (not CI Gate)
+  observation:
+    name: One full-suite observation (not CI Gate)
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       EXPECTED_DIAGNOSTIC_SHA: ${{ inputs.expected_sha }}
@@ -30,26 +30,24 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Check diagnostic evidence guards
-        run: python3 -m unittest discover -s ci -p test_stillness_diagnostic.py -v
+        run: python3 -m unittest discover -s ci -p 'test_stillness*diagnostic.py' -v
       - name: Restore locked SwiftPM dependencies
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
           key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-v2
-      - name: Observe one full lifecycle per pinned revision
-        run: python3 ci/stillness-diagnostic.py
-      - name: Preserve both observations including failures
+      - name: Observe the original candidate suite once
+        run: python3 ci/stillness-suite-diagnostic.py
+      - name: Preserve the single observation including failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: stillness-diagnostic-observations-${{ github.run_id }}
+          name: stillness-suite-observation-${{ github.run_id }}
           path: |
-            build/stillness-diagnostic/provenance.json
-            build/stillness-diagnostic/trace.patch
-            build/stillness-diagnostic/observations.json
-            build/stillness-diagnostic/cleanup.json
-            build/stillness-diagnostic/ownership.json
-            build/stillness-diagnostic/baseline/artifacts/
-            build/stillness-diagnostic/candidate/artifacts/
+            build/stillness-suite-diagnostic/provenance.json
+            build/stillness-suite-diagnostic/trace.patch
+            build/stillness-suite-diagnostic/ownership.json
+            build/stillness-suite-diagnostic/cleanup.json
+            build/stillness-suite-diagnostic/artifacts/
           retention-days: 7
           if-no-files-found: warn

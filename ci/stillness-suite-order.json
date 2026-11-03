@@ -1,0 +1,26 @@
+{
+  "source_run": 41370115921,
+  "candidate": "fe1d25e034bfee7b740344dfa7888be5aa709624",
+  "tests": [
+    "RegressionSmokeTests/testAccountToolsOpenAndDismiss",
+    "RegressionSmokeTests/testGuestDailyContentAndRelaunch",
+    "RegressionSmokeTests/testLocalAuthValidationAndRegistrationNavigation",
+    "RegressionSmokeTests/testRegistrationEditingAfterBackCloseAndProcessRelaunch",
+    "RegressionSmokeTests/testSinglePasswordDoneReachesOnlyOfflineBoundary",
+    "SavedCardsLoadStateTests/testFailedFirstReadDismissRetryAndLaterRefreshPreserveRows",
+    "SavedCardsLoadStateTests/testInterruptedAndRepeatedRetryKeepsRecoveryAvailable",
+    "SavedCardsLoadStateTests/testLargestTextUnavailableRetryRemainsReachable",
+    "SavedCardsLoadStateTests/testOnlySuccessfulEmptyReadShowsEmptyGuidance",
+    "SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes",
+    "SavedCardsTests/testAdaptiveCardsInCurrentWindow",
+    "SavedCardsTests/testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear",
+    "SavedCardsTests/testLargestTextLandscapeSavedCardActionsAndVibe",
+    "SavedCardsTests/testLargestTextPairedGeometryAndOptions",
+    "SavedCardsTests/testLargestTextSavedCardQuoteAndControlsRemainReachable",
+    "SavedCardsTests/testOrdinaryPortraitCardFitsWithoutScrolling",
+    "SavedCardsTests/testSaveRelaunchReopenShareRemoveAndConfirmedClear",
+    "StillnessModeTests/testAppPreferenceLiveChangesAndMotionResumption",
+    "StillnessModeTests/testLargestTextSettingInPortraitAndLandscape",
+    "StillnessModeTests/testPersistenceLifecycleCardNavigationAndAuth"
+  ]
+}

@@ -13,6 +13,7 @@ enum StillnessDiagnosticTrace {
         && UUID(uuidString: ProcessInfo.processInfo.environment["DW_STILLNESS_TEST_ID"] ?? "") != nil
     private static let logger = Logger(subsystem: "com.ken.dailywhiskers.stillness-diagnostic", category: "trace")
     private static var started = false
+    private static var sequence = 0
     private static var sheetVisible = false
     private static var preferences: UserDefaults?
     private static var observer: NSObjectProtocol?
@@ -94,7 +95,9 @@ enum StillnessDiagnosticTrace {
 
     private static func record(_ phase: String, _ fields: [String: Any]) {
         guard enabled else { return }
+        sequence += 1
         var payload = fields
+        payload["sequence"] = sequence
         payload["phase"] = phase
         payload["epoch"] = Date().timeIntervalSince1970
         payload["uptime"] = ProcessInfo.processInfo.systemUptime
