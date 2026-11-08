@@ -39,7 +39,9 @@ actor ReminderSmokeClient: ReminderNotificationClient {
     }
     func authorization() -> ReminderAuthorization { ReminderAuthorization(rawValue: state.authorization) ?? .denied }
     func requestAlerts() throws { state.prompts += 1; state.authorization = "authorized"; try save() }
-    func pending() -> Set<String>? { Set(state.requests.keys) }
+    func pendingRequests() -> [ReminderPendingRequest]? {
+        state.requests.map { ReminderPendingRequest(ReminderRequest.make(id: $0.key, target: $0.value)) }
+    }
     func delivered() -> Set<String> { [] }
     func add(id: String, target: ReminderTarget) throws { state.requests[id] = target; try save() }
     func removePending(_ ids: Set<String>) { for id in ids { state.requests.removeValue(forKey: id) }; try? save() }

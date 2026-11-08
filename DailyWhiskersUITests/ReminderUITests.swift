@@ -96,6 +96,17 @@ final class ReminderUITests: XCTestCase {
         let blocked = app.staticTexts["reminder-permission"]
         let wait = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Blocked in iOS Settings'"), object: blocked)
         XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 10), .completed)
+        XCTAssertEqual(blocked.label, "Blocked in iOS Settings. Your time and enabled preference are kept. Existing reminders may resume when permission returns. Reopen the app to check coverage.")
+        let navigationBar = app.navigationBars.firstMatch
+        XCTAssertTrue(navigationBar.exists)
+        for _ in 0..<6 {
+            if blocked.isHittable && blocked.frame.minY >= navigationBar.frame.maxY { break }
+            app.swipeDown()
+        }
+        XCTAssertTrue(blocked.isHittable)
+        XCTAssertGreaterThanOrEqual(blocked.frame.minY, navigationBar.frame.maxY)
+        XCTAssertLessThanOrEqual(blocked.frame.maxY, app.frame.maxY)
+        capture("Reminder permission explains possible resume before reopening")
         let regrant = app.buttons["sheet-reminder-test-regrant"]
         reveal(regrant); regrant.tap()
         let allowed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Notifications allowed.'"), object: blocked)
@@ -106,6 +117,44 @@ final class ReminderUITests: XCTestCase {
         for _ in 0..<6 { if toggle.isHittable { break }; app.swipeDown() }
         waitValue(toggle, "0")
         capture("Reminder disabled after permission regrant")
+    }
+
+    func testDeniedTimeEditKeepsEnabledIntentAndExplainsMissingCoverage() {
+        XCUIDevice.shared.orientation = .portrait
+        let fixtureDay = Calendar.current.startOfDay(for: Date())
+        app.launch(); openSettings()
+        let toggle = app.switches["reminder-enabled"]
+        tapToggle(toggle); waitValue(toggle, "1"); waitEnabled(toggle)
+        let revoke = app.buttons["sheet-reminder-test-revoke"]
+        reveal(revoke); revoke.tap()
+        let permission = app.staticTexts["reminder-permission"]
+        let denied = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Blocked in iOS Settings'"), object: permission)
+        XCTAssertEqual(XCTWaiter.wait(for: [denied], timeout: 10), .completed)
+        let time = app.buttons["reminder-time"]
+        for _ in 0..<6 { if time.isHittable { break }; app.swipeDown() }
+        XCTAssertTrue(time.isHittable); waitEnabled(time); time.tap()
+        // Earlier than the default 9:00 time, so this edit cannot introduce
+        // today's unreserved future target after the original time has passed.
+        editDraftTime(hour: "8", minute: "15")
+        let save = app.buttons["reminder-time-save"]
+        save.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: save)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 10), .completed)
+        waitTime("8:15")
+        waitValue(toggle, "1"); waitEnabled(toggle)
+        let regrant = app.buttons["sheet-reminder-test-regrant"]
+        reveal(regrant); regrant.tap()
+        let coverage = app.staticTexts["reminder-coverage-status"]
+        XCTAssertTrue(coverage.waitForExistence(timeout: 10))
+        XCTAssertEqual(Calendar.current.startOfDay(for: Date()), fixtureDay,
+                       "A civil-date rollover invalidates this zero-coverage fixture; it is not proof of a scheduling failure.")
+        XCTAssertEqual(coverage.label, "No upcoming reminders are confirmed. Missing reminders may be skipped to avoid duplicates. Open the app again to check coverage.")
+        for _ in 0..<6 { if coverage.isHittable { break }; app.swipeDown() }
+        XCTAssertTrue(coverage.isHittable)
+        capture("Reminder missing coverage explains conservative suppression")
+        for _ in 0..<6 { if toggle.isHittable { break }; app.swipeDown() }
+        waitValue(toggle, "1")
+        waitTime("8:15")
     }
 
     func testOldReminderRoutesFromSavedAndBonusToCurrentToday() {

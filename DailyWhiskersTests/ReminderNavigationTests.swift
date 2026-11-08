@@ -5,7 +5,7 @@ import Testing
 private struct NoNotifications: ReminderNotificationClient {
     func authorization() async -> ReminderAuthorization { .notDetermined }
     func requestAlerts() async throws { }
-    func pending() async -> Set<String>? { [] }
+    func pendingRequests() async -> [ReminderPendingRequest]? { [] }
     func delivered() async -> Set<String> { [] }
     func add(id: String, target: ReminderTarget) async throws { }
     func removePending(_ ids: Set<String>) async { }

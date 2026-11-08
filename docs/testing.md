@@ -68,8 +68,27 @@ evidence below remain useful without overriding this candidate's scoped decision
 
 Run `ReminderTests` with the `DailyWhiskers` scheme for calendar, fourteen-date
 coverage/refill, queue budget, permission intent, serialization, journal failures
-and conservative recovery, including an add completion held while disable/edit
-commands queue and a write that commits before reporting failure. Check persistent
+and conservative recovery. Include denied inventories that hide requests while
+requests are retained without removal, authorized reappearance with unchanged
+original IDs and full trigger/content matches, absent-on-regrant
+suppression, disabled intent, near-deadline/clock reversal, returning retired IDs,
+legacy journal loading and interrupted persistence. Include native request archive
+roundtrips, UTC aliases and conflicting trigger/content mutations, positive
+delivered-ID evidence, and full cancellation readback verification. Archive tests
+do not prove notification-center normalization on iOS. Keep the distinction between
+safe partial coverage and immediate full-horizon resumption explicit. Also cover
+an add completion held while disable/edit
+commands queue and a write that commits before reporting failure. Include
+cleanup-pending persistence through denied hidden queues, ineffective removal,
+repeat refresh/restart, authorized cleanup, and sampled authorization races.
+Test migrated OFF with retired/exposure-only history and `clearDelivered=false`,
+including owned delivered IDs; ON must also reject retired delivered IDs during
+cleanup verification. Missing/null legacy state must not imply never-scheduled.
+Test failures before and after the clearing save commits, preserving unrelated
+notifications, exposures and no-replay behavior. v3 journals must be rejected by
+the frozen v1/v2 reader. Check warning wording for saved ON/OFF and both denied
+and already-authorized incomplete cleanup. Source-string checks are not spoken
+VoiceOver or rendered-layout acceptance. Check persistent
 quarantine guidance separately from retryable storage errors. `ReminderUITests`
 changes the native time picker to verify Cancel discards and Save persists without
 enabling. It uses the normal interaction scheme's
@@ -98,7 +117,18 @@ number/timing of real alerts and restore owner settings afterward. Check:
    preserving unrelated notifications. Re-enable after possible delivery must not
    replay today's reminder. Readback is not an atomic cancellation guarantee.
 4. Revoke/regrant permission, reopen, and verify retained intent, no repeated
-   prompts, and no automatic enablement of a user-disabled reminder.
+   prompts, and no automatic enablement of a user-disabled reminder. Enabled
+   unchanged requests should not be cancelled merely for denial; compare complete
+   pending identifiers/triggers/content before and after each owner-controlled
+   transition. Reopening reconciles coverage, but iOS may resume existing enabled
+   requests immediately on regrant. OFF removal while denied can also be ineffective:
+   retained originals can return before reopening despite saved OFF. Verify the
+   durable warning across refresh/relaunch, then distinguish authorized cleanup
+   observations from continuous silence. Do not assert no alert before reopening
+   or ask users to regrant solely for cleanup. Product acceptance of this window
+   remains separate from the warning implementation.
+   Missing originals remain suppressed, not restored. Treat unknown/conflicting
+   inventory or absent capture evidence as unresolved, not proof of OS behavior.
 5. Tap an older delivered notification during a cold launch and from Today,
    Saved Cards/detail, Bonus, a time/account sheet and a system share sheet. It
    must show current Today, with no lost saved content or late Bonus replacement.

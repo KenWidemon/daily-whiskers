@@ -15,21 +15,33 @@ struct ReminderExposure: Codable, Equatable, Sendable {
 }
 
 struct ReminderJournal: Codable, Equatable, Sendable {
-    var version = 1
+    var version = 3
     var enabled = false
     var time = ReminderTime()
     var entries: [ReminderEntry] = []
+    // Optional when reading legacy v1 journals. New scheduler writes use v3. Retired IDs retain
+    // target provenance even when iOS temporarily hides a cancelled request.
+    // Never prune based on empty inventory or elapsed time alone.
+    var retired: [ReminderEntry]?
+    // Legacy v2 cancellation marker. A prior writer may already have removed
+    // these IDs; never reinterpret this as the untouched-original permission path.
+    var permissionSuspended: Bool?
     // These are possible presentations, never delivery receipts. They survive
     // edits, disable/re-enable and clearing Notification Center.
     var exposures: [ReminderExposure] = []
     var lastNow: Date?
+    // Missing/null legacy state means unverified, never "never scheduled".
+    // A false value records bounded authorized observations, not future silence.
+    var cleanupPending: Bool?
+    var needsCleanupVerification: Bool { version < 3 || cleanupPending != false }
     var clearDelivered = false
     var requiresRecovery = false
 
     func validate() throws {
-        guard version == 1, time.isValid,
-              Set(entries.map(\.id)).count == entries.count,
-              entries.allSatisfy({ $0.id.hasPrefix(ReminderRequest.prefix) &&
+        let known = entries + (retired ?? [])
+        guard (version == 1 || version == 2 || version == 3), time.isValid,
+              Set(known.map(\.id)).count == known.count,
+              known.allSatisfy({ $0.id.hasPrefix(ReminderRequest.prefix) &&
                   TimeZone(identifier: $0.target.zone) != nil &&
                   ReminderCalendar.day($0.target.date, zone: TimeZone(identifier: $0.target.zone)!) == $0.target.day }),
               exposures.allSatisfy({ $0.through >= $0.from && ReminderCalendar.labels(start: $0.day, count: 1).count == 1 })

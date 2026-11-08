@@ -8,6 +8,14 @@ struct ReminderStatus: Sendable {
     var coverageEnd: Date?
     var message: String?
     var storageBlocked = false
+    var cleanupPending = false
+    var cleanupMessage: String? {
+        guard cleanupPending else { return nil }
+        let intent = enabled
+            ? "Reminders are turned on in Daily Whiskers, but cleanup of earlier reminders is not yet verified."
+            : "Reminders are turned off in Daily Whiskers, but cleanup of previously scheduled reminders is not yet verified."
+        return intent + " Earlier reminders may still appear until cleanup is checked. Previously scheduled reminders may still appear if you allow notifications again before reopening the app. Reopen after changing permission so Daily Whiskers can finish checking cleanup."
+    }
 }
 
 enum ReminderCommand: Sendable {
@@ -29,6 +37,7 @@ actor ReminderScheduler {
     private var journal: ReminderJournal?
     private var faulted = false
     private var storageFailureMessage: String?
+    private var confirmedPending: Set<String> = []
 
     init(client: any ReminderNotificationClient, store: any ReminderJournalStore,
          now: @escaping @Sendable () -> Date = { Date() },
@@ -53,17 +62,26 @@ actor ReminderScheduler {
     }
 
     private func persist(_ value: ReminderJournal) throws {
-        try store.save(value)
-        journal = value
+        var upgraded = value
+        upgraded.version = 3
+        if upgraded.cleanupPending == nil { upgraded.cleanupPending = true }
+        try store.save(upgraded)
+        journal = upgraded
     }
 
     private func perform(_ command: ReminderCommand) async -> ReminderStatus {
+        confirmedPending = []
         var authorization = await client.authorization()
         do {
             guard !faulted else { throw ReminderStorageError.unreadable }
             var state: ReminderJournal
             if let journal { state = journal }
-            else if let restored = try store.load() { state = restored; journal = restored }
+            else if var restored = try store.load() {
+                // A legacy writer could ignore new fields; never trust a false
+                // marker carried in a v1/v2 journal after a downgrade.
+                if restored.version < 3 { restored.cleanupPending = true; restored.version = 3 }
+                state = restored; journal = restored
+            }
             else {
                 // No ledger + OS-owned requests is not a fresh install. Never
                 // synthesize blank history from a missing file or an empty list.
@@ -77,12 +95,20 @@ actor ReminderScheduler {
                 }
                 state = ReminderJournal(); try persist(state)
             }
-            guard !state.requiresRecovery else { throw ReminderStorageError.quarantined }
+            if state.requiresRecovery {
+                // A verified quarantine may record OFF, but never erase history,
+                // enable scheduling, or repair missing provenance implicitly.
+                if case .enable(false) = command {
+                    state.enabled = false; state.clearDelivered = true; state.cleanupPending = true
+                    try persist(state)
+                }
+                throw ReminderStorageError.quarantined
+            }
             switch command {
             case .refresh: break
             case .enable(let enabled):
                 state.enabled = enabled
-                if !enabled { state.clearDelivered = true }
+                if !enabled { state.clearDelivered = true; state.cleanupPending = true }
                 try persist(state)
                 if enabled && authorization == .notDetermined {
                     do { try await client.requestAlerts() }
@@ -98,7 +124,10 @@ actor ReminderScheduler {
         } catch {
             // Once a persistence outcome is uncertain, do not issue another add
             // in this process. Preserve the file for recovery; never reset it.
-            faulted = true
+            if case ReminderStorageError.quarantined = error {
+                // The quarantine is verified state, unlike an uncertain write.
+                // Keep accepting OFF intent while continuing to reject additions.
+            } else { faulted = true }
             if storageFailureMessage == nil {
                 switch error as? ReminderStorageError {
                 case .quarantined, .unreadable:
@@ -107,15 +136,24 @@ actor ReminderScheduler {
                     storageFailureMessage = "Reminders are paused because saved scheduling state couldn't be verified. Close the app completely, then reopen to recheck. If this continues, contact Support from Settings. Your saved history hasn't been reset."
                 }
             }
-            let ids = Set((journal?.entries ?? []).map(\.id))
+            let ids = Set(((journal?.entries ?? []) + (journal?.retired ?? [])).map(\.id))
                 .union((await client.pending() ?? []).filter(ReminderRequest.owns))
-            await client.removePending(ids)
-            if case .enable(false) = command {
+            // Do not start another cancellation after a failed write unless a
+            // durable cleanup marker already exists. A failed OFF save cannot
+            // be described as saved OFF; the storage warning remains explicit.
+            // Re-read: a clearing save may have committed before throwing.
+            // The cached pending marker alone cannot authorize more removals.
+            let durableCleanup = (try? store.load())?.needsCleanupVerification == true
+            if durableCleanup { await client.removePending(ids) }
+            let explicitOff: Bool
+            if case .enable(false) = command { explicitOff = true } else { explicitOff = false }
+            if durableCleanup && (explicitOff || journal?.clearDelivered == true) {
                 await client.removeDelivered(await client.delivered().filter(ReminderRequest.owns))
+                // Keep the durable cleanup intent in quarantine; retry on reopen.
             }
             var result = status(journal ?? ReminderJournal(), authorization: authorization,
                                 message: storageFailureMessage)
-            result.storageBlocked = true; result.queued = 0; result.coverageEnd = nil
+            result.storageBlocked = true; result.cleanupPending = true; result.queued = 0; result.coverageEnd = nil
             return result
         }
     }
@@ -127,15 +165,25 @@ actor ReminderScheduler {
         state.lastNow = max(state.lastNow ?? observedAt, observedAt)
         let desired = ReminderCalendar.queue(now: observedAt, zone: zone(), time: state.time)
         let canAdd = state.enabled && authorization.canSchedule && !clockReversed
-        var pending = await client.pending()
+        let requests = await client.pendingRequests()
+        var pending = requests.map { Set($0.map(\.id)) }
         let originalPending = pending
-        let knownIDs = Set(state.entries.map(\.id))
-        let unknown = (pending ?? []).filter { ReminderRequest.owns($0) && !knownIDs.contains($0) }
-        if !unknown.isEmpty {
-            state.requiresRecovery = true; try persist(state)
-            await client.removePending(unknown)
-            // Cannot reconstruct eligibility from an unknown request identifier.
+        // Restore returning retired IDs as cancellation intents before any add.
+        // Their prior absence was not proof that iOS could never return them.
+        _ = restoreRetired(requests, state: &state, observedAt: observedAt)
+        let invalid = conflictingRequests(requests, state: state)
+        if !invalid.isEmpty {
+            state.requiresRecovery = true; state.cleanupPending = true; try persist(state)
+            await client.removePending(invalid)
+            // Unknown IDs and conflicting trigger/content cannot establish lineage.
             throw ReminderStorageError.quarantined
+        }
+        confirmedPending = matchingPending(requests, state: state)
+        // Positive delivery evidence wins over a simultaneous future pending
+        // copy (for example after a clock change). Empty lists prove nothing.
+        let delivered = await client.delivered()
+        for entry in state.entries where delivered.contains(entry.id) {
+            state.remember(entry, through: observedAt)
         }
         // Decide cancellation before the capacity gate. A nil inventory must not
         // leave known old-zone requests active after travel/reopening.
@@ -143,29 +191,36 @@ actor ReminderScheduler {
         for index in state.entries.indices {
             let entry = state.entries[index]
             if entry.target.date <= observedAt { state.remember(entry, through: observedAt) }
-            let keep = canAdd && entry.phase == .pending && entry.target.date > observedAt &&
-                desired.contains(entry.target) && !state.blocks(entry.target, now: observedAt) &&
-                (pending?.contains(entry.id) ?? true)
+            // Permission denial alone never cancels an unchanged, enabled
+            // acknowledged request. iOS may hide it; absence while denied is not
+            // permission to add it again. Legacy suspension may have cancelled.
+            let eligibleOriginal = state.enabled && !clockReversed && state.permissionSuspended != true &&
+                entry.phase == .pending && entry.target.date > observedAt &&
+                desired.contains(entry.target) && !state.blocks(entry.target, now: observedAt)
+            let keep = eligibleOriginal && (!authorization.canSchedule || requests == nil || confirmedPending.contains(entry.id))
             if !keep {
                 cancelling.append(entry)
                 state.entries[index].phase = .cancelling
             }
         }
-        try persist(state)
+        if !state.enabled && state.needsCleanupVerification { state.clearDelivered = true }
+        if !cancelling.isEmpty || state.clearDelivered { state.cleanupPending = true }
+        try persist(state) // Cleanup uncertainty is durable before removal.
         if state.clearDelivered {
             // Clearing already-delivered reminders does not depend on pending
             // capacity or cancellation readback succeeding.
             await client.removeDelivered(await client.delivered().filter(ReminderRequest.owns))
-            if await client.delivered().filter(ReminderRequest.owns).isEmpty {
-                state.clearDelivered = false; try persist(state)
-            }
         }
         let cancelIDs = Set(cancelling.map(\.id))
         if !cancelIDs.isEmpty {
             await client.removePending(cancelIDs)
+            confirmedPending.subtract(cancelIDs)
             // These are observations of removal, not an atomic delivery barrier.
-            let first = await client.pending()
-            let second = await client.pending()
+            let firstRequests = await client.pendingRequests()
+            let secondRequests = await client.pendingRequests()
+            let first = firstRequests.map { Set($0.map(\.id)) }
+            let second = secondRequests.map { Set($0.map(\.id)) }
+            let removalAuthorization = await client.authorization()
             let checkedAt = now()
             for entry in cancelling {
                 let absent = first.map { !$0.contains(entry.id) } == true && second.map { !$0.contains(entry.id) } == true
@@ -173,19 +228,43 @@ actor ReminderScheduler {
                 // comfortably before its target can release a future reservation.
                 // Interrupted intents/cancellations and missing requests retain
                 // uncertainty regardless of empty pending/delivered lists.
-                let earlyObservedRemoval = entry.phase == .pending && originalPending?.contains(entry.id) == true &&
+                let earlyObservedRemoval = authorization.canSchedule && removalAuthorization.canSchedule && entry.phase == .pending && originalPending?.contains(entry.id) == true &&
                     entry.target.date.timeIntervalSince(checkedAt) > 60 && absent && !clockReversed && checkedAt >= observedAt
                 if !earlyObservedRemoval { state.remember(entry, through: checkedAt) }
-                if absent { state.entries.removeAll { $0.id == entry.id } }
+                if absent {
+                    if state.retired == nil { state.retired = [] }
+                    state.retired?.append(ReminderEntry(id: entry.id, target: entry.target, phase: .cancelling))
+                    state.entries.removeAll { $0.id == entry.id }
+                }
             }
+            let conflicts = conflictingRequests(firstRequests, state: state)
+                .union(conflictingRequests(secondRequests, state: state))
+            if !conflicts.isEmpty {
+                state.requiresRecovery = true; state.cleanupPending = true; try persist(state)
+                await client.removePending(conflicts)
+                throw ReminderStorageError.quarantined
+            }
+            let returned = restoreRetired((firstRequests ?? []) + (secondRequests ?? []), state: &state, observedAt: checkedAt)
+            let lateCancellation = markBlockedByReturn(returned, state: &state, observedAt: checkedAt)
+            confirmedPending = matchingPending(secondRequests, state: state)
             try persist(state)
+            if !lateCancellation.isEmpty { await client.removePending(lateCancellation) }
             pending = second
+            if !removalAuthorization.canSchedule {
+                return status(state, authorization: removalAuthorization,
+                    message: "Notification permission changed. Reopen the app to check reminders.")
+            }
             if !state.entries.filter({ $0.phase == .cancelling }).isEmpty {
                 return status(state, authorization: authorization, message: "Waiting for iOS to confirm removal. Reminders will be checked when you reopen the app.")
             }
         }
-        if state.clearDelivered {
-            return status(state, authorization: authorization, message: "Delivered reminders are still being cleared. Reopen the app to check again.")
+        if state.permissionSuspended != nil {
+            state.permissionSuspended = nil
+            try persist(state)
+        }
+        let cleanupAuthorization = try await verifyCleanup(&state)
+        if state.needsCleanupVerification {
+            return status(state, authorization: cleanupAuthorization ?? authorization)
         }
         if clockReversed { return status(state, authorization: authorization, message: "Reminders are paused after a clock change to avoid duplicates. Reopen after the clock catches up.") }
         guard canAdd else { return status(state, authorization: authorization) }
@@ -198,8 +277,15 @@ actor ReminderScheduler {
             guard target.date > at, !state.blocks(target, now: at),
                   !state.entries.contains(where: { $0.target.day == target.day }),
                   inventory.count < pendingBudget else { continue }
+            let latestAuthorization = await client.authorization()
+            guard latestAuthorization.canSchedule else {
+                return status(state, authorization: latestAuthorization)
+            }
             let entry = ReminderEntry(id: ReminderRequest.prefix + UUID().uuidString, target: target, phase: .intent)
             state.entries.append(entry)
+            // A failed/uncertain add may need cancellation. Persist that
+            // possibility before the notification side effect as well.
+            state.cleanupPending = true
             try persist(state) // Durable intent MUST precede add.
             let beforeAdd = now()
             guard beforeAdd >= at, target.date > beforeAdd else {
@@ -212,6 +298,7 @@ actor ReminderScheduler {
             catch {
                 state.remember(entry, through: now())
                 state.entries[state.entries.count - 1].phase = .cancelling
+                state.cleanupPending = true
                 try persist(state)
                 await client.removePending([entry.id])
                 return status(state, authorization: authorization, message: "Couldn't finish scheduling. Reopen the app to safely retry.")
@@ -219,9 +306,29 @@ actor ReminderScheduler {
             state.entries[state.entries.count - 1].phase = .pending
             try persist(state)
             // A successful completion alone does not establish retained capacity.
-            let fresh = await client.pending()
+            let freshRequests = await client.pendingRequests()
+            let freshAuthorization = await client.authorization()
+            let fresh = freshRequests.map { Set($0.map(\.id)) }
+            let conflicts = conflictingRequests(freshRequests, state: state)
+            if !conflicts.isEmpty {
+                state.requiresRecovery = true; state.cleanupPending = true; try persist(state)
+                await client.removePending(conflicts)
+                throw ReminderStorageError.quarantined
+            }
+            let returned = restoreRetired(freshRequests, state: &state, observedAt: now())
+            confirmedPending = matchingPending(freshRequests, state: state)
+            if !returned.isEmpty {
+                let cancel = markBlockedByReturn(returned, state: &state, observedAt: now())
+                confirmedPending.subtract(cancel)
+                try persist(state)
+                await client.removePending(cancel)
+                return status(state, authorization: freshAuthorization, message: "The notification queue changed. Reopen the app to check reminders.")
+            }
+            guard freshAuthorization.canSchedule else {
+                return status(state, authorization: freshAuthorization)
+            }
             let expected = Set(state.entries.filter { $0.phase == .pending && $0.target.date > now() }.map(\.id))
-            guard let fresh, fresh.contains(entry.id), expected.isSubset(of: fresh) else {
+            guard let fresh, confirmedPending.contains(entry.id), expected.isSubset(of: confirmedPending) else {
                 // Detect retention loss elsewhere in the batch as well as loss
                 // of the just-added request. A unique ID is not deduplication.
                 let missing = state.entries.filter { fresh?.contains($0.id) != true || $0.id == entry.id }
@@ -229,18 +336,108 @@ actor ReminderScheduler {
                     state.remember(lost, through: now())
                     if let index = state.entries.firstIndex(where: { $0.id == lost.id }) { state.entries[index].phase = .cancelling }
                 }
+                state.cleanupPending = true
                 try persist(state)
                 await client.removePending(Set(missing.map(\.id)))
                 return status(state, authorization: authorization, message: "iOS didn't confirm the reminder queue. Reopen the app to check again.")
             }
             inventory = fresh
         }
-        return status(state, authorization: authorization)
+        let finalAuthorization = try await verifyCleanup(&state)
+        return status(state, authorization: finalAuthorization ?? authorization)
+    }
+
+    /// Bounded observations only. Authorization can change between samples;
+    /// neither this check nor OFF can guarantee silence before the next reopen.
+    private func verifyCleanup(_ state: inout ReminderJournal) async throws -> ReminderAuthorization? {
+        guard state.needsCleanupVerification else { return nil }
+        let before = await client.authorization()
+        guard before.canSchedule else { return before }
+        let first = await client.pendingRequests()
+        let firstDelivered = await client.delivered()
+        let between = await client.authorization()
+        let second = await client.pendingRequests()
+        let secondDelivered = await client.delivered()
+        let after = await client.authorization()
+        let conflicts = conflictingRequests(first, state: state).union(conflictingRequests(second, state: state))
+        if !conflicts.isEmpty {
+            state.requiresRecovery = true; state.cleanupPending = true; try persist(state)
+            await client.removePending(conflicts)
+            throw ReminderStorageError.quarantined
+        }
+        guard between.canSchedule, after.canSchedule, let first, let second else { return after }
+        // Exact-match active ON originals may remain. Missing originals are not
+        // restored or re-added here. OFF requires both owned inventories empty.
+        let allowed = state.enabled ? Set(state.entries.filter { $0.phase == .pending }.map(\.id)) : []
+        guard [first, second].allSatisfy({ requests in
+            Set(requests.map(\.id).filter(ReminderRequest.owns)).isSubset(of: allowed)
+        }), [firstDelivered, secondDelivered].allSatisfy({ delivered in
+            let allowedDelivered = state.clearDelivered ? Set<String>() : allowed
+            return Set(delivered.filter(ReminderRequest.owns)).isSubset(of: allowedDelivered)
+        })
+        else { return after }
+        // Keep the last verified in-memory journal pending if this write throws.
+        var verified = state
+        verified.cleanupPending = false
+        verified.clearDelivered = false
+        try persist(verified)
+        state = verified
+        return after
+    }
+
+    private func markBlockedByReturn(_ returned: Set<String>, state: inout ReminderJournal,
+                                     observedAt: Date) -> Set<String> {
+        guard !returned.isEmpty else { return [] }
+        state.cleanupPending = true
+        var cancel = returned
+        for index in state.entries.indices where state.blocks(state.entries[index].target, now: observedAt) {
+            state.entries[index].phase = .cancelling
+            cancel.insert(state.entries[index].id)
+        }
+        return cancel
+    }
+
+    private func restoreRetired(_ requests: [ReminderPendingRequest]?, state: inout ReminderJournal,
+                                observedAt: Date) -> Set<String> {
+        let ids = Set((requests ?? []).map(\.id))
+        let returning = (state.retired ?? []).filter { ids.contains($0.id) }
+        for var entry in returning {
+            entry.phase = .cancelling
+            state.remember(entry, through: observedAt)
+            state.entries.append(entry)
+        }
+        let restored = Set(returning.map(\.id))
+        if !restored.isEmpty {
+            state.cleanupPending = true
+            state.retired?.removeAll { restored.contains($0.id) }
+        }
+        return restored
+    }
+
+    private func conflictingRequests(_ requests: [ReminderPendingRequest]?, state: ReminderJournal) -> Set<String> {
+        var seen: Set<String> = []
+        var invalid: Set<String> = []
+        for request in requests ?? [] where ReminderRequest.owns(request.id) {
+            guard seen.insert(request.id).inserted,
+                  let entry = (state.entries + (state.retired ?? [])).first(where: { $0.id == request.id }),
+                  ReminderRequest.matches(request, id: entry.id, target: entry.target)
+            else { invalid.insert(request.id); continue }
+        }
+        return invalid
+    }
+
+    private func matchingPending(_ requests: [ReminderPendingRequest]?, state: ReminderJournal) -> Set<String> {
+        Set((requests ?? []).compactMap { request in
+            guard let entry = state.entries.first(where: { $0.id == request.id && $0.phase == .pending }),
+                  ReminderRequest.matches(request, id: entry.id, target: entry.target) else { return nil }
+            return request.id
+        })
     }
 
     private func status(_ state: ReminderJournal, authorization: ReminderAuthorization, message: String? = nil) -> ReminderStatus {
-        let future = state.entries.filter { $0.phase == .pending && $0.target.date > now() }
+        let future = state.entries.filter { authorization.canSchedule && state.permissionSuspended != true && confirmedPending.contains($0.id) && $0.phase == .pending && $0.target.date > now() }
         return ReminderStatus(enabled: state.enabled, time: state.time, authorization: authorization,
-            queued: future.count, coverageEnd: future.map(\.target.date).max(), message: message)
+            queued: future.count, coverageEnd: future.map(\.target.date).max(), message: message,
+            cleanupPending: state.needsCleanupVerification)
     }
 }

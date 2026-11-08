@@ -15,7 +15,7 @@ struct ReminderSettingsView: View {
                         Task { await model.send(.enable(value)) }
                     }))
                     .accessibilityIdentifier("reminder-enabled")
-                    .accessibilityHint("An optional notification at your chosen time. Turning it off clears pending and delivered reminders.")
+                    .accessibilityHint("An optional notification at your chosen time. Turning it off saves your preference and asks iOS to remove earlier reminders. Cleanup may need to be checked after reopening.")
                     .disabled(model.busy || !model.loaded)
                     Button { editingTime = true } label: {
                         Group {
@@ -62,6 +62,9 @@ struct ReminderSettingsView: View {
                         Text(coverageText).accessibilityIdentifier("reminder-coverage-status")
                     }
                 }
+                if let cleanup = model.status.cleanupMessage {
+                    Section { Text(cleanup).accessibilityIdentifier("reminder-cleanup-pending") }
+                }
                 if let message = model.status.message {
                     Section { Text(message).accessibilityIdentifier("reminder-error") }
                 }
@@ -90,14 +93,14 @@ struct ReminderSettingsView: View {
         switch model.status.authorization {
         case .notDetermined: return "Permission will be requested only when you turn reminders on."
         case .denied: return model.status.enabled
-            ? "Blocked in iOS Settings. Your time and enabled preference are kept. After allowing notifications, reopen the app to resume."
-            : "Notifications aren't allowed. Reminders stay off until you enable them."
+            ? "Blocked in iOS Settings. Your time and enabled preference are kept. Existing reminders may resume when permission returns. Reopen the app to check coverage."
+            : "Notifications aren't allowed. Your reminder preference is off. Previously scheduled reminders may still appear if permission returns before the app checks cleanup."
         case .authorized: return "Notifications allowed."
         case .quiet: return "Quiet notifications allowed. Check iOS Settings for alert presentation."
         }
     }
     private var coverageText: String {
-        guard let end = model.status.coverageEnd else { return "No upcoming reminders are confirmed. Open the app again to check coverage." }
+        guard let end = model.status.coverageEnd else { return "No upcoming reminders are confirmed. Missing reminders may be skipped to avoid duplicates. Open the app again to check coverage." }
         return "\(model.status.queued) upcoming reminders, through \(end.formatted(date: .abbreviated, time: .shortened))."
     }
     static func displayTime(_ time: ReminderTime) -> String {
