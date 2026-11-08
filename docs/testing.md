@@ -701,6 +701,12 @@ The fixture starts Off with a deterministic winning seed in UUID-scoped temporar
 SQLite storage; it never sets the system clock or uses an account. Release must
 exclude the fixture through `ci/check-release.py`. Record actual checks against
 the tested source; compilation or preview approval is not functional acceptance.
+The hosted iPhone UI stage in `ci/test-app.sh` selects the full
+`MischievousCardsTests` class alongside the existing smoke, Saved Cards, Stillness
+and Reminder classes. Confirm all four named tests executed with zero failures,
+skips or expected failures in the exact-head result bundle. The command-selection
+regression test prevents silently dropping a required class; it does not prove
+runtime execution. Hosted iPhone results do not replace local iPad or physical checks.
 
 - Verify a fresh guest starts Off; ordinary Bonus selection stays unchanged after
   enabling on the same day. A new enabled winning day reveals the original Shadow

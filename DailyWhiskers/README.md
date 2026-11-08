@@ -692,13 +692,17 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, offline smoke, Saved Cards and Stillness Mode tests, and an unsigned Release build for
+unit suite, offline smoke, Saved Cards, Stillness Mode, Reminders and Mischievous
+Cards tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
 The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
-`SavedCardsLoadStateTests` and `StillnessModeTests`
-from the interaction scheme. The five smoke tests cover
+`SavedCardsLoadStateTests`, `StillnessModeTests`, `ReminderUITests` and
+`MischievousCardsTests` from the interaction scheme. The policy suite executes
+the actual UI shell command with a stub Xcode executable and checks that every
+required class is selected in full, exactly once, with no skip selectors.
+The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
@@ -718,6 +722,15 @@ receives an injected read cancellation, fails again, and then recovers without d
 They seed a disposable SQLite file selected by
 `DW_SAVED_LOAD_TEST_ID` (a UUID), requiring the offline compile/launch gate plus
 `--ci-smoke-saved-load-fixture`. They never clear the ordinary collection.
+Reminders cover default-Off state, persistence/cancellation, authorization outcomes,
+notification navigation and largest-text controls with a synthetic notification client.
+The four Mischievous Cards tests cover default-Off and same-day stability;
+reveal, opt-out, relaunch, saving/sharing and returning to Today; native motion,
+Stillness and actual system Reduce Motion; and lifecycle plus largest-text
+portrait/landscape reachability. Their dedicated hosted simulator starts with
+Reduce Motion off; the motion test restores that system setting after exercising it.
+Hosted coverage is iPhone-only. Local iPad results and physical VoiceOver,
+interruption and energy acceptance remain separate evidence.
 These classes use accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and
