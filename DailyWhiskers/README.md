@@ -731,6 +731,9 @@ portrait/landscape reachability. Their dedicated hosted simulator starts with
 Reduce Motion off; the motion test restores that system setting after exercising it.
 Hosted coverage is iPhone-only. Local iPad results and physical VoiceOver,
 interruption and energy acceptance remain separate evidence.
+The app job has a 90-minute budget for dependency resolution, both builds, the
+expanded serial UI suite, Release validation and evidence upload. This job budget
+does not extend individual test waits or relax the zero-failure/skip evidence gate.
 These classes use accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and
