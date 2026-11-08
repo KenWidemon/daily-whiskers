@@ -48,6 +48,7 @@ final class DailyCardShareVisualTests: XCTestCase {
             func render(_ size: CGSize, text: DynamicTypeSize = .large) throws -> UIImage {
                 let renderer = ImageRenderer(content:
                     AdaptiveRitualCardPresentation(data: data, artwork: artwork, viewport: size,
+                                                   containerWidth: size.width,
                                                    compact: false, tightQuotePanel: true)
                         .environment(\.dynamicTypeSize, text).environment(\.colorScheme, .dark))
                 renderer.scale = 1

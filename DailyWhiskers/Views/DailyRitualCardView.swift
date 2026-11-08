@@ -108,7 +108,7 @@ struct DailyRitualCardView: View {
 
     var body: some View {
         ZStack {
-            CosmicBackground(theme: theme, reduceMotion: isStill, hideSparkles: isStill)
+            CosmicBackground(theme: theme, reduceMotion: isStill, hideSparkles: isStill || data.archetype == ShadowLordCard.card.archetype)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -122,6 +122,7 @@ struct DailyRitualCardView: View {
                 let viewport = CGSize(width: availableWidth, height: max(0, geometry.size.height - padding * 2))
                 ScrollView {
                     AdaptiveRitualCardPresentation(data: data, artwork: artwork, viewport: viewport,
+                                                   containerWidth: geometry.size.width,
                                                    compact: compact, tightQuotePanel: roomy,
                                                    accessibilityPrefix: accessibilityPrefix)
                     .accessibilityElement(children: .contain)
@@ -144,6 +145,7 @@ struct AdaptiveRitualCardPresentation: View {
     let data: DailyCardData
     let artwork: UIImage?
     let viewport: CGSize
+    let containerWidth: CGFloat
     var compact: Bool
     var tightQuotePanel: Bool
     var accessibilityPrefix = "card"
@@ -151,6 +153,7 @@ struct AdaptiveRitualCardPresentation: View {
     private var stacked: some View {
         RitualCardPresentation(data: data, artwork: artwork, compact: compact,
                                tightQuotePanel: tightQuotePanel, accessibilityPrefix: accessibilityPrefix)
+            .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: containerWidth) } }
             .frame(width: min(viewport.width, 520)).fixedSize(horizontal: false, vertical: true)
     }
 
@@ -163,6 +166,7 @@ struct AdaptiveRitualCardPresentation: View {
                                            tightQuotePanel: true, sideBySide: true,
                                            quoteColumnWidth: min(440, viewport.width - 520),
                                            accessibilityPrefix: accessibilityPrefix)
+                        .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: containerWidth) } }
                         .fixedSize()
                 }
                 // No fitting candidate: let the outer ScrollView expose all content.

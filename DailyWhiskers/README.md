@@ -85,6 +85,47 @@ repository. A device backup may include it. Removing the app's data or restoring
 older backup can lose later date references; there is no server-side enforcement.
 See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
+## Mischievous Cards
+
+**Settings > Mischievous Cards** is off by default and available to guests. When
+on, the first successful Bonus request on an eligible local day has a stable 10%
+chance of revealing Shadow Lord. Today stays unchanged. A SHA-256 draw keyed by a
+persisted installation seed and Gregorian local date uses rejection sampling into
+ten equally sized buckets; it is not a scheduled fortnightly appearance. At least
+14 full 24-hour periods must elapse between new reveals. Returning to an existing
+Bonus, saving, sharing and opting out never restart the cooldown or replace content.
+Enabling the setting after an ordinary Bonus was selected does not upgrade that day.
+
+SQLite schema 2 migrates the retained-card database without changing snapshot
+identity. Its singleton contains the opt-in, seed, latest evaluated local date,
+last reveal and conservative clock watermarks. Selection, exact artwork, day
+reference and history commit in the same immediate transaction. Setting changes
+use the same repository transaction boundary. Missing/corrupt policy fails closed
+for new selections/settings; intact retained cards remain readable and shareable.
+Clear Saved Cards and account changes do not reset this installation-owned state.
+Backups restore preference/history together; a reinstall without restoration starts
+Off. An older backup can lose later history; there is no server or cross-device check.
+
+Rollback freezes new reveals until the saved clock high-water value is reached;
+local dates no later than the latest evaluated day cannot earn a new rare draw.
+Timezone changes do not shorten elapsed cooldown. During a process lifetime, a
+continuous clock that includes sleep detects forward wall-clock skew over five
+minutes and persists a further 14-day hold. Only wall-clock watermarks persist;
+continuous-clock samples stay in memory. Correcting a mistakenly advanced clock
+can therefore delay eligibility until that future watermark/hold expires. Changes
+made while the app is absent cannot be verified, and this is not anti-tamper protection.
+
+Shadow Lord's original artwork and selected quote are a dedicated Bonus-only
+resource, outside the ordinary manifest. Revision-02 wisps decorate the shared
+screen presentation without changing its layout, controls or immutable content.
+Main billows cycle in roughly 8–14 seconds, with continuous motion and no opacity pulsing.
+Their outward reach contracts with the available side gutters on narrow views;
+ribbon thickness and vertical length remain unchanged. Roomy gutters retain the
+original placement, and the card plus its three-point border stays clear.
+Stillness, system Reduce Motion and inactive scenes use a fixed shadow composition.
+The ordinary share renderer exports the original artwork/quote without animation.
+See [Mischievous Cards acceptance](../docs/testing.md#mischievous-cards).
+
 ## Saved Cards
 
 Today, Bonus and saved-card details expose Share and Save/Remove in a native

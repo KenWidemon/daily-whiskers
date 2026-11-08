@@ -23,6 +23,7 @@ struct FavoriteRecord: Identifiable, Sendable {
 actor CardRepository {
     static let shared: CardRepository = {
 #if DEBUG && CI_SMOKE_TESTING
+        if let url = CISmokeMode.mischiefFixtureURL { return CardRepository(url: url) }
         if let url = CISmokeMode.savedCardsFixtureURL { return CardRepository(url: url) }
 #endif
         return CardRepository(url: FileManager.default.urls(for: .applicationSupportDirectory,
@@ -31,11 +32,14 @@ actor CardRepository {
     let url: URL
     private var database: OpaquePointer?
     private let beforeCommit: (@Sendable () throws -> Void)?
+    // Monotonic samples remain in memory, never in a backup or export.
+    private var mischiefObservation: MischiefClock?
     private var activeShares: [UUID: String] = [:]
 
-    init(url: URL, beforeCommit: (@Sendable () throws -> Void)? = nil) {
+    init(url: URL, clock: MischiefClock = .now(), beforeCommit: (@Sendable () throws -> Void)? = nil) {
         self.url = url
         self.beforeCommit = beforeCommit
+        self.mischiefObservation = clock
     }
     deinit { if let database { sqlite3_close(database) } }
 
@@ -57,7 +61,7 @@ actor CardRepository {
             sqlite3_busy_timeout(connection, 3000)
             try execute("PRAGMA foreign_keys=ON")
             let version = try scalar("PRAGMA user_version")
-            guard version <= 1 else { throw CardStorageError.unsupportedSchema }
+            guard version <= 2 else { throw CardStorageError.unsupportedSchema }
             // Rollback journal keeps a closed backup self-contained, with FULL durability.
             try execute("PRAGMA journal_mode=DELETE")
             try execute("PRAGMA synchronous=FULL")
@@ -74,11 +78,62 @@ actor CardRepository {
                     try execute("PRAGMA user_version=1")
                 }
             }
+            if version < 2 {
+                try transaction {
+                    try execute("CREATE TABLE mischief_state(id INTEGER PRIMARY KEY CHECK(id=1), state BLOB NOT NULL)")
+                    var initial = MischiefState()
+#if DEBUG && CI_SMOKE_TESTING
+                    if let seed = CISmokeMode.mischiefFixtureSeed { initial.seed = seed }
+#endif
+                    try execute("INSERT INTO mischief_state VALUES(1,?)", [.data(try JSONEncoder().encode(initial))])
+                    try execute("PRAGMA user_version=2")
+                }
+            }
         } catch {
             sqlite3_close(connection)
             database = nil
             throw error
         }
+    }
+
+    func mischiefState() throws -> MischiefState {
+        try open()
+        let statement = try prepare("SELECT state FROM mischief_state WHERE id=1")
+        defer { sqlite3_finalize(statement) }
+        guard try step(statement) == SQLITE_ROW else { throw CardStorageError.unavailable }
+        let state = try JSONDecoder().decode(MischiefState.self, from: data(statement, 0))
+        try state.validate()
+        return state
+    }
+
+    private func writeMischief(_ state: MischiefState) throws {
+        try state.validate()
+        try execute("UPDATE mischief_state SET state=? WHERE id=1", [.data(try JSONEncoder().encode(state))])
+    }
+
+    /// The existing foreground/day-change checks keep a clock observation even
+    /// when the user is revisiting a retained Bonus. This never changes lastReveal.
+    func observeMischiefClock(_ clock: MischiefClock = .now()) throws {
+        // A queued lifecycle observation can arrive after a newer Bonus request.
+        guard mischiefObservation.map({ clock.elapsed >= $0.elapsed }) ?? true else { return }
+        try open()
+        try transaction {
+            var state = try mischiefState()
+            try state.observe(clock, previous: mischiefObservation)
+            try writeMischief(state)
+        }
+        mischiefObservation = clock
+    }
+
+    func setMischiefEnabled(_ enabled: Bool, clock: MischiefClock = .now()) throws {
+        try open()
+        try transaction {
+            var state = try mischiefState()
+            try state.observe(clock, previous: mischiefObservation)
+            state.enabled = enabled
+            try writeMischief(state)
+        }
+        mischiefObservation = clock
     }
 
     func favorites() throws -> [FavoriteRecord] {
@@ -129,15 +184,39 @@ actor CardRepository {
 
     /// The ledger and immutable content commit together, including across repository instances.
     func bonus(on day: BonusDay, today: RetainedCard, candidates: [DailyCard],
+               clock suppliedClock: MischiefClock? = nil,
+               shadow: () throws -> RetainedCard = { try ShadowLordCard.capture() },
                artwork: (DailyCard) throws -> Data = { try BundledCardArtwork.bytes(for: $0) }) throws -> RetainedCard {
         try open()
+        // Production samples inside the actor, after any queued lifecycle writes.
+        // Injected samples older in continuous time use the latest observation;
+        // a real wall-clock rollback still has a newer continuous timestamp.
+        let sample = suppliedClock ?? .now()
+        let clock = mischiefObservation.flatMap { $0.elapsed > sample.elapsed ? $0 : nil } ?? sample
         var result: RetainedCard?
+        var observedClock = false
         try transaction {
             if let existing = try retainedBonus(on: day) {
                 result = existing
                 return
             }
             try today.snapshot.validate(artwork: today.artwork)
+            var mischief = try mischiefState()
+            try mischief.observe(clock, previous: mischiefObservation)
+            observedClock = true
+            let reveal = mischief.eligible(on: day, at: clock) && MischiefState.selected(seed: mischief.seed, day: day.key)
+            if reveal {
+                // Fail closed if the selected rare content cannot be retained. Do not
+                // swap content or consume cooldown on a failed transaction.
+                let selected = try shadow()
+                try selected.snapshot.validate(artwork: selected.artwork)
+                guard selected.snapshot.cardID == ShadowLordCard.card.id,
+                      selected.snapshot.cardID != today.snapshot.cardID,
+                      selected.snapshot.quote != today.snapshot.quote,
+                      selected.snapshot.artworkPixelDigest != today.snapshot.artworkPixelDigest
+                else { throw BonusCardError.noDistinctContent }
+                result = selected
+            }
             let recent = try prepare("SELECT s.metadata FROM day_selection d JOIN snapshot s ON s.id=d.snapshot_id WHERE d.slot='bonus' ORDER BY d.rowid DESC LIMIT 7")
             defer { sqlite3_finalize(recent) }
             var history: [CardSnapshot] = []
@@ -158,8 +237,8 @@ actor CardRepository {
                     ArtworkIdentity.checksum(Data((day.key + ":" + right.id).utf8))
             }
             var fallback: RetainedCard?
-            for candidate in ordered {
-                guard !candidate.id.isEmpty, !candidate.archetype.isEmpty,
+            for candidate in ordered where result == nil {
+                guard candidate.id != ShadowLordCard.card.id, !candidate.id.isEmpty, !candidate.archetype.isEmpty,
                       !candidate.quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                       candidate.id != today.snapshot.cardID,
                       candidate.quote != today.snapshot.quote,
@@ -180,10 +259,14 @@ actor CardRepository {
             try retain(selected)
             try execute("INSERT INTO day_selection(local_date,slot,snapshot_id,time_zone) VALUES(?,'bonus',?,?)",
                         [.text(day.key), .text(selected.snapshot.id), .text(day.timeZone)])
+            mischief.latestDay = max(mischief.latestDay ?? "", day.key)
+            if reveal { mischief.lastReveal = clock.date }
+            try writeMischief(mischief)
             // Return the repository's first exact encoding if this version was saved before.
             result = try load(selected.snapshot.id)
         }
         guard let result else { throw BonusCardError.noDistinctContent }
+        if observedClock { mischiefObservation = clock }
         return result
     }
 
