@@ -444,6 +444,131 @@ Load-time integrity checks:
 Image import details:
 - See [content pipeline](../docs/content-pipeline.md).
 
+## Optional Daily Reminder
+
+Settings → Daily Reminder is device-local and available without an account.
+It starts off, with an editable 9 a.m. suggestion. Only explicit enablement can
+request alert permission; saving a time does not enable it. Save/Cancel edits the
+time separately. Notifications use the evergreen title “Daily Whiskers” and body
+“Your daily whisker of encouragement is ready.” There is no sound, badge, push,
+server scheduling or foreground banner. Focus, Scheduled Summary and iOS settings
+control actual presentation; this is not an exact-delivery alarm.
+
+The scheduler queues date-specific, nonrepeating UTC targets for the current
+Gregorian civil date plus the next thirteen labels in the current time zone.
+Passed targets and wholly nonexistent dates are skipped without backfilling a
+fifteenth date. Reopening extends this finite window; no background renewal is
+assumed. Repeated times select the first occurrence. A missing wall time resolves
+to the next valid instant on that same date, including half-hour/midnight gaps.
+Queued requests retain their old zone until reopening. During unopened date-line
+travel, two scheduling dates can fall on one experienced local date. Settings
+discloses both finite coverage and this travel exception.
+
+A serialized scheduler writes a versioned, checksummed Application Support journal
+before notification side effects. Possibly-presented date/interval history survives
+edits, disable/re-enable and zones. Empty Notification Center is not proof of
+nondelivery. Interrupted add/cancel intents, elapsed targets and uncertain removals
+retain reservations; suppression is preferred to replay. Known obsolete requests
+are cancelled before any capacity check or addition. The app uses a conservative
+32-pending-request budget, reserving space for unrelated requests; this is an app
+policy, not an assertion about a modern iOS maximum.
+
+For an acknowledged request observed pending with scheduling permission, removal
+followed by two absent readbacks more than sixty seconds before its target permits replacing its future
+reservation. This is operational removal evidence, not an atomic cancellation or
+delivery barrier. Permission must still allow scheduling after removal. Missing
+requests, interrupted intents/cancellations, unknown inventory or a closer deadline preserve uncertainty instead. Readback after each
+add checks retention. Corrupt/missing initialized state fails closed without
+resetting history. Persistent quarantine or invalid history directs the user to
+Support and explicitly says reopening cannot repair it. A potentially temporary
+storage/verification failure requires a complete app restart to recheck; the
+current process cannot resume additions after uncertainty. Neither path resets
+the ledger. Atomic file replacement, synchronization and readback do not
+establish universal power-loss or backup-restoration guarantees.
+
+Disabling saves OFF before asking iOS to remove this feature's pending and delivered
+notifications, while keeping
+the chosen time and eligibility history. OS permission revocation retains enabled
+intent. An enabled, acknowledged request with an unchanged time/zone/absolute
+target remains untouched while permission is denied. Empty or unavailable denied
+inventories do not prove removal or authorize replacement. On reopening after
+regrant, visible matching originals are kept without cancellation or re-addition.
+Full trigger/content readback must match the expected nonrepeating UTC request;
+identifier-only readback cannot confirm coverage. Unknown or conflicting owned
+requests quarantine. Unavailable inventory confirms no coverage; an authorized
+empty inventory suppresses missing dates rather than restoring requests.
+
+OFF, time/zone edits, elapsed targets, observed clock reversal and existing possible
+exposures still use conservative cancellation. Positive delivered-ID evidence
+blocks a future pending copy even if Notification Center is later cleared. Legacy
+v2 suspension flags may already have issued removal, so they retain conservative
+cancellation rather than entering the untouched-original path. Missing dates can
+remain suppressed through the original horizon; later unexposed dates refill on
+reopening. No absent-ID restoration or exposure erasure is performed.
+
+iOS may resume a retained reminder as soon as permission returns, including after
+OFF while denied, before
+the app reopens. Reopening checks and refills eligible coverage; it is not a gate
+that guarantees no earlier alert. Disabled intent never automatically re-enables.
+Observed clock safeguards do not establish universal exactly-once presentation or
+rule out an unobserved forward-then-back clock excursion.
+Retired request IDs retain target provenance indefinitely, so delayed reappearance
+triggers conservative cancellation rather than unknown-ID quarantine. These records
+are not delivery receipts and never erase existing exposures. Existing v1 journals
+without the optional provenance fields remain readable and upgrade to v3 before
+scheduling or writing new provenance. A previously quarantined
+journal whose ID/target mappings were lost remains quarantined; this change cannot
+reconstruct them or repair that device automatically. Verified quarantine accepts
+and persists OFF intent and retries owned-notification cleanup without clearing the
+recovery flag. Unreadable history or uncertain writes still fail closed. Older
+v1/v2 binaries reject v3 journals and fail closed rather than dropping cleanup
+verification state. Downgrading does not restore normal scheduling automatically.
+Cleanup verification is separate from saved enablement, retired IDs and exposure
+history. Missing/null cleanup state and v1/v2 journals are unverified, even with
+no active entries, a false delivered-clear flag, or only retired/exposure records.
+Fresh journals also begin unverified until authorized observations establish
+cleanup; an empty denied inventory cannot establish a never-scheduled history.
+Malformed state fails closed. Cancellation intent and possible failed-add cleanup
+are saved before notification effects. Failed OFF persistence reports storage
+failure, not a successfully saved OFF preference. The UI publishes the saved
+intent after the serialized operation finishes; it does not update atomically
+with the tap.
+
+The cleanup warning survives refresh/restart and changes its OFF/ON wording with
+current saved intent. It is cleared only after two available full pending and
+delivered snapshots, bracketed by schedulable authorization before, between and
+after. OFF requires no owned pending or delivered IDs. ON permits only
+exact-matching active originals; cancelled/retired IDs still prevent verification.
+An ON migration does not invent permission to clear old delivered notifications;
+those can leave verification pending and defer new scheduling. Explicit OFF
+retains delivered-cleanup intent until both snapshots confirm absence. Unknown
+pending inventory or observed authorization loss cannot clear either flag.
+The delivered callback has no error/unavailable result in the current protocol;
+its returned inventory is an observation, not a guarantee of complete OS state.
+
+Clearing both flags is one verified journal save. A failed/uncertain save blocks
+new adds in that process. Error cleanup re-reads the durable marker before any
+additional removal, since a clearing save may have committed before throwing.
+Restart can accept that committed clear only because authorized verification
+already preceded it. History and quarantines are never reset to remove a warning.
+Authorization samples do not exclude an unseen deny/regrant between callbacks.
+The warning does not prevent a regrant-before-reopen alert. Do not ask users to
+regrant solely to finish cleanup. The owner accepted this disclosed pre-reopen
+alert limitation for V1.3. Acceptance does not prevent the window or establish
+physical nondelivery; regression tests do not prove either.
+
+The journal can grow with scheduling/cancellation history; no unproven pruning rule
+is used.
+Denied permission never causes automatic prompts or blocks daily cards. A reminder
+tap ignores old content dates and returns to current Today, dismissing navigation
+and sheets without deleting saved cards or rerolling daily/bonus selections.
+
+The focused tests use injected clocks, journals and notification clients. The
+compile-only offline UI seam never accesses the system notification center.
+See [reminder acceptance](../docs/testing.md#daily-reminder-acceptance) for the
+separate integrated-device checks. The broader Settings shell remains outside this
+feature's minimal entry/editor.
+
 ## Tests
 - Repeatable acceptance checks and evidence limits: [testing](../docs/testing.md).
 - Unit tests live in `DailyWhiskersTests/`.

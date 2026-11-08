@@ -30,6 +30,13 @@ struct StillnessSettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+#if DEBUG && CI_SMOKE_TESTING
+            .safeAreaInset(edge: .bottom) {
+                if ReminderSmoke.controlsEnabled {
+                    ReminderSmokeControls(model: ReminderModel.shared, context: "stillness")
+                }
+            }
+#endif
         }
     }
 }

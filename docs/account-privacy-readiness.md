@@ -65,6 +65,7 @@ Firebase Auth deletion alone would not delete unrelated service data.
 | Auth session | Firebase SDK persistence | Explain persistent sign-in and deletion/logout |
 | Daily cards and local date | Bundled assets/JSON and deterministic on-device selection | No content upload or per-user content record found |
 | Saved Cards and bonus selections | Device-owned SQLite snapshots, original artwork, favorite membership and local-date/time-zone bonus references in Application Support | No app upload or sync; normal OS backups may include the collection; explicit clear removes favorites but retains date selections; it does not change existing backups |
+| Optional reminder | Device-local enabled preference, time, scheduled date/zone targets and conservative eligibility history in Application Support; evergreen text supplied to iOS local notifications | No upload, account dependency, push or engagement tracking; normal OS backups may include state; disable clears owned pending/delivered notifications but retains time/history; logout and clearing saved cards do not reset reminder history |
 | Shared card | Locally rendered bundled or retained artwork, quote, optional vibe, branding, and plain-text companion passed to the system share sheet | No account identifiers or source metadata; no app upload/tracking; user chooses the destination and confirms sending |
 | SDK diagnostics | Firebase Auth 11.15.0 manifest declares unlinked other diagnostic data for analytics | Include SDK behavior in final App Store answers |
 

@@ -158,6 +158,7 @@ class ResultTests(unittest.TestCase):
         spec.loader.exec_module(checker)
         self.assertTrue(checker.verify(b'normal release binary'))
         for marker in (b'CISmokeMode', b'--ci-smoke', b'Offline CI smoke', b'ci-smoke-offline',
+                       b'ReminderSmokeClient', b'DW_REMINDER_TEST_ID', b'reminder-test-tap',
                        b'CISmokeStillnessFixture', b'DW_STILLNESS_TEST_ID', b'ci-stillness-system'):
             self.assertFalse(checker.verify(b'binary prefix' + marker + b'suffix'))
 
