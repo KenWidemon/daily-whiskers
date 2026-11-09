@@ -49,7 +49,7 @@ final class MischievousCardsTests: XCTestCase {
             let control = toggle.switches.firstMatch
             XCTAssertTrue(control.waitForExistence(timeout: 5))
             XCTAssertTrue(control.isHittable)
-            control.tap()
+            control.press(forDuration: 0.15)
         }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: toggle)], timeout: 10), .completed)
     }
