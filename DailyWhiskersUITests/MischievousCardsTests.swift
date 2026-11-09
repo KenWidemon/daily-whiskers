@@ -9,6 +9,7 @@ final class MischievousCardsTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
+        app.launchEnvironment["DW_SWITCH_CAPTURE"] = "1"
         app.launchEnvironment["DW_MISCHIEF_TEST_ID"] = UUID().uuidString
         app.launchEnvironment["DW_STILLNESS_TEST_ID"] = UUID().uuidString
         app.launchArguments = ["--ci-smoke", "--ci-smoke-mischief-fixture", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
@@ -42,6 +43,8 @@ final class MischievousCardsTests: XCTestCase {
         app.buttons[label].tap()
     }
     private func setToggle(_ id: String, _ on: Bool) {
+        capture("Switch capture before " + id)
+        defer { capture("Switch capture after " + id) }
         let toggle = app.switches[id]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: toggle)], timeout: 10), .completed)

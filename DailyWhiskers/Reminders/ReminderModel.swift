@@ -26,6 +26,12 @@ final class ReminderModel: ObservableObject {
 
     init(scheduler: ReminderScheduler) { self.scheduler = scheduler }
     func send(_ command: ReminderCommand) async {
+#if DEBUG && CI_SMOKE_TESTING
+        if case .enable(let value) = command {
+            DWSwitchCapture.record("reminder send enable=\(value) enabled=\(status.enabled) loaded=\(loaded) busy=\(busy)")
+        } else { DWSwitchCapture.record("reminder send other command") }
+        defer { DWSwitchCapture.record("reminder send exit enabled=\(status.enabled) loaded=\(loaded) busy=\(busy)") }
+#endif
         operations += 1; busy = true
         status = await scheduler.submit(command)
         loaded = true

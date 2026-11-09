@@ -15,6 +15,9 @@ struct MischievousCardsSettingsView: View {
             Form {
                 Section {
                     Toggle("Mischievous Cards", isOn: Binding(get: { enabled }, set: { value in
+#if DEBUG && CI_SMOKE_TESTING
+                        DWSwitchCapture.record("mischief binding value=\(value) enabled=\(enabled) loaded=\(loaded) saving=\(saving)")
+#endif
                         Task { await save(value) }
                     }))
                     .disabled(!loaded || saving)
@@ -70,11 +73,23 @@ struct MischievousCardsSettingsView: View {
     }
 
     private func save(_ value: Bool) async {
-        guard loaded, !saving else { return }
+#if DEBUG && CI_SMOKE_TESTING
+        DWSwitchCapture.record("mischief save enter value=\(value) enabled=\(enabled) loaded=\(loaded) saving=\(saving)")
+        defer { DWSwitchCapture.record("mischief save exit enabled=\(enabled) loaded=\(loaded) saving=\(saving) error=\(error != nil)") }
+#endif
+        guard loaded, !saving else {
+#if DEBUG && CI_SMOKE_TESTING
+            DWSwitchCapture.record("mischief save guard rejected")
+#endif
+            return
+        }
         saving = true
         defer { saving = false }
         do {
             try await CardRepository.shared.setMischiefEnabled(value)
+#if DEBUG && CI_SMOKE_TESTING
+            DWSwitchCapture.record("mischief repository save returned")
+#endif
             enabled = value
             error = nil
         } catch {

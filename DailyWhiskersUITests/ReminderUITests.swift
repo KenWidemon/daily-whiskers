@@ -7,10 +7,11 @@ final class ReminderUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
+        app.launchEnvironment["DW_SWITCH_CAPTURE"] = "1"
         app.launchArguments = ["--ci-smoke", "--ci-smoke-reminders", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["DW_REMINDER_TEST_ID"] = UUID().uuidString
     }
-    override func tearDown() { app.terminate() }
+    override func tearDown() { capture("Switch capture final state"); app.terminate() }
 
     private func openSettings() {
         let settings = app.buttons["Settings"]
@@ -29,6 +30,8 @@ final class ReminderUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 15), .completed)
     }
     private func tapToggle(_ control: XCUIElement) {
+        capture("Switch capture before reminder tap")
+        defer { capture("Switch capture after reminder tap") }
         // SwiftUI exposes a labeled row and its native switch. Tap the switch,
         // not the noninteractive center of the label's full-width frame.
         let native = control.switches.firstMatch
