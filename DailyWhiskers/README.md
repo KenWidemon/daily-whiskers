@@ -85,6 +85,47 @@ repository. A device backup may include it. Removing the app's data or restoring
 older backup can lose later date references; there is no server-side enforcement.
 See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
+## Mischievous Cards
+
+**Settings > Mischievous Cards** is off by default and available to guests. When
+on, the first successful Bonus request on an eligible local day has a stable 10%
+chance of revealing Shadow Lord. Today stays unchanged. A SHA-256 draw keyed by a
+persisted installation seed and Gregorian local date uses rejection sampling into
+ten equally sized buckets; it is not a scheduled fortnightly appearance. At least
+14 full 24-hour periods must elapse between new reveals. Returning to an existing
+Bonus, saving, sharing and opting out never restart the cooldown or replace content.
+Enabling the setting after an ordinary Bonus was selected does not upgrade that day.
+
+SQLite schema 2 migrates the retained-card database without changing snapshot
+identity. Its singleton contains the opt-in, seed, latest evaluated local date,
+last reveal and conservative clock watermarks. Selection, exact artwork, day
+reference and history commit in the same immediate transaction. Setting changes
+use the same repository transaction boundary. Missing/corrupt policy fails closed
+for new selections/settings; intact retained cards remain readable and shareable.
+Clear Saved Cards and account changes do not reset this installation-owned state.
+Backups restore preference/history together; a reinstall without restoration starts
+Off. An older backup can lose later history; there is no server or cross-device check.
+
+Rollback freezes new reveals until the saved clock high-water value is reached;
+local dates no later than the latest evaluated day cannot earn a new rare draw.
+Timezone changes do not shorten elapsed cooldown. During a process lifetime, a
+continuous clock that includes sleep detects forward wall-clock skew over five
+minutes and persists a further 14-day hold. Only wall-clock watermarks persist;
+continuous-clock samples stay in memory. Correcting a mistakenly advanced clock
+can therefore delay eligibility until that future watermark/hold expires. Changes
+made while the app is absent cannot be verified, and this is not anti-tamper protection.
+
+Shadow Lord's original artwork and selected quote are a dedicated Bonus-only
+resource, outside the ordinary manifest. Revision-02 wisps decorate the shared
+screen presentation without changing its layout, controls or immutable content.
+Main billows cycle in roughly 8–14 seconds, with continuous motion and no opacity pulsing.
+Their outward reach contracts with the available side gutters on narrow views;
+ribbon thickness and vertical length remain unchanged. Roomy gutters retain the
+original placement, and the card plus its three-point border stays clear.
+Stillness, system Reduce Motion and inactive scenes use a fixed shadow composition.
+The ordinary share renderer exports the original artwork/quote without animation.
+See [Mischievous Cards acceptance](../docs/testing.md#mischievous-cards).
+
 ## Saved Cards
 
 Today, Bonus and saved-card details expose Share and Save/Remove in a native
@@ -651,13 +692,22 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, offline smoke, Saved Cards and Stillness Mode tests, and an unsigned Release build for
+unit suite, offline smoke, Saved Cards, Stillness Mode, Reminders and Mischievous
+Cards tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
+Reminders, Mischievous Cards and Stillness UI helpers use one 150 ms native press
+per requested transition. State and persistence assertions remain mandatory;
+this bounded input choice adds no retry or programmatic state override and does
+not establish the cause of intermittent hosted switch failures.
+
 The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
-`SavedCardsLoadStateTests` and `StillnessModeTests`
-from the interaction scheme. The five smoke tests cover
+`SavedCardsLoadStateTests`, `StillnessModeTests`, `ReminderUITests` and
+`MischievousCardsTests` from the interaction scheme. The policy suite executes
+the actual UI shell command with a stub Xcode executable and checks that every
+required class is selected in full, exactly once, with no skip selectors.
+The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
@@ -677,6 +727,18 @@ receives an injected read cancellation, fails again, and then recovers without d
 They seed a disposable SQLite file selected by
 `DW_SAVED_LOAD_TEST_ID` (a UUID), requiring the offline compile/launch gate plus
 `--ci-smoke-saved-load-fixture`. They never clear the ordinary collection.
+Reminders cover default-Off state, persistence/cancellation, authorization outcomes,
+notification navigation and largest-text controls with a synthetic notification client.
+The four Mischievous Cards tests cover default-Off and same-day stability;
+reveal, opt-out, relaunch, saving/sharing and returning to Today; native motion,
+Stillness and actual system Reduce Motion; and lifecycle plus largest-text
+portrait/landscape reachability. Their dedicated hosted simulator starts with
+Reduce Motion off; the motion test restores that system setting after exercising it.
+Hosted coverage is iPhone-only. Local iPad results and physical VoiceOver,
+interruption and energy acceptance remain separate evidence.
+The app job has a 90-minute budget for dependency resolution, both builds, the
+expanded serial UI suite, Release validation and evidence upload. This job budget
+does not extend individual test waits or relax the zero-failure/skip evidence gate.
 These classes use accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and

@@ -499,7 +499,7 @@ struct CardRepositoryTests {
         try await repository.save(card)
         try sql(url, "PRAGMA user_version=999")
         await #expect(throws: Error.self) { try await CardRepository(url: url).favorites() }
-        try sql(url, "PRAGMA user_version=1")
+        try sql(url, "PRAGMA user_version=2")
         #expect(try await CardRepository(url: url).load(card.snapshot.id).artwork == card.artwork)
         let failedURL = try location(); defer { try? FileManager.default.removeItem(at: failedURL.deletingLastPathComponent()) }
         let failing = CardRepository(url: failedURL, beforeCommit: { throw CardStorageError.database(SQLITE_FULL) })

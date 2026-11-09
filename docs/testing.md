@@ -693,3 +693,36 @@ app by PID or exact process name; neither attempt created a trace. Source review
 automated motion checks and scoped owner physical observations support this bounded
 acceptance exception. They establish no measured timeline shutdown, CPU reduction
 or energy savings. Final-head CI and independent integration review remain required.
+
+## Mischievous Cards
+
+Use a dedicated offline fixture and the `MischievousCardsTests` unit/UI suites.
+The fixture starts Off with a deterministic winning seed in UUID-scoped temporary
+SQLite storage; it never sets the system clock or uses an account. Release must
+exclude the fixture through `ci/check-release.py`. Record actual checks against
+the tested source; compilation or preview approval is not functional acceptance.
+The hosted iPhone UI stage in `ci/test-app.sh` selects the full
+`MischievousCardsTests` class alongside the existing smoke, Saved Cards, Stillness
+and Reminder classes. Confirm all four named tests executed with zero failures,
+skips or expected failures in the exact-head result bundle. The command-selection
+regression test prevents silently dropping a required class; it does not prove
+runtime execution. Hosted iPhone results do not replace local iPad or physical checks.
+
+- Verify a fresh guest starts Off; ordinary Bonus selection stays unchanged after
+  enabling on the same day. A new enabled winning day reveals the original Shadow
+  Lord artwork/quote in shared Bonus. Return to Today preserves its affirmation.
+- Test stable 10% selection and losing eligible days, just below/at/above 14 full
+  days, DST/timezone shifts, rollback/forward jumps and correction, long sleep,
+  relaunch, repeated/concurrent requests, toggles and failed commits.
+- Save/reopen/share after opting out; clear favorites, navigate account tools and
+  relaunch without losing day references/cooldown. Exercise v1 migration, corrupt
+  policy, database backup restoration and a separate fresh installation.
+- On iPhone/iPad, inspect portrait, landscape and largest Dynamic Type: full quote,
+  scrolling artwork, reachable menu/settings/save/share controls and help text.
+  Check VoiceOver label/state, toggle errors, reading/focus order and contrast;
+  hierarchy assertions do not establish spoken VoiceOver acceptance.
+- Toggle Stillness and actual system Reduce Motion live; both must freeze the
+  exterior wisps. Background/foreground must stop/resume according to policy.
+  Inspect matching native frames, preserve system settings and shut down owned
+  simulators. Physical accessibility, interruption/storage and performance checks
+  remain separate; do not infer them from simulator or historical preview evidence.

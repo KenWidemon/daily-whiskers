@@ -19,6 +19,21 @@ enum CISmokeMode {
             .appendingPathComponent("cards.sqlite")
     }
 
+    static var mischiefFixtureURL: URL? {
+        guard isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-mischief-fixture"),
+              let value = ProcessInfo.processInfo.environment["DW_MISCHIEF_TEST_ID"],
+              let id = UUID(uuidString: value) else { return nil }
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("MischiefFixtures/" + id.uuidString).appendingPathComponent("cards.sqlite")
+    }
+
+    static var mischiefFixtureSeed: String? {
+        guard mischiefFixtureURL != nil else { return nil }
+        let day = BonusDay(date: Date()).key
+        return (0..<10000).lazy.map { "offline-fixture-\($0)" }
+            .first { MischiefState.selected(seed: $0, day: day) }
+    }
+
     private static var shareAttempt = 0
     static func failShareIfRequested() throws {
         guard isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-share-failure-once") else { return }
@@ -47,6 +62,26 @@ enum CISmokeMode {
     }
 }
 
+/// Offline evidence only. Counters do not publish per-frame state or persist data.
+@MainActor
+enum CISmokeShadowAudit {
+    private static var inactive = false
+    private static var intervals = 0
+    private static var updates = 0
+    private static var activeFrames = 0
+    static var report: String { "Inactive intervals: \(intervals); updates: \(updates); active frames: \(activeFrames)" }
+    static func scene(_ phase: ScenePhase) {
+        guard CISmokeMode.mischiefFixtureURL != nil else { return }
+        let next = phase != .active
+        if next && !inactive { intervals += 1 }
+        inactive = next
+    }
+    static func frame() {
+        guard CISmokeMode.mischiefFixtureURL != nil else { return }
+        if inactive { updates += 1 } else { activeFrames += 1 }
+    }
+}
+
 /// A fresh preference domain plus the actual read-only OS motion state.
 /// Each test supplies a new UUID; relaunches reuse it to exercise actual AppStorage writes.
 struct CISmokeStillnessFixture: ViewModifier {
@@ -69,12 +104,21 @@ struct CISmokeStillnessFixture: ViewModifier {
             content
                 .defaultAppStorage(preferences)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        if CISmokeMode.mischiefFixtureURL != nil {
+                            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                                Text(CISmokeShadowAudit.report)
+                                    .accessibilityIdentifier("ci-shadow-inactive")
+                                    .font(.caption2).dynamicTypeSize(.medium)
+                            }
+                        }
                     Text(systemReduceMotion ? "System Reduce Motion: On" : "System Reduce Motion: Off")
                         .accessibilityIdentifier("ci-stillness-system")
                         .font(.caption)
                         .dynamicTypeSize(.medium)
                         .padding(.horizontal)
                         .accessibilityHint("Read-only offline test precondition. Device settings are unchanged.")
+                    }
                 }
         } else {
             content
