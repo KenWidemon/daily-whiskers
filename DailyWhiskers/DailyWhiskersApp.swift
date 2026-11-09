@@ -95,6 +95,11 @@ enum DWSwitchCapture {
                 part += " enabled=\(control.isEnabled) tracking=\(control.isTracking) highlighted=\(control.isHighlighted)"
             }
             if let toggle = current as? UISwitch { part += " on=\(toggle.isOn)" }
+            if let recognizers = current.gestureRecognizers, !recognizers.isEmpty {
+                part += " gestures=" + recognizers.map { gesture in
+                    "\(NSStringFromClass(type(of: gesture))) state=\(gesture.state.rawValue) enabled=\(gesture.isEnabled) cancels=\(gesture.cancelsTouchesInView) delaysBegan=\(gesture.delaysTouchesBegan) delaysEnded=\(gesture.delaysTouchesEnded)"
+                }.joined(separator: ";")
+            }
             parts.append(part)
             node = current.superview
         }
@@ -112,6 +117,15 @@ extension UIWindow {
         }
         // Swizzling routes this call to the original implementation exactly once.
         dw_captureSendEvent(event)
+        if let touches = event.allTouches {
+            for touch in touches.prefix(4) {
+                let point = touch.location(in: self)
+                let gestures = (touch.gestureRecognizers ?? []).map { gesture in
+                    "\(NSStringFromClass(type(of: gesture))) state=\(gesture.state.rawValue) enabled=\(gesture.isEnabled) cancels=\(gesture.cancelsTouchesInView) delaysBegan=\(gesture.delaysTouchesBegan) delaysEnded=\(gesture.delaysTouchesEnded)"
+                }.joined(separator: ";")
+                DWSwitchCapture.record("window after dispatch phase=\(touch.phase.rawValue) x=\(point.x) y=\(point.y) view=\(DWSwitchCapture.ancestry(touch.view)) touchGestures=\(gestures)")
+            }
+        }
     }
 }
 
