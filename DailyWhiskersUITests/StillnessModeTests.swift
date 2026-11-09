@@ -181,7 +181,7 @@ final class StillnessModeTests: XCTestCase {
             let control = toggle.switches.firstMatch
             XCTAssertTrue(control.waitForExistence(timeout: 5))
             XCTAssertTrue(control.isHittable)
-            control.tap()
+            control.press(forDuration: 0.15)
             let changed = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == %@", expected), object: toggle)
             XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)

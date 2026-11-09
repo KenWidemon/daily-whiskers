@@ -697,7 +697,7 @@ Cards tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-Reminders and Mischievous Cards UI helpers use one 150 ms native switch press
+Reminders, Mischievous Cards and Stillness UI helpers use one 150 ms native press
 per requested transition. State and persistence assertions remain mandatory;
 this bounded input choice adds no retry or programmatic state override and does
 not establish the cause of intermittent hosted switch failures.
