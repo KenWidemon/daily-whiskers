@@ -598,7 +598,9 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 The `iOS CI` workflow runs on every PR targeting `main`, `codex/develop`, or
 `release/rc`, pushes to those branches, and manual dispatch. Its final **CI Gate**
 checks the actual results of classification, documentation/policy checks, and the
-app job. Only a successful docs-only classification permits the app job to skip.
+unit/Release job, UI shard matrix and aggregate evidence. Only a successful
+docs-only classification permits both app jobs to skip. The required check
+name remains **CI Gate**; this change does not modify branch protection.
 A failed, cancelled, timed-out, missing, or unexpectedly skipped prerequisite
 cannot pass the gate. Workflow-level path filters are deliberately absent.
 A whole-run cancellation or service outage can prevent the gate from executing;
@@ -635,7 +637,7 @@ updates must update the lockfile and pass the checks in the same PR.
 
 ### App validation and pinned inputs
 
-The app job uses the `macos-26` ARM64 runner, Xcode **26.6 / 17F113**, the iOS
+Every app job uses the `macos-26` ARM64 runner, Xcode **26.6 / 17F113**, the iOS
 simulator SDK 26.5, and **iPhone 17 Pro / iOS 26.4.1**. It verifies Xcode and the
 exact simulator rather than falling back to another installation. Runner image,
 architecture, Swift/SDK versions, and simulator identity are logged. Hosted
@@ -651,13 +653,30 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, offline smoke, Saved Cards and Stillness Mode tests, and an unsigned Release build for
+unit suite, the required offline UI inventory, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
-`SavedCardsLoadStateTests` and `StillnessModeTests`
-from the interaction scheme. The five smoke tests cover
+The required offline UI inventory is `ci/ui-inventory.json`. Three independent
+hosted jobs select whole classes from the interaction scheme:
+
+| Shard | Required classes | Cases |
+| --- | --- | --- |
+| `cards` | `SavedCardsTests`, `SavedCardsLoadStateTests` | 11 |
+| `settings` | `RegressionSmokeTests`, `StillnessModeTests` | 8 |
+| `reminders` | `ReminderUITests` | 8 |
+
+The inventory lists every method and explicitly identifies the existing optional
+`AuthLayoutTests`, `BonusCardTests` and `DailyCardSharingTests` coverage. Source
+changes must update this reviewed inventory: missing, duplicate, unknown and
+unassigned classes/methods fail policy checks before Xcode runs. A new required
+feature class must enter exactly one shard; it must not be made optional to get
+a green gate. `ci/test-app.sh ui` requires `CI_PART=cards`, `settings` or `reminders`.
+Each class retains serial XCTest execution and its existing compile flags,
+launch fixtures, assertions and state waits. No test is retried or skipped.
+The matrix uses `fail-fast: false` so one failing shard does not cancel the others.
+
+The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
@@ -688,8 +707,9 @@ The larger `AuthLayoutTests` suite remains separate and also requires the offlin
 marker before interaction, including now-valid single-password submissions.
 
 Each stage records start, completion, exit code and duration before the next
-stage. Unit, smoke and Release checks run independently after successful package
-resolution, so one failure does not hide the other results. An always-run evidence
+stage. Unit and Release checks run independently after successful package
+resolution. UI shards prepare and resolve on separate hosted runners/simulators.
+A failure in one does not hide the other results. An always-run evidence
 check rejects missing/unreadable result bundles and zero tests. Required unit and
 UI smoke suites must report zero ordinary failures, skips and expected failures,
 even when the aggregate result is `Passed`. Missing or invalid top-level count
@@ -702,6 +722,19 @@ a substitute. Source head, tested checkout (including synthetic PR merge), event
 SHA, Xcode/Swift/SDK, observed simulator/runtime, counts, stage outcomes/durations,
 and artifact links identify the evidence. Raw failure details remain in the
 result bundles/logs instead of copying potential account data into summaries.
+
+Each shard additionally reads `xcresulttool get test-results tests` and requires
+exactly its assigned method identities, each passed once, with matching summary
+counts. `results.json` records the source and tested checkout SHAs, event SHA,
+repository, run, attempt, inventory digest, toolchain and observed device/runtime.
+The final gate downloads four small manifests (unit/Release plus all three UI
+shards) and validates their contents independently of the matrix status. It
+rejects absent, unreadable, duplicated, stale or incompatible evidence. Device
+UUIDs may differ across runners; model, architecture, OS/build and toolchain must
+match. Artifact names include source SHA, run, attempt and part; each UI bundle
+also includes its shard name. Raw result bundles/logs remain separate artifacts.
+A partial job rerun cannot reuse earlier-attempt manifests: rerun the complete
+workflow for a new complete gate result.
 
 Overall summaries run even on dependency failure and explain docs-only app skips.
 For a docs-only PR, inspect the CI Gate summary for both source and tested merge
@@ -723,7 +756,9 @@ lockfile change in the PR; a cache hit never substitutes for resolution or tests
 Only `build/SourcePackages` is cached. Keys include OS, architecture, Xcode build,
 simulator SDK platform/version, lockfile hash, and a cache epoch. There are no
 broad restore keys and no DerivedData products, credentials, or Firebase config
-in the cache. A cache is saved only after successful app validation. GitHub scopes
+in the cache. The unit/Release job saves the cache only after its own validation succeeds;
+UI shards restore it without competing writes. Cache availability does not
+indicate that UI validation passed. GitHub scopes
 PR caches to the PR merge ref, so untrusted PR runs cannot populate the base
 branch's shared cache. Fork runs may have restore-only cache access; cache-save
 denial is not validation failure and must never be worked around with broader
@@ -736,7 +771,8 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout is 60 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
+Each app job has a 60-minute limit; smaller jobs have explicit timeouts.
+Per-test and inner-stage budgets are tracked separately in issue #129.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with seven-day retention. Hard termination can prevent artifact upload; missing

@@ -31,7 +31,7 @@ def classify(base, head):
 
 
 def gate(needs):
-    if set(needs) != {"classify", "checks", "build-and-test"}:
+    if set(needs) != {"classify", "checks", "build-and-test", "ui-shards"}:
         return False
     classification = needs["classify"]
     mode = classification.get("outputs", {}).get("mode")
@@ -39,8 +39,9 @@ def gate(needs):
         classification.get("result") == "success"
         and mode in {"docs", "full"}
         and needs["checks"].get("result") == "success"
-        and needs["build-and-test"].get("result") == (
+        and all(needs[job].get("result") == (
             "skipped" if mode == "docs" else "success")
+                for job in ("build-and-test", "ui-shards"))
     )
 
 
