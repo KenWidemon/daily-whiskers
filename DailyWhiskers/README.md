@@ -736,7 +736,74 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout is 60 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
+The serial app job has a 90-minute hard timeout. After checkout, a shared
+75-minute execution budget covers preparation, cache restore, dependency
+resolution, unit/UI tests and Release. Each process stage uses the same absolute
+deadline; subsequent stages fail without starting once it expires. The remaining
+15 minutes cover runner/checkout overhead, up to 60 seconds of graceful process
+group shutdown plus bounded forced termination, result reading (45 seconds per
+bundle; two-minute step), cache save (one minute), artifact upload (five minutes),
+and summary publication (one minute). Checkout and cache restore are also bounded.
+This is a reserve under normal runner operation, not a guarantee during runner loss
+or service cancellation. `build/job-budget.json` and each stage status retain the
+budget/deadline and source/run/job identity; shards should set `CI_SHARD_ID` and
+initialize their own job budget once before validation.
+
+A deadline produces `timed_out` / wrapper exit 124 even if the terminated command
+returns zero; its original command exit remains recorded. SIGTERM/SIGINT produce
+`interrupted` with a nonzero wrapper exit. Logs stream and persist during execution.
+The runner sends SIGTERM to its command process group, allows result finalization,
+and escalates to SIGKILL after 60 seconds. Missing, partial or unreadable bundles
+remain failures. Evidence collection and upload run after ordinary stage failures
+or budget expiration. A missing/malformed hosted deadline fails closed.
+
+### UI execution limits
+
+The required offline UI invocation enables XCTest timeouts with both the default
+and maximum per-test execution allowance set to **720 seconds**. The maximum
+prevents an individual test's preferred allowance from escaping the limit. These
+are execution limits, separate from assertion waits and meaningful synchronization;
+no retry, skip selector, additional tap or assertion-wait change is introduced.
+See Apple's [execution allowance contract](https://developer.apple.com/documentation/xctest/xctestcase/executiontimeallowance)
+for minute rounding and the command-line maximum.
+No exceptions are currently configured. Xcode may spend additional time gathering
+timeout diagnostics, so this is not an exact wall-clock kill; the job watchdog
+bounds the overall process. Swift Testing/unit execution is bounded by the shared
+job deadline; this UI XCTest setting does not claim per-test Swift Testing limits.
+
+The starting allowance is calibrated to two hosted iPhone 17 Pro / iOS 26.4.1,
+Xcode 26.6 / 17F113 / simulator SDK 26.5 samples:
+[run 42527479814](https://github.com/KenWidemon/daily-whiskers/actions/runs/42527479814)
+(source `8ba6bd88df3c385e354eb3efe76d67d55f587cce`, tested merge
+`9d372399f46bdda05cad3b974f593b4c7f29d570`) and
+[run 42533295957](https://github.com/KenWidemon/daily-whiskers/actions/runs/42533295957)
+(source `b830d77e44ad397a038f6f09e43239cfd7dd72ab`, tested merge
+`f5dfc1a9716db3ba5bce0872c66f440fc1229d60`). Application and test source are
+identical between these heads; only the workflow budget and README differ.
+The slowest completed valid case, Saved Cards adaptive-window coverage, took
+356.726 and 296.253 seconds. Paired largest-text geometry took 295.780 and
+238.857 seconds; registration editing/relaunch took 250.580 and 218.411 seconds.
+720 seconds gives roughly twice the observed maximum, rounded to whole minutes.
+
+This is a provisional bound, not a statistical performance guarantee: only two
+runs, one device/toolchain and a limited runner-variability sample. The earlier
+run was cancelled by its job timeout with an incomplete UI bundle; its 26
+completed console timings are timing samples only, not passing suite evidence.
+The later complete bundle reports 31 UI cases with three ordinary assertion
+failures; failure durations are not used as normal completion thresholds. The
+comparison includes four Mischievous Cards cases from the separate draft #139,
+without adding that feature or changing trunk's required test selection. Retain
+that distinction when recalibrating after sharding, toolchain, test-inventory or
+runner changes. Validate normal slow cases and a deliberate over-budget probe
+with exact source/run/toolchain identities before treating a new limit as accepted.
+
+The deadline wrapper is exercised with real silent, SIGTERM-ignoring and descendant
+processes in `ci/test_time_limits.py`. To verify XCTest behavior separately, use an
+isolated disposable test target with a slow valid test below its chosen allowance
+and a hung test above it; require a failing command, a readable failing result
+bundle, and the original timeout diagnostic. Keep the deliberate failure out of
+required product inventory and never merge it or treat a failed proof as green.
+
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with seven-day retention. Hard termination can prevent artifact upload; missing
