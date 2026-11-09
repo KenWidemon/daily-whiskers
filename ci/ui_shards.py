@@ -25,7 +25,7 @@ def inventory(root=ROOT):
     data = json.loads((root / 'ci/ui-inventory.json').read_text())
     require(data.get('schema') == 1 and set(data['shards']) == set(SHARDS), 'Unknown inventory/shards')
     discovered = {}
-    for path in sorted((root / 'DailyWhiskersUITests').glob('*.swift')):
+    for path in sorted((root / 'DailyWhiskersUITests').rglob('*.swift')):
         # This inventory deliberately supports the repository's final XCTestCase
         # classes. New classes/methods require a reviewed inventory update.
         chunks = re.split(r'\bfinal class (\w+): XCTestCase\s*\{', path.read_text())

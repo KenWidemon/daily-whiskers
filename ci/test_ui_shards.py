@@ -76,7 +76,8 @@ class ShardTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     shards.inventory(root)
             (root / 'ci/ui-inventory.json').write_text(json.dumps(original))
-            (root / 'DailyWhiskersUITests/NewTests.swift').write_text('final class NewTests: XCTestCase { func testNew() {} }')
+            (root / 'DailyWhiskersUITests/Nested').mkdir()
+            (root / 'DailyWhiskersUITests/Nested/NewTests.swift').write_text('final class NewTests: XCTestCase { func testNew() {} }')
             with self.assertRaises(ValueError):
                 shards.inventory(root)
 
