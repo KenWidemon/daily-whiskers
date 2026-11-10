@@ -61,6 +61,11 @@ enum DWSwitchObserver {
     private static var nextCommand = 0
     private static var entries: [ObjectIdentifier: Entry] = [:]
     private static var active: Input?
+    // Memory-only mirror; file I/O is requested by the host AFTER the original
+    // trial prefix. The existing event-path observer still perturbs timing.
+    private static var captureLines: [String] = []
+    private static var captureFixture: String?
+    private static var captureSession: String?
 
     @MainActor final class Entry: NSObject {
         weak var control: UISwitch?
@@ -99,6 +104,18 @@ enum DWSwitchObserver {
         hook(UISwitch.self, #selector(UIView.didMoveToWindow), #selector(UISwitch.dw_observerMoved))
         hook(UIWindow.self, #selector(UIWindow.sendEvent(_:)), #selector(UIWindow.dw_observerEvent(_:)))
         record("installed limit=256")
+        let environment = ProcessInfo.processInfo.environment
+        if let session = environment["DW_CAPTURE_SESSION"].flatMap(UUID.init(uuidString:)),
+           let fixture = environment["DW_REMINDER_TEST_ID"].flatMap(UUID.init(uuidString:)) {
+            captureSession = session.uuidString; captureFixture = fixture.uuidString
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ReminderFixtures/" + fixture.uuidString)
+            record("fixture id=\(fixture.uuidString) session=\(session.uuidString) fresh=\(!FileManager.default.fileExists(atPath: directory.path))")
+            let notification = "com.dailywhiskers.capture." + session.uuidString + "." + fixture.uuidString
+            CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), nil,
+                { _, _, _, _, _ in Task { @MainActor in DWSwitchObserver.exportCapture() } },
+                notification as CFString, nil, .deliverImmediately)
+        }
     }
     private static func hook(_ type: AnyClass, _ original: Selector, _ replacement: Selector) {
         guard let inherited = class_getInstanceMethod(type, original),
@@ -114,7 +131,34 @@ enum DWSwitchObserver {
         sequence += 1
         let line = "pid=\(ProcessInfo.processInfo.processIdentifier) seq=\(sequence) mono=\(ProcessInfo.processInfo.systemUptime) \(fields)"
         logger.notice("\(line, privacy: .public)")
+        if captureLines.count < 256 { captureLines.append(line) }
         if sequence == 256 { logger.notice("invalid record-limit-reached") }
+    }
+    private static func exportCapture() {
+        guard let fixture = captureFixture, let session = captureSession else { return }
+        audit()
+        let model = ReminderModel.shared
+        let snapshot: [String: Any] = [
+            "fixture": fixture, "session": session, "pid": ProcessInfo.processInfo.processIdentifier,
+            "mono": ProcessInfo.processInfo.systemUptime, "lines": captureLines,
+            "truncated": sequence >= 256, "input": active?.id ?? 0,
+            "native": active?.native ?? 0, "valid": active?.valid ?? false,
+            "modelEnabled": model.status.enabled, "modelBusy": model.busy, "modelLoaded": model.loaded,
+            "controls": entries.values.sorted { $0.id < $1.id }.compactMap { entry -> [String: Any]? in
+                guard let control = entry.control else { return nil }
+                return ["native": entry.id, "on": control.isOn, "enabled": control.isEnabled,
+                        "attached": control.window != nil, "registered": present(entry)]
+            }
+        ]
+        do {
+            let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("DWCapture")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let file = directory.appendingPathComponent(fixture + ".json")
+            // One export per process/trial. Never overwrite retained evidence.
+            guard !FileManager.default.fileExists(atPath: file.path) else { return }
+            try JSONSerialization.data(withJSONObject: snapshot, options: [.sortedKeys]).write(to: file, options: .atomic)
+        } catch { record("invalid capture-export-failed") }
     }
     private static func context() -> String { context(active) }
     private static func context(_ input: Input?) -> String {

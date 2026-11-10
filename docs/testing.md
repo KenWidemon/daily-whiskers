@@ -736,70 +736,71 @@ automated motion checks and scoped owner physical observations support this boun
 acceptance exception. They establish no measured timeline shutdown, CPU reduction
 or energy savings. Final-head CI and independent integration review remain required.
 
-## Isolated native-switch observer procedure
+## Bounded first-enable capture procedure
 
-This temporary diagnostic branch is based on `32677c9`; it is not an acceptance
-candidate. Remove the observer/workflow when the investigation ends, rather than
-merging them into development. The existing `ios.yml` is deliberately replaced by
-a manual-only workflow on this isolated branch, as in the earlier capture branch.
-The normal PR workflow and #139 are unchanged on their own branches.
+This temporary diagnostic branch descends from `bb7fda4`, based on `32677c9`.
+It is not an acceptance candidate or a change to the existing PR branches.
+Remove this instrumentation rather than merging it into development.
 
-Instrumentation requires all three compilation conditions `DEBUG`,
-`CI_SMOKE_TESTING`, and `DW_SWITCH_OBSERVER`, plus the existing offline Reminders
-launch arguments. It adds one retained target to each actual `UISwitch` for
-`valueChanged`; it never removes handlers, replaces a control, sends actions,
-changes state or injects an input. Own-class lifecycle and window-dispatch hooks
-call their original implementations once. Sequence, monotonic timestamp, process,
-native-instance generation and input-association IDs contain no labels or content.
-Logging stops at 256 records per process; reaching that limit is an evidence gap.
+The manual workflow selects only `FirstEnableCaptureTests.testCapture`. Original
+UI test files are preserved byte-for-byte. The new harness copies the original
+Reminder permission-regrant setup, settings navigation, native-child single tap,
+15-second On predicate and subsequent enabled wait. The audit compares those
+helpers and prefix exactly. It stops before revocation. No pre-tap readiness
+query, Off wait, screenshot, delay, retry tap or state correction is added.
 
-The source audit compares all original UI test bytes and proves application
-changes are confined to guarded observation blocks. The selected tests retain
-their original `.tap()`, selectors, fixtures, waits and assertions:
+Each trial creates a new app process and Reminder fixture UUID on the same
+dedicated simulator. This is not a pristine simulator or complete app reset;
+it omits the five predecessor Reminders cases and later-enable history.
+The existing native `valueChanged` observer, own-class attachment hook and window
+`sendEvent` hook remain. All require DEBUG, CI_SMOKE_TESTING, DW_SWITCH_OBSERVER
+and offline Reminders arguments. They preserve original handlers and perturb
+timing; they do not establish universal readiness, delivery or cancellation.
 
-- `ReminderUITests.testDeniedTimeEditKeepsEnabledIntentAndExplainsMissingCoverage`
-- `ReminderUITests.testPermissionRevocationRegrantAndExplicitDisable`
+Existing log records are mirrored into a bounded memory buffer. The fixture
+record identifies the fresh UUID. Only after the original prefix (including an
+assertion failure via teardown) does the runner write a request into its own
+sandbox. The host sends one Darwin notification, reads the app's atomic snapshot,
+and verifies nonce, UUID, process, sequence, original outcome and native identity.
+The flush adds no UI control or action. Its model/native snapshot is subsequent
+state, never evidence that a failed original deadline passed. Off is validated
+post-trial from the existing pre-input native record, with no new timing gate.
+The native callback's instantaneous `isOn=false` is compatible with a later true
+binding/command result and final On state; callback order is unspecified.
 
-After instrumentation review, publish the reviewed isolated commit and dispatch
-`ios.yml` once on that branch with its full `expected_source_sha`. The workflow
-rejects attempts other than 1. It builds for testing and invokes one
-`test-without-building` with both selectors, one iteration and parallel testing
-disabled. Use the scheme's default single execution: omit `-test-iterations`,
-`-retry-tests-on-failure` and `-run-tests-until-failure`. Xcode rejects an explicit
-`-test-iterations 1`. The source audit rejects test plans and scheme repetition
-settings; result collection still requires exactly one execution per selected
-case. Do not repeat either case, use retry options, vary inputs, or run full
-acceptance as part of this diagnostic. No case executes during local compilation.
+A matching atomic host response is mandatory before another trial. Failed
+assertions, stale/duplicate identities, gaps, lost observer, replacement,
+cancellation invalidation, missing terminal metadata, process failure or timeout
+stop the study. Keep raw evidence; inspect offline rather than classifying causes
+live. Missing command completion is not model Off. Missing callbacks alone do not
+prove a UIKit defect. All passes mean only that this setup did not capture failure.
 
-The hosted environment remains macOS 26 arm64, Xcode 26.6 build 17F113, SDK 26.5,
-and a dedicated iPhone 17 Pro/iOS 26.4.1 simulator. The job limit is 65 minutes.
-Checkout/source audit allow 3 minutes, preparation 8, resolution 8, compilation
-20, and the two-case execution 10. Collection and upload each reserve 5 minutes;
-cleanup reserves 2, leaving 4 minutes of job overhead. Stage or job expiration is
-an inconclusive failed attempt, never grounds to extend a wait or rerun.
+The campaign is at most 24 trials in one serial test invocation, with no XCTest
+retry or repetition options. The first successful trial validates the ordinary
+input on that exact environment; its failure stops the study. The one XCTest
+case count must not be confused with the separately identified trial count.
+A fresh source/attempt audit prevents untracked or changed candidate files.
 
-Always retain the xcresult, original build/test exit status, exact source/test
-hashes, device/runtime, summaries, activity attachments and exported diagnostics.
-Extract app stdout from xcresult; post-test simulator logging may already be
-unavailable. Upload the source/run/attempt-named artifact for 14 days, then download
-and verify its GitHub SHA-256 before any expiry/deletion. Delete only the simulator
-whose saved ID and diagnostic-run name both match; retain local evidence. These
-artifacts are diagnostic evidence, not a release or acceptance result.
+Before hosting, independently review the diff, run hermetic rejection/watchdog
+checks, compile and enumerate without execution, then validate exactly one local
+ordinary-tap positive control and one separately labeled no-enable-input control.
+The latter waits 15 seconds without tapping the switch and verifies Off; it is
+not part of the hosted cohort. Failure or missing evidence stops local controls
+without rerun. Local toolchain results do not validate the pinned hosted runtime.
+The runner prohibits a local campaign and refuses duplicate mode directories.
 
-Interpret only the initial-enable interval for each case, keeping processes
-separate. Require observer attachment on the exact native instance before the
-began event, a single original tap, matching instance through dispatch, and an
-ordinary successful input that emits the direct `valueChanged` callback alongside
-the true binding and completed enable command. Callback ordering is unspecified;
-do not require `valueChanged` to precede the binding. Input IDs establish temporal
-association, not causality. Simulated `sendActions` is not a positive control.
+A separately approved hosted action must name the full reviewed SHA and dispatch
+one attempt. Pin macOS 26 arm64, Xcode 26.6 build 17F113, SDK 26.5, iPhone 17 Pro
+and iOS 26.4.1. Budget at most 65 minutes: cumulative preparation ends by minute
+12, test execution uses at most 40 minutes and stops by minute 52, reserving 13
+minutes for collection (5), upload (5), cleanup (2) and margin (1). The host also
+enforces six-minute bootstrap, three-minute trial and bounded finalization/next
+trial deadlines. Admit no next trial with less than three minutes remaining.
+The count is a ceiling, not a promise. Expected elapsed runner use is roughly
+35–50 minutes with low confidence, not billed cost or a capture probability.
 
-Native replacement/detachment, missing observer registration, mismatched sender,
-ambiguous input, missing hook, scan limit, truncated logs or missing result evidence
-make the affected interval inconclusive. Normal later navigation closes an input
-association; it does not erase a fully captured earlier initial-enable interval.
-If both cases pass, or no ordinary successful input validates the observer, stop
-as inconclusive. If failure recurs with a validated observer, distinguish only the
-proven boundaries: native event, binding receipt, command entry and command return.
-An absent callback alone never proves a UIKit defect. No additional variants or
-reruns follow this attempt; review retained evidence before proposing any fix.
+Retain source hashes, commands/exits, per-trial requests/responses/snapshots,
+xcresult, diagnostics and attachments under source/run/attempt identity for 14
+days. Download and verify the artifact digest before expiry. Preserve failed and
+partial evidence. Delete only the dedicated saved simulator ID with matching
+name and verify absence. No other simulator or existing PR status is changed.

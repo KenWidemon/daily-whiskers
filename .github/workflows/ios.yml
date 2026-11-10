@@ -1,4 +1,4 @@
-name: Isolated native switch observer (not acceptance)
+name: Bounded first-enable capture (not acceptance)
 on:
   workflow_dispatch:
     inputs:
@@ -9,62 +9,47 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: diagnostic-switch-observer-${{ github.ref }}
+  group: diagnostic-switch-capture-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  observe:
+  capture:
     runs-on: macos-26
     timeout-minutes: 65
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       EXPECTED_SOURCE: ${{ inputs.expected_source_sha }}
     steps:
+      - name: Start total budget
+        timeout-minutes: 1
+        run: echo "CAPTURE_JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         timeout-minutes: 2
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Verify isolated source and attempt
-        timeout-minutes: 1
-        run: |
-          test "$GITHUB_RUN_ATTEMPT" = 1
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
-          python3 ci/switch-observer.py audit
-      - name: Prepare pinned toolchain and dedicated simulator
-        timeout-minutes: 8
-        run: |
-          mkdir -p build
-          bash ci/prepare-app.sh
-          python3 ci/switch-observer.py simulator
-      - name: Resolve locked packages
-        timeout-minutes: 8
-        run: bash ci/test-app.sh resolve
-      - name: Compile observer and original UI tests
-        timeout-minutes: 20
-        run: python3 ci/switch-observer.py build
-      - name: One fixed execution of each original case
-        timeout-minutes: 10
-        run: python3 ci/switch-observer.py test
-      - name: Retain xcresult diagnostics including app stdout
+      - name: Audit and build within cumulative twelve-minute preparation budget
+        timeout-minutes: 12
+        run: python3 ci/first-enable-capture.py prepare
+      - name: At most 24 serial original first-enable prefixes; no retries
+        timeout-minutes: 41
+        run: python3 ci/first-enable-capture.py run --mode campaign
+      - name: Preserve diagnostic evidence
         if: always()
         timeout-minutes: 5
-        run: python3 ci/switch-observer.py collect
+        run: python3 ci/first-enable-capture.py collect
       - name: Upload diagnostic evidence (not acceptance)
         if: always()
         timeout-minutes: 5
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: switch-observer-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: first-enable-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            build/Observer.xcresult
-            build/observer-diagnostics
-            build/observer-attachments
-            build/observer-*.json
-            build/observer-*.log
-            build/toolchain.txt
+            build/capture/*.json
+            build/capture/*.log
+            build/capture/campaign
           retention-days: 14
           if-no-files-found: error
       - name: Delete only the dedicated diagnostic simulator
         if: always()
         timeout-minutes: 2
-        run: python3 ci/switch-observer.py cleanup
+        run: python3 ci/first-enable-capture.py cleanup
