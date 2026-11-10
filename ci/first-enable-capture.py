@@ -410,7 +410,8 @@ def collect():
 
 def cleanup():
     if not (OUT / "state.json").exists():
-        save(OUT / "cleanup.json", {"created": False, "reason": "no dedicated simulator identity"})
+        save(OUT / "cleanup.json", {"verified": False, "attempted": False,
+                                    "reason": "dedicated simulator identity unavailable"})
         return
     state = load(OUT / "state.json")
     devices = json.loads(command(["xcrun", "simctl", "list", "devices", "--json"]))["devices"]

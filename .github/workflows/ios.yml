@@ -37,6 +37,10 @@ jobs:
         if: always()
         timeout-minutes: 5
         run: python3 ci/first-enable-capture.py collect
+      - name: Delete only the dedicated diagnostic simulator
+        if: always()
+        timeout-minutes: 2
+        run: python3 ci/first-enable-capture.py cleanup
       - name: Upload diagnostic evidence (not acceptance)
         if: always()
         timeout-minutes: 5
@@ -49,7 +53,3 @@ jobs:
             build/capture/campaign
           retention-days: 14
           if-no-files-found: error
-      - name: Delete only the dedicated diagnostic simulator
-        if: always()
-        timeout-minutes: 2
-        run: python3 ci/first-enable-capture.py cleanup
