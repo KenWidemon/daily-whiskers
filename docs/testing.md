@@ -5,6 +5,48 @@ Use [app README](../DailyWhiskers/README.md#tests) for test commands and
 is a repeatable protocol plus scoped evidence, not a second backlog or release gate.
 Development tests do not retroactively validate the frozen V1 binary.
 
+## Required UI shard verification
+
+The [CI contract](../DailyWhiskers/README.md#continuous-integration) and
+`ci/ui-inventory.json` define the complete required hosted inventory. Run
+`python3 ci/ui_shards.py inventory` and the Python CI-policy tests when adding
+classes/methods or changing shard assignment. The policy tests exercise the real
+shell selector command, complete coverage, failed/skipped/zero-test results,
+missing/duplicate artifacts and mismatched source, attempt and environment.
+
+Keep the in-method ordered sequences intact: Saved Cards save/relaunch/remove,
+load-state recovery, registration editing/relaunch, Stillness lifecycle and
+Reminder permission/time/navigation sequences remain single test methods in
+whole-class shards. Saved Cards clears its collection in setup; load-state,
+Stillness and Reminders use per-test UUID fixtures. Smoke tests relaunch the
+offline app and each relevant class establishes its own preconditions. No
+cross-class ordering requirement was identified in this review. Separate
+simulators change cross-class history; sharded results do not reproduce the
+original serial full-suite diagnostic context or resolve its recorded failures.
+Saved Cards recovery checks use XCTest's native alert-disappearance wait after
+one Cancel tap, with a five-second deadline and an explicit nonexistence
+assertion. A negative control requires that the same wait reject the alert while
+it is still presented; the test then continues through the original in-place
+Retry and exact retained-row assertions.
+Keep the earlier Duo and switch-failure evidence attached to its original source,
+toolchain and ordering, even if a later sharded run passes.
+
+For a hosted proof, inspect all three shard job conclusions, the unit/Release
+conclusion, policy checks and **CI Gate** at the exact source and tested merge.
+Verify raw artifacts and the complete same-attempt manifest aggregation. For a
+docs-only PR, verify both app jobs intentionally skip and the summary explicitly
+claims no app pass. A partial-attempt rerun fails closed; use a complete rerun.
+Adding a feature branch with a new required UI class requires extending the
+inventory and assignment before integration, without dropping existing classes.
+
+Compare timing using GitHub's job start/end timestamps for the same environment
+and cache state: report elapsed wall time from the first app job start through
+the last app job completion separately from the sum of all app job durations
+(runner minutes). Also retain workflow elapsed time including queue/setup and
+any billed cost separately. Three shards add repeated build/setup work; shard
+count alone does not establish a speedup or cost saving. Stage logs provide
+additional diagnostics, not a substitute for measured job/whole-run timings.
+
 ## V1.1 Build 3 Acceptance
 
 Scope: accepted `1.1 (3)`, source

@@ -132,7 +132,7 @@ class ResultTests(unittest.TestCase):
 
     def test_docs_only_summary(self):
         summary = gate_summary({'classify': {'outputs': {'mode': 'docs'}, 'result': 'success'},
-                                'checks': {'result': 'success'}, 'build-and-test': {'result': 'skipped'}})
+                                'checks': {'result': 'success'}, 'build-and-test': {'result': 'skipped'}, 'ui-shards': {'result': 'skipped'}})
         self.assertIn('intentionally omitted', summary)
         self.assertIn('No app pass claimed', summary)
 

@@ -702,9 +702,12 @@ final class SavedCardsLoadStateTests: XCTestCase {
     private func dismissError() {
         let alert = app.alerts["Couldn't Update Saved Cards"]
         XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        // Prove the disappearance wait rejects the still-present alert before the
+        // single dismissal action. Keep the same five-second post-tap deadline.
+        XCTAssertFalse(alert.waitForNonExistence(timeout: 1))
         alert.buttons["Cancel"].tap()
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: alert)
-        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed)
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(alert.exists)
     }
     private func retry() {
         let retry = app.buttons["saved-cards-retry"]
