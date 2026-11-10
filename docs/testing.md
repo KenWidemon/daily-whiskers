@@ -764,7 +764,11 @@ After instrumentation review, publish the reviewed isolated commit and dispatch
 `ios.yml` once on that branch with its full `expected_source_sha`. The workflow
 rejects attempts other than 1. It builds for testing and invokes one
 `test-without-building` with both selectors, one iteration and parallel testing
-disabled. Do not repeat either case, use retry options, vary inputs, or run full
+disabled. Use the scheme's default single execution: omit `-test-iterations`,
+`-retry-tests-on-failure` and `-run-tests-until-failure`. Xcode rejects an explicit
+`-test-iterations 1`. The source audit rejects test plans and scheme repetition
+settings; result collection still requires exactly one execution per selected
+case. Do not repeat either case, use retry options, vary inputs, or run full
 acceptance as part of this diagnostic. No case executes during local compilation.
 
 The hosted environment remains macOS 26 arm64, Xcode 26.6 build 17F113, SDK 26.5,

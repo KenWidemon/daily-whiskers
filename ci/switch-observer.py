@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 
 from results import test_counts
 
@@ -39,6 +40,18 @@ def audit():
     assert changed <= set(SOURCES + [".github/workflows/ios.yml", "ci/switch-observer.py", "docs/testing.md"]), changed
     files = output("git", "ls-tree", "-r", "--name-only", BASE, "DailyWhiskersUITests").splitlines()
     assert sorted(str(p.relative_to(ROOT)) for p in (ROOT / "DailyWhiskersUITests").rglob("*") if p.is_file()) == sorted(files)
+    # With no repetition CLI options, use the audited scheme's single-run defaults.
+    scheme = ROOT / "DailyWhiskers.xcodeproj/xcshareddata/xcschemes/DailyWhiskersInteraction.xcscheme"
+    action = ET.parse(scheme).getroot().find("TestAction")
+    assert action is not None and action.find("TestPlans") is None
+    assert not output("git", "ls-files", "*.xctestplan")
+    for node in action.iter():
+        assert not any(word in key.lower() for key in node.attrib
+                       for word in ("repet", "retry", "iteration")), "Unexpected repetition setting"
+    testables = action.findall("Testables/TestableReference")
+    assert len(testables) == 1 and testables[0].get("skipped") == "NO"
+    assert testables[0].get("parallelizable") == "NO"
+    assert testables[0].find("BuildableReference").get("BlueprintName") == "DailyWhiskersUITests"
     hashes = {}
     for filename in files:
         expected = subprocess.check_output(["git", "show", f"{BASE}:{filename}"], cwd=ROOT)
@@ -54,6 +67,8 @@ def audit():
     save("observer-source.json", {
         "base": BASE, "source": output("git", "rev-parse", "HEAD"),
         "test_sha256": hashes, "cases": CASES, "run": os.getenv("GITHUB_RUN_ID"),
+        "scheme_sha256": hashlib.sha256(scheme.read_bytes()).hexdigest(),
+        "repetition": "Scheme default; no test plan or repetition/retry override",
         "attempt": os.getenv("GITHUB_RUN_ATTEMPT"), "acceptance": False,
     })
     print("Original test bytes and application behavior outside opt-in blocks verified.")
@@ -89,7 +104,7 @@ def execute(stage):
               "SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING DW_SWITCH_OBSERVER"]
     args = ["xcodebuild", "build-for-testing" if stage == "build" else "test-without-building"] + common
     if stage == "test":
-        args += ["-parallel-testing-enabled", "NO", "-test-iterations", "1",
+        args += ["-parallel-testing-enabled", "NO",
                  "-resultBundlePath", str(BUNDLE)]
         args += ["-only-testing:DailyWhiskersUITests/" + case for case in CASES]
     save(f"observer-{stage}-command.json", args)
