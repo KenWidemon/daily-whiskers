@@ -735,3 +735,67 @@ app by PID or exact process name; neither attempt created a trace. Source review
 automated motion checks and scoped owner physical observations support this bounded
 acceptance exception. They establish no measured timeline shutdown, CPU reduction
 or energy savings. Final-head CI and independent integration review remain required.
+
+## Isolated native-switch observer procedure
+
+This temporary diagnostic branch is based on `32677c9`; it is not an acceptance
+candidate. Remove the observer/workflow when the investigation ends, rather than
+merging them into development. The existing `ios.yml` is deliberately replaced by
+a manual-only workflow on this isolated branch, as in the earlier capture branch.
+The normal PR workflow and #139 are unchanged on their own branches.
+
+Instrumentation requires all three compilation conditions `DEBUG`,
+`CI_SMOKE_TESTING`, and `DW_SWITCH_OBSERVER`, plus the existing offline Reminders
+launch arguments. It adds one retained target to each actual `UISwitch` for
+`valueChanged`; it never removes handlers, replaces a control, sends actions,
+changes state or injects an input. Own-class lifecycle and window-dispatch hooks
+call their original implementations once. Sequence, monotonic timestamp, process,
+native-instance generation and input-association IDs contain no labels or content.
+Logging stops at 256 records per process; reaching that limit is an evidence gap.
+
+The source audit compares all original UI test bytes and proves application
+changes are confined to guarded observation blocks. The selected tests retain
+their original `.tap()`, selectors, fixtures, waits and assertions:
+
+- `ReminderUITests.testDeniedTimeEditKeepsEnabledIntentAndExplainsMissingCoverage`
+- `ReminderUITests.testPermissionRevocationRegrantAndExplicitDisable`
+
+After instrumentation review, publish the reviewed isolated commit and dispatch
+`ios.yml` once on that branch with its full `expected_source_sha`. The workflow
+rejects attempts other than 1. It builds for testing and invokes one
+`test-without-building` with both selectors, one iteration and parallel testing
+disabled. Do not repeat either case, use retry options, vary inputs, or run full
+acceptance as part of this diagnostic. No case executes during local compilation.
+
+The hosted environment remains macOS 26 arm64, Xcode 26.6 build 17F113, SDK 26.5,
+and a dedicated iPhone 17 Pro/iOS 26.4.1 simulator. The job limit is 65 minutes.
+Checkout/source audit allow 3 minutes, preparation 8, resolution 8, compilation
+20, and the two-case execution 10. Collection and upload each reserve 5 minutes;
+cleanup reserves 2, leaving 4 minutes of job overhead. Stage or job expiration is
+an inconclusive failed attempt, never grounds to extend a wait or rerun.
+
+Always retain the xcresult, original build/test exit status, exact source/test
+hashes, device/runtime, summaries, activity attachments and exported diagnostics.
+Extract app stdout from xcresult; post-test simulator logging may already be
+unavailable. Upload the source/run/attempt-named artifact for 14 days, then download
+and verify its GitHub SHA-256 before any expiry/deletion. Delete only the simulator
+whose saved ID and diagnostic-run name both match; retain local evidence. These
+artifacts are diagnostic evidence, not a release or acceptance result.
+
+Interpret only the initial-enable interval for each case, keeping processes
+separate. Require observer attachment on the exact native instance before the
+began event, a single original tap, matching instance through dispatch, and an
+ordinary successful input that emits the direct `valueChanged` callback alongside
+the true binding and completed enable command. Callback ordering is unspecified;
+do not require `valueChanged` to precede the binding. Input IDs establish temporal
+association, not causality. Simulated `sendActions` is not a positive control.
+
+Native replacement/detachment, missing observer registration, mismatched sender,
+ambiguous input, missing hook, scan limit, truncated logs or missing result evidence
+make the affected interval inconclusive. Normal later navigation closes an input
+association; it does not erase a fully captured earlier initial-enable interval.
+If both cases pass, or no ordinary successful input validates the observer, stop
+as inconclusive. If failure recurs with a validated observer, distinguish only the
+proven boundaries: native event, binding receipt, command entry and command return.
+An absent callback alone never proves a UIKit defect. No additional variants or
+reruns follow this attempt; review retained evidence before proposing any fix.
