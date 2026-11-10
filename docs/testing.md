@@ -23,6 +23,11 @@ offline app and each relevant class establishes its own preconditions. No
 cross-class ordering requirement was identified in this review. Separate
 simulators change cross-class history; sharded results do not reproduce the
 original serial full-suite diagnostic context or resolve its recorded failures.
+Saved Cards recovery checks use XCTest's native alert-disappearance wait after
+one Cancel tap, with a five-second deadline and an explicit nonexistence
+assertion. A negative control requires that the same wait reject the alert while
+it is still presented; the test then continues through the original in-place
+Retry and exact retained-row assertions.
 Keep the earlier Duo and switch-failure evidence attached to its original source,
 toolchain and ordering, even if a later sharded run passes.
 
