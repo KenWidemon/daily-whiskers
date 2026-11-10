@@ -198,6 +198,8 @@ def prepare(args):
     runtimes = json.loads(command(["xcrun", "simctl", "list", "runtimes", "--json"]))["runtimes"]
     matches = [r for r in runtimes if r.get("isAvailable") and r.get("version") == runtime and "iOS" in r["identifier"]]
     assert len(matches) == 1
+    if not args.local:
+        assert matches[0]["buildversion"] == "23E254a", "unexpected hosted runtime build"
     name = "DWCapture-" + str(uuid.uuid4())
     device = command(["xcrun", "simctl", "create", name, "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro", matches[0]["identifier"]])
     state = {"source": source, "local": args.local, "jobStarted": epoch, "device": device, "name": name,
@@ -407,6 +409,9 @@ def collect():
 
 
 def cleanup():
+    if not (OUT / "state.json").exists():
+        save(OUT / "cleanup.json", {"created": False, "reason": "no dedicated simulator identity"})
+        return
     state = load(OUT / "state.json")
     devices = json.loads(command(["xcrun", "simctl", "list", "devices", "--json"]))["devices"]
     found = [d for group in devices.values() for d in group if d["udid"] == state["device"]]

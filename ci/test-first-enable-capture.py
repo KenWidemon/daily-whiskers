@@ -6,6 +6,9 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
+import uuid
 
 spec = importlib.util.spec_from_file_location("capture", Path(__file__).with_name("first-enable-capture.py"))
 capture = importlib.util.module_from_spec(spec)
@@ -87,6 +90,95 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 capture.bounded([sys.executable, "-c", "raise SystemExit(7)"],
                                 time.time() + 3, Path(directory) / "log")
+
+
+class RunnerTests(unittest.TestCase):
+    def exercise(self, behavior):
+        # Real mailbox files, fake xcodebuild/app/clock. No simulator or test app.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out = root / "out"; runner = root / "runner"; app = root / "app"
+            clock = [10000.0]; proc = None; mailbox = None; session = None
+            state = {"source": {"fake": "immutable"}, "local": False, "jobStarted": clock[0], "device": "fake"}
+            if behavior == "budget": state["jobStarted"] -= 50 * 60
+            capture.save(out / "state.json", state)
+            def configure(_state, _mode, nonce):
+                nonlocal mailbox, session
+                session = nonce; mailbox = runner / "Documents/DWCapture" / nonce
+                mailbox.mkdir(parents=True)
+                return root / "fake.xctestrun"
+            class Process:
+                def __init__(self, *args, **kwargs):
+                    nonlocal proc
+                    proc = self; self.returncode = None; self.ordinal = 0; self.launched = []
+                    self.next()
+                def next(self):
+                    self.ordinal += 1; self.launched.append(self.ordinal)
+                    request = {"ordinal": self.ordinal, "session": session, "fixture": str(uuid.uuid4()).upper(),
+                               "mode": "campaign", "startedMono": 100.0}
+                    self.request = request
+                    capture.save(mailbox / f"start-{self.ordinal}.json", request)
+                    if behavior != "missing":
+                        capture.save(mailbox / f"request-{self.ordinal}.json",
+                                     {**request, "finishedMono": 115.0, "originalPassed": behavior != "failure"})
+                def poll(self):
+                    if self.returncode is not None: return self.returncode
+                    response = mailbox / f"response-{self.ordinal}.json"
+                    if response.exists():
+                        decision = capture.load(response)["decision"]
+                        if decision == "continue" and behavior != "early-exit": self.next()
+                        else: self.returncode = 65 if decision == "stop" else 0
+                    return self.returncode
+                def wait(self, timeout=None): return self.returncode
+            def host_command(argv, **kwargs):
+                self.assertIn("notify_post", argv)
+                snapshot, _ = example(); request = proc.request
+                snapshot.update(fixture=request["fixture"], session=session)
+                snapshot["lines"][1] = snapshot["lines"][1].replace(FIXTURE, request["fixture"]).replace(SESSION, session)
+                if behavior == "stale": snapshot["session"] = SESSION
+                capture.save(app / "Library/Caches/DWCapture" / (request["fixture"] + ".json"), snapshot)
+                return ""
+            def stop(process):
+                if process.returncode is None: process.returncode = -15
+            with patch.object(capture, "OUT", out), patch.object(capture, "source_guard", return_value=state["source"]), \
+                 patch.object(capture, "configure", side_effect=configure), \
+                 patch.object(capture, "container", side_effect=lambda _, bundle: runner if bundle == capture.RUNNER else app), \
+                 patch.object(capture, "command", side_effect=host_command), patch.object(capture, "inventory", return_value={"verified": True}), \
+                 patch.object(capture.subprocess, "Popen", Process), patch.object(capture, "terminate", side_effect=stop), \
+                 patch.object(capture.time, "time", side_effect=lambda: clock[0]), \
+                 patch.object(capture.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)):
+                if behavior in ("count", "budget"):
+                    capture.run(SimpleNamespace(mode="campaign"))
+                else:
+                    with self.assertRaises(AssertionError): capture.run(SimpleNamespace(mode="campaign"))
+                result = capture.load(out / "campaign/outcome.json")
+                with self.assertRaises(FileExistsError): capture.run(SimpleNamespace(mode="campaign"))
+                return result, proc.launched
+
+    def test_first_failure_no_next_trial(self):
+        result, launched = self.exercise("failure")
+        self.assertFalse(result["valid"]); self.assertEqual(launched, [1])
+
+    def test_stale_export_no_next_trial(self):
+        result, launched = self.exercise("stale")
+        self.assertFalse(result["valid"]); self.assertEqual(launched, [1])
+
+    def test_missing_request_times_out_without_next_trial(self):
+        result, launched = self.exercise("missing")
+        self.assertIn("watchdog", result["failure"]); self.assertEqual(launched, [1])
+
+    def test_early_zero_exit_after_continue_is_invalid(self):
+        result, launched = self.exercise("early-exit")
+        self.assertFalse(result["valid"]); self.assertEqual(launched, [1])
+
+    def test_exact_24_cap_and_duplicate_mode_refusal(self):
+        result, launched = self.exercise("count")
+        self.assertTrue(result["valid"]); self.assertEqual(launched, list(range(1, 25)))
+        self.assertEqual(result["completionReason"], "count-limit")
+
+    def test_budget_does_not_admit_next_trial(self):
+        result, launched = self.exercise("budget")
+        self.assertTrue(result["valid"]); self.assertEqual(launched, [1])
+        self.assertEqual(result["completionReason"], "time-admission-limit")
 
 
 if __name__ == "__main__": unittest.main()
