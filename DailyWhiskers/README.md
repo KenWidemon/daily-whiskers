@@ -598,7 +598,9 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 The `iOS CI` workflow runs on every PR targeting `main`, `codex/develop`, or
 `release/rc`, pushes to those branches, and manual dispatch. Its final **CI Gate**
 checks the actual results of classification, documentation/policy checks, and the
-app job. Only a successful docs-only classification permits the app job to skip.
+unit/Release job, UI shard matrix and aggregate evidence. Only a successful
+docs-only classification permits both app jobs to skip. The required check
+name remains **CI Gate**; this change does not modify branch protection.
 A failed, cancelled, timed-out, missing, or unexpectedly skipped prerequisite
 cannot pass the gate. Workflow-level path filters are deliberately absent.
 A whole-run cancellation or service outage can prevent the gate from executing;
@@ -635,12 +637,33 @@ updates must update the lockfile and pass the checks in the same PR.
 
 ### App validation and pinned inputs
 
-The app job uses the `macos-26` ARM64 runner, Xcode **26.6 / 17F113**, the iOS
-simulator SDK 26.5, and **iPhone 17 Pro / iOS 26.4.1**. It verifies Xcode and the
-exact simulator rather than falling back to another installation. Runner image,
-architecture, Swift/SDK versions, and simulator identity are logged. Hosted
-runner images remain mutable; reproducibility means pinned inputs with explicit
-drift failures, not byte-identical signed artifacts.
+Every app job uses the official `xcode-27` ARM64 **preview** runner, explicitly
+selects `/Applications/Xcode_27.2.app/Contents/Developer`, and requires Xcode
+**27.2 / 27B52**, simulator SDK **27.2**, and **iPhone 17 Pro / iOS 27.0 / 24A434**.
+The [official image manifest](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+at image `20261104.0337.1` lists Xcode 27.2, but defaults to 27.1 and does not
+list or promise a precreated iPhone 17 Pro. The workflow does not change global Xcode defaults, download
+another runtime, or fall back to another installation/model/runtime. Runner image,
+architecture, Swift/SDK versions and simulator provenance are logged. Hosted
+images remain mutable; pinned inputs fail closed on drift, not byte-identical
+signed artifacts. The preview label is narrowly allowed in `.github/actionlint.yaml`
+because actionlint 1.7.12's built-in catalog predates it; other validation remains.
+
+`ci/simulator.py` requires one available exact runtime identifier
+`com.apple.CoreSimulator.SimRuntime.iOS-27-0`, version 27.0, build 24A434, ARM64
+support and an explicit compatible iPhone 17 Pro device type. It reuses exactly
+one matching available named device, rejects ambiguity, or creates one only when
+none exists. Creation intent, baseline UUIDs, returned UUID/ownership and readback
+are durable before testing. A timeout or unreadable creation result leaves
+ownership uncertain, never permission to guess a UUID or delete by name.
+
+Every app job runs bounded `always()` cleanup before collecting evidence. Only a
+positively owned UUID absent from the baseline may be shut down/deleted; preexisting
+devices are preserved. Cleanup shares a 45-second command deadline inside a
+one-minute step and verifies absence after deletion. Missing, failed or uncertain
+cleanup fails the job and manifest gate. Runtime/device snapshots, preparation and
+cleanup status are uploaded with the other evidence. Local offline tests mock all
+simctl operations; they do not prove hosted compatibility or cleanup behavior.
 
 XcodeGen **2.46.0** is downloaded from its release and checked against a committed
 SHA-256. Actions use Node 24 and full commit SHAs with release comments; actionlint **1.7.12**
@@ -651,13 +674,30 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, offline smoke, Saved Cards and Stillness Mode tests, and an unsigned Release build for
+unit suite, the required offline UI inventory, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
-`SavedCardsLoadStateTests` and `StillnessModeTests`
-from the interaction scheme. The five smoke tests cover
+The required offline UI inventory is `ci/ui-inventory.json`. Three independent
+hosted jobs select whole classes from the interaction scheme:
+
+| Shard | Required classes | Cases |
+| --- | --- | --- |
+| `cards` | `SavedCardsTests` | 7 |
+| `settings` | `RegressionSmokeTests`, `StillnessModeTests` | 8 |
+| `reminders` | `ReminderUITests`, `SavedCardsLoadStateTests` | 12 |
+
+The inventory lists every method and explicitly identifies the existing optional
+`AuthLayoutTests`, `BonusCardTests` and `DailyCardSharingTests` coverage. Source
+changes must update this reviewed inventory: missing, duplicate, unknown and
+unassigned classes/methods fail policy checks before Xcode runs. A new required
+feature class must enter exactly one shard; it must not be made optional to get
+a green gate. `ci/test-app.sh ui` requires `CI_PART=cards`, `settings` or `reminders`.
+Each class retains serial XCTest execution and its existing compile flags,
+launch fixtures, assertions and state waits. No test is retried or skipped.
+The matrix uses `fail-fast: false` so one failing shard does not cancel the others.
+
+The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
@@ -688,8 +728,9 @@ The larger `AuthLayoutTests` suite remains separate and also requires the offlin
 marker before interaction, including now-valid single-password submissions.
 
 Each stage records start, completion, exit code and duration before the next
-stage. Unit, smoke and Release checks run independently after successful package
-resolution, so one failure does not hide the other results. An always-run evidence
+stage. Unit and Release checks run independently after successful package
+resolution. UI shards prepare and resolve on separate hosted runners/simulators.
+A failure in one does not hide the other results. An always-run evidence
 check rejects missing/unreadable result bundles and zero tests. Required unit and
 UI smoke suites must report zero ordinary failures, skips and expected failures,
 even when the aggregate result is `Passed`. Missing or invalid top-level count
@@ -702,6 +743,22 @@ a substitute. Source head, tested checkout (including synthetic PR merge), event
 SHA, Xcode/Swift/SDK, observed simulator/runtime, counts, stage outcomes/durations,
 and artifact links identify the evidence. Raw failure details remain in the
 result bundles/logs instead of copying potential account data into summaries.
+
+Each shard additionally reads `xcresulttool get test-results tests` and requires
+exactly its assigned method identities, each passed once, with matching summary
+counts. `results.json` records the source and tested checkout SHAs, event SHA,
+repository, run, attempt, inventory digest, toolchain and observed device/runtime.
+Both collection and the final gate also bind each stage name, source/tested SHA,
+run/attempt, job and shard to the current manifest; current outer metadata cannot
+relabel stale stage evidence. The final gate downloads four small manifests (unit/Release plus all three UI
+shards) and validates their contents independently of the matrix status. It
+rejects absent, unreadable, duplicated, stale or incompatible evidence. Device
+UUIDs may differ across runners; each observed test UUID must match its own prepared
+device and verified cleanup record. Model, architecture, exact OS/build and
+toolchain must match across jobs. Artifact names include source SHA, run, attempt and part; each UI bundle
+also includes its shard name. Raw result bundles/logs remain separate artifacts.
+A partial job rerun cannot reuse earlier-attempt manifests: rerun the complete
+workflow for a new complete gate result.
 
 Overall summaries run even on dependency failure and explain docs-only app skips.
 For a docs-only PR, inspect the CI Gate summary for both source and tested merge
@@ -723,7 +780,9 @@ lockfile change in the PR; a cache hit never substitutes for resolution or tests
 Only `build/SourcePackages` is cached. Keys include OS, architecture, Xcode build,
 simulator SDK platform/version, lockfile hash, and a cache epoch. There are no
 broad restore keys and no DerivedData products, credentials, or Firebase config
-in the cache. A cache is saved only after successful app validation. GitHub scopes
+in the cache. The unit/Release job saves the cache only after its own validation succeeds;
+UI shards restore it without competing writes. Cache availability does not
+indicate that UI validation passed. GitHub scopes
 PR caches to the PR merge ref, so untrusted PR runs cannot populate the base
 branch's shared cache. Fork runs may have restore-only cache access; cache-save
 denial is not validation failure and must never be worked around with broader
@@ -736,11 +795,139 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout is 60 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
+Immediately before restore, `ci/cache_window.py` verifies the existing budget's
+source/run/attempt/job/shard identity, 2700-second duration and exported absolute
+deadline. It never renews or rewrites the budget. From the remaining seconds it
+subtracts **60 seconds** for ordinary runner transition/helper overhead, rounds
+down to whole minutes and caps restore at **five minutes**. Fewer than one usable
+minute skips only the cache optimization. For example, 120 seconds remaining
+permits one minute; just under 120 skips; 360 permits five minutes. Missing,
+malformed or stale budget data fails closed instead of enabling a fallback.
+
+Both plan and report run through the shared deadline wrapper. Report requires a
+successful plan, so preparation timeout cannot add an unconditional cache-report
+step afterward. The restore action additionally requires an explicit enabled flag
+and an allowlisted timeout of 1–5; missing/zero/unknown outputs cannot start it.
+A skipped plan exports a finite inert one-minute timeout, never zero/unlimited.
+Cache save requires a successfully completed restore action and validated tests.
+
+`build/cache-status.json`, its wrapper logs/status and the aggregate manifest
+retain the selected/skipped window and observed action outputs. Collection and
+aggregation validate that provenance against the current source/tested checkout,
+run/attempt/job/shard and the original budget file. All wrapped execution stages,
+including cache plan/report, must carry that same deadline; cleanup is outside it.
+A self-consistent cache window cannot substitute a renewed deadline. Summaries distinguish `exact_hit`, `cold_miss`,
+`partial_restore`, `skipped_budget` and unavailable/failed evidence. A valid skip
+does not fail app validation, but skipped/partial/failed restore never qualifies
+as either a cold or warm control. A report after the deadline is rejected.
+
+Each app job keeps a 60-minute hard timeout. After checkout, each unit/Release
+job and UI shard initializes its own shared **45-minute execution budget** once.
+Preparation, cache restore, dependency resolution and that job's validation stages
+share the same absolute deadline; subsequent stages fail without starting once it
+expires. The 15-minute reserve covers checkout (three minutes), up to 60 seconds
+of graceful process-group shutdown plus bounded forced termination, result reading
+(45 seconds per reader; two-minute step), cache save (one minute in unit/Release),
+owned-device cleanup (one-minute step, 45-second shared command deadline), raw
+artifact upload (five minutes), manifest upload (one minute), and summary
+publication (one minute). Accounting must follow the actual conditional paths:
+success requires no watchdog grace, so the reserve step caps total 840 seconds
+for unit/Release or 780 seconds for UI. A watchdog failure allows 65 seconds for
+shutdown/reaping but skips the success-only cache save, totaling 845 seconds for
+either job. This leaves at least 55 seconds of nominal runner overhead within the
+900-second reserve; cleanup's shorter command deadline is additional margin.
+The cache window removes the old unconditional five-minute restore overrun under
+its stated 60-second transition/helper-overhead assumption. GitHub's action timeout
+is relative to action execution, not the shared wall-clock deadline: arbitrary
+runner suspension or scheduling delay can exceed that allowance. The following
+wrapped stage rejects an expired budget, but cannot reclaim lost upload time.
+Verify actual hosted timing and failure-path uploads; the accounting is not a
+guarantee during runner stalls, clock changes, service cancellation or runner loss.
+
+This retains the shard job ceilings instead of carrying the serial 90-minute
+ceiling into every parallel job. The 45-minute budget is provisional and must be
+checked on the combined pinned hosted candidate; earlier shard results do not
+qualify this integration. This is a reserve under normal runner operation, not a
+guarantee during runner loss or service cancellation. `build/job-budget.json` and
+each stage status retain budget/deadline and source/run/job identity. Every job
+sets `CI_SHARD_ID` equal to its evidence part (`unit-release`, `cards`, `settings`
+or `reminders`), so parallel jobs never share a deadline or evidence directory.
+
+A deadline produces `timed_out` / wrapper exit 124 even if the terminated command
+returns zero; its original command exit remains recorded. SIGTERM/SIGINT produce
+`interrupted` with a nonzero wrapper exit. Logs stream and persist during execution.
+The runner sends SIGTERM to its command process group, allows result finalization,
+and escalates to SIGKILL after 60 seconds. A denied cleanup signal preserves the
+observed command exit and records cleanup as unverified; it cannot turn the
+timeout into a pass. Missing, partial or unreadable bundles
+remain failures. Evidence collection and upload run after ordinary stage failures
+or budget expiration. A missing/malformed hosted deadline fails closed.
+
+### UI execution limits
+
+The required offline UI invocation enables XCTest timeouts with both the default
+and maximum per-test execution allowance set to **720 seconds**. The maximum
+prevents an individual test's preferred allowance from escaping the limit. These
+are execution limits, separate from assertion waits and meaningful synchronization;
+no retry, skip selector, additional tap or assertion-wait change is introduced.
+See Apple's [execution allowance contract](https://developer.apple.com/documentation/xctest/xctestcase/executiontimeallowance)
+for minute rounding and the command-line maximum.
+No exceptions are currently configured. Xcode may spend additional time gathering
+timeout diagnostics, so this is not an exact wall-clock kill; the job watchdog
+bounds the overall process. Swift Testing/unit execution is bounded by the shared
+job deadline; this UI XCTest setting does not claim per-test Swift Testing limits.
+
+The starting allowance retains its historical calibration from two hosted iPhone 17 Pro / iOS 26.4.1,
+Xcode 26.6 / 17F113 / simulator SDK 26.5 samples:
+[run 42527479814](https://github.com/KenWidemon/daily-whiskers/actions/runs/42527479814)
+(source `8ba6bd88df3c385e354eb3efe76d67d55f587cce`, tested merge
+`9d372399f46bdda05cad3b974f593b4c7f29d570`) and
+[run 42533295957](https://github.com/KenWidemon/daily-whiskers/actions/runs/42533295957)
+(source `b830d77e44ad397a038f6f09e43239cfd7dd72ab`, tested merge
+`f5dfc1a9716db3ba5bce0872c66f440fc1229d60`). Application and test source are
+identical between these heads; only the workflow budget and README differ.
+The slowest completed valid case, Saved Cards adaptive-window coverage, took
+356.726 and 296.253 seconds. Paired largest-text geometry took 295.780 and
+238.857 seconds; registration editing/relaunch took 250.580 and 218.411 seconds.
+720 seconds gives roughly twice the observed maximum, rounded to whole minutes.
+
+This is a provisional bound, not a statistical performance guarantee: only two
+runs, one device/toolchain and a limited runner-variability sample. The earlier
+run was cancelled by its job timeout with an incomplete UI bundle; its 26
+completed console timings are timing samples only, not passing suite evidence.
+The later complete bundle reports 31 UI cases with three ordinary assertion
+failures; failure durations are not used as normal completion thresholds. The
+comparison includes four Mischievous Cards cases from the separate draft #139,
+without adding that feature or changing trunk's required test selection. Retain
+that distinction when recalibrating after sharding, toolchain, test-inventory or
+runner changes. Validate normal slow cases and a deliberate over-budget probe
+with exact source/run/toolchain identities before treating a new limit as accepted.
+The Xcode 27.2 / iOS 27.0 migration invalidates earlier runtime and timing
+acceptance; the retained 720-second limit and 2700-second job budget are
+provisional on this stack. Fresh cold/warm controls, normal slow cases and isolated
+timeout proofs are required. A toolchain update is not evidence that the earlier
+Saved Cards `app.terminate()` teardown failure was caused by, or fixed by, a
+configured timeout. Preserve each failure's original source and environment.
+
+The deadline wrapper is exercised with real silent, SIGTERM-ignoring and descendant
+processes in `ci/test_time_limits.py`. To verify XCTest behavior separately, use an
+isolated disposable test target with a slow valid test below its chosen allowance
+and a hung test above it; require a failing command, a readable failing result
+bundle, and the original timeout diagnostic. Keep the deliberate failure out of
+required product inventory and never merge it or treat a failed proof as green.
+
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
-with seven-day retention. Hard termination can prevent artifact upload; missing
-artifacts are not proof of success.
+with 30-day retention. This gives investigation and acceptance reviews more time
+than seven days without the storage use of 90 days. The policy applies only to
+new artifacts uploaded by a revision with this setting; it does not extend or
+restore existing artifacts. After an authorized validation, verify the actual
+artifact expiry and source/tested SHA, run and attempt before relying on that
+window. Preserve still-needed evidence separately before its recorded expiry.
+Repository or organization limits can cap effective retention. Hard termination
+can prevent artifact upload; missing artifacts are not proof of success.
+The separate manual release-policy rehearsal retains its synthetic report for
+seven days, as documented in the [distribution record](../docs/distribution-readiness.md).
 
 ### Gate verification and rollout
 
