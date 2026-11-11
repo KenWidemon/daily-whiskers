@@ -19,8 +19,13 @@ incomplete runner evidence stops later methods in that lane, not other lanes.
 
 Each lane keeps the original 2,700-second execution deadline, 60-minute outer
 ceiling and evidence reserve. Strict Xcode/runtime/dependency pins and owned-only
-cleanup remain mandatory. Explicit boot readiness has at most 300 seconds within
-that shared deadline. Cache restore/save are disabled: this is **diagnostic
+cleanup remain mandatory. After checkout/source verification and one budget
+initialization, the order is prepare → preflight → resolve → build-for-testing →
+one explicit boot/readback → selected methods. Preflight checks the uncached
+directory and own-process sampling before resolution; build uses the prepared
+owned simulator identity without requiring a booted device. Boot help, readiness
+and readback share at most 300 seconds within the original execution deadline.
+Cache restore/save are disabled: this is **diagnostic
 uncached**, not a certified cold comparison. UI compilation adds
 `CI_DIAGNOSTIC_TESTING` alongside `CI_SMOKE_TESTING`; normal quiescence, original
 assertions/teardown, screenshots, videos and 720-second method allowances remain.

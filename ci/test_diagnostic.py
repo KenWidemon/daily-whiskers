@@ -3,6 +3,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -90,6 +91,31 @@ class DiagnosticTests(unittest.TestCase):
         self.assertIn('timeout-minutes: 5', upload)
         self.assertLess(text.index('diagnostic.py export'), text.index('simulator.py cleanup'))
         self.assertNotIn('policy.py gate', text)
+
+    def test_workflow_builds_before_one_boot_under_original_budget(self):
+        text = (ROOT / '.github/workflows/ios.yml').read_text()
+        steps = re.split(r'^      - ', text, flags=re.M)[1:]
+        commands = []
+        for step in steps[:10]:
+            run = re.search(r'^        run: (.+)$', step, re.M)
+            commands.append(run[1] if run else step.splitlines()[0].split('@', 1)[0])
+        selected = 'python3 ci/run-stage.py "$DIAGNOSTIC_STAGE" python3 ci/diagnostic.py test --stage "$DIAGNOSTIC_STAGE"'
+        self.assertEqual(commands, [
+            'uses: actions/checkout', '|',
+            'python3 ci/run-stage.py init-budget 2700',
+            'python3 ci/run-stage.py prepare bash ci/prepare-app.sh',
+            'python3 ci/run-stage.py diagnostic-preflight python3 ci/diagnostic.py preflight',
+            'python3 ci/run-stage.py resolve bash ci/test-app.sh resolve',
+            'python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build',
+            'python3 ci/run-stage.py boot python3 ci/diagnostic.py boot',
+            selected, selected])
+        self.assertIn('ref: ${{ github.sha }}', steps[0])
+        self.assertIn('test "$GITHUB_SHA" = "$EXPECTED_SOURCE_SHA"', steps[1])
+        self.assertIn('test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"', steps[1])
+        self.assertIn('echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"', steps[1])
+        self.assertEqual(text.count('init-budget'), 1)
+        self.assertEqual(text.count('diagnostic.py boot'), 1)
+        self.assertNotIn('CI_EXECUTION_DEADLINE', text)  # No per-stage deadline reset.
 
     def test_identity_rejects_missing_or_cross_source_lane(self):
         with patch.dict(os.environ, ENV, clear=True):

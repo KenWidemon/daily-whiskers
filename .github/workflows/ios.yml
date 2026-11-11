@@ -59,9 +59,6 @@ jobs:
       - name: Verify strict pins and prepare owned simulator
         id: prepare
         run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
-      - name: Boot exact owned simulator and verify readiness
-        id: boot
-        run: python3 ci/run-stage.py boot python3 ci/diagnostic.py boot
       - name: Verify diagnostic identity and sample permissions
         id: preflight
         run: python3 ci/run-stage.py diagnostic-preflight python3 ci/diagnostic.py preflight
@@ -72,6 +69,9 @@ jobs:
       - name: Build selected diagnostic target once
         id: build
         run: python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build
+      - name: Boot exact owned simulator and verify readiness
+        id: boot
+        run: python3 ci/run-stage.py boot python3 ci/diagnostic.py boot
       - name: First selected method with bounded host observation
         id: first
         env:
