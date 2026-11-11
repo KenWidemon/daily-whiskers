@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -69,6 +70,30 @@ class ResultTests(unittest.TestCase):
             self.assertIn('No result bundle', text)
             self.assertIn('**no**', text)
             self.assertIn('Artifact link unavailable', text)
+
+    def test_routine_ci_uploads_and_summary_keep_30_day_retention(self):
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / '.github/workflows/ios.yml').read_text()
+        # Check every upload block so future shards cannot silently retain a
+        # shorter window. This does not cover separate manual diagnostics.
+        uploads = [step for step in re.split(r'^      - ', workflow, flags=re.M)
+                   if re.search(r'uses: actions/upload-artifact@', step)]
+        self.assertTrue(uploads, 'Routine CI must preserve artifact uploads')
+        for step in uploads:
+            self.assertEqual(re.findall(r'^          retention-days: (.+)$', step, re.M), ['30'])
+            self.assertIn('if: always()', step)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for verified in (True, False):
+                (directory / 'results.json').write_text(json.dumps({'stages': {}, 'verified': verified}))
+                with patch.dict(os.environ, {'ARTIFACT_URL': 'https://example.invalid/artifact'}):
+                    summary = render(directory)
+                self.assertIn('(30-day configured retention; verify the artifact expiry in GitHub).', summary)
+                self.assertIn(f"Evidence complete and passing: **{'yes' if verified else 'no'}**", summary)
+            with patch.dict(os.environ, {'ARTIFACT_URL': ''}):
+                summary = render(directory)
+            self.assertIn('Artifact link unavailable', summary)
+            self.assertNotIn('30-day', summary)
 
     def test_full_success_and_failed_process_with_passing_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
