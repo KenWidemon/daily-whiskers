@@ -614,6 +614,82 @@ tests, and resources require app validation. Pushes/manual runs always validate
 the app. Classification uses the PR base/head merge-base; validation checks out
 GitHub's proposed merge commit.
 
+### App-free readiness experiment
+
+On the isolated `codex/ci-readiness-probe-20261111` branch only, the registered
+`ios.yml` is replaced by one dispatch-only readiness job. Do not merge this
+experimental workflow as the acceptance pipeline described above. It accepts an
+exact reviewed source SHA, requires that checkout and dispatch SHA to match, and
+rejects any other branch or run attempt than 1. A second dispatch is a separate
+operation requiring authorization; the attempt guard alone is not an exactly-once
+service. There is no PR/push trigger, CI Gate, cache, app generation, dependency
+resolution, compilation, install or test execution.
+
+The probe retains the `xcode-27` GA ARM64 runner, Xcode **27.2 / 27B52** and SDK
+**27.2**, image **macos27 / 20261104.0337.1**, and host macOS **27.0.1 / 26A434**.
+A rolling-label image or host mismatch is a changed-condition blocker before any
+simulator operation. Its separate runtime contract requires exactly
+`com.apple.CoreSimulator.SimRuntime.iOS-27-2`, **27.2 / 24B8117**, ARM64 and explicit
+iPhone 17 Pro support. It rejects the different Duo-only 27.2 runtime, ambiguous
+identifiers and unavailable builds without fallback or downloads. The ordinary
+acceptance helpers and required 27-case UI inventory are unchanged. Runtime-volume
+unmounting is a hypothesis to investigate, not an established diagnosis or fix.
+
+A controller is running before each tool command forks. Its new child establishes
+a task-owned session, waits for the controller's verified PID/process-group
+handshake, rechecks the monotonic deadline, and directly execs the exact argv.
+Every command retains wall/monotonic boundaries, timeout, PID/group, exec-attempt
+observation, bounded output, exit code, reaping and process-group absence. Signal
+denials, missing observations and late host scheduling remain explicit uncertainty.
+An Actions timeout notification is not proof that descendants stopped. A stalled
+kernel, blocked filesystem, detached system service or abrupt runner loss cannot
+be made a hard real-time guarantee by this controller.
+
+One 600-second execution deadline covers all protected work; ordinary commands
+have 10 seconds, ownership operations and explicit ARM64 boot have 20 seconds,
+and boot, bootstatus and the final device readback share the original 300-second
+maximum. A prepared device must be Shutdown; bootstatus only observes the explicit
+boot and cannot initiate another boot. The first unexpected failure stops protected
+work without retries, service restarts, runtime reset/deletion, global cleanup or
+sudo. Only separately reserved evidence and owned cleanup may follow. Evidence collection
+runs before cleanup so shutdown does not mask the failure state. Cleanup
+requires complete terminal run/collector command manifests with matching identity
+and verified reaping/group absence, a returned UUID absent from the baseline, fresh
+exact destination readback before any mutation, and independent absence readback
+after deletion. Uncertain creation/readback never authorizes deletion. Readiness
+requires the exact Booted readback and successful owned cleanup, not bootstatus
+exit zero alone.
+
+Telemetry is limited to one-shot CPU/disk, memory, swap, disk-space, runtime-image
+and mount inventory. Historical logs use fixed exact CoreSimulator, MobileAsset,
+cryptex, simdiskimaged and SimLaunchHost service names, including SimLaunchHost.arm64,
+even after a crash/restart. At most two one-second samples use verified live
+service PIDs, with a fresh exact executable readback before each sample. A bounded
+PID-only lookup handles long macOS names without retaining process arguments. Missing
+or denied telemetry is labeled unavailable, and the summary separately reports
+readiness, cleanup and diagnostic completeness. Readiness is not a root-cause finding. No process environments or broad
+process argument dump is collected. Each phase permits at most 32 commands and
+256 KiB output per command; excess output fails that command and preserves the
+bounded prefix. Sampling and collection obey the same supervisor deadlines.
+
+The normal-scheduling budget is checkout 180s, execution 600s, wrapper shutdown
+65s, cleanup at most 60s (45s commands plus 15s shutdown), collection at most 90s
+(75s commands plus 15s shutdown), raw upload 300s, summary 60s and transitions
+60s: **23m35s**, below the **25-minute** outer ceiling. The job reserves a five-minute
+upload with **30-day** retention. Raw evidence lives under the runner's temporary
+directory, outside the repository. Missing/malformed metadata produces an
+inconclusive summary; it must not become success. Cancellation or a stalled host
+can still prevent collection/upload and leaves the experiment inconclusive.
+
+Run the focused offline checks with
+`python3 -m unittest discover -s ci -p 'test_readiness_probe.py' -v` and
+`python3 -m unittest discover -s ci -p 'test_probe_supervisor.py' -v`.
+These use mocked simulator outputs and harmless child processes, never local
+simulators. The original acceptance-workflow assertions intentionally do not apply
+to this branch-local replacement. A probe result cannot establish full CI,
+cold/warm cache behavior, timeout containment, product acceptance or release readiness.
+Update this section together with changes to the experiment's pins or boundaries.
+
 ### Documentation and policy checks
 
 Every run checks Markdown formatting, repository-relative links and Markdown
@@ -637,7 +713,7 @@ updates must update the lockfile and pass the checks in the same PR.
 
 ### App validation and pinned inputs
 
-Every app job uses the official `xcode-27` ARM64 **preview** runner, explicitly
+Every app job uses the official `xcode-27` ARM64 **GA** runner, explicitly
 selects `/Applications/Xcode_27.2.app/Contents/Developer`, and requires Xcode
 **27.2 / 27B52**, simulator SDK **27.2**, and **iPhone 17 Pro / iOS 27.0 / 24A434**.
 The [official image manifest](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
@@ -646,7 +722,7 @@ list or promise a precreated iPhone 17 Pro. The workflow does not change global 
 another runtime, or fall back to another installation/model/runtime. Runner image,
 architecture, Swift/SDK versions and simulator provenance are logged. Hosted
 images remain mutable; pinned inputs fail closed on drift, not byte-identical
-signed artifacts. The preview label is narrowly allowed in `.github/actionlint.yaml`
+signed artifacts. The runner label is narrowly allowed in `.github/actionlint.yaml`
 because actionlint 1.7.12's built-in catalog predates it; other validation remains.
 
 `ci/simulator.py` requires one available exact runtime identifier

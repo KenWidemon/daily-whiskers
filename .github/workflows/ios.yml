@@ -1,322 +1,69 @@
-name: iOS CI
+name: App-free iOS readiness probe
 
+# Deliberate branch-local experiment in the already registered workflow.
+# This branch is not an acceptance workflow and must not be merged as CI policy.
 on:
-  pull_request:
-    branches: [main, codex/develop, release/rc]
-  push:
-    branches: [main, codex/develop, release/rc]
   workflow_dispatch:
     inputs:
-      cache_epoch:
-        description: 'Cache namespace for reproducible cold/warm comparisons (same value for both runs)'
+      expected_source_sha:
+        description: 'Exact reviewed readiness-probe commit SHA (40 lowercase hex characters)'
+        required: true
         type: string
-        default: v2
 
 permissions:
   contents: read
 
 concurrency:
-  group: ios-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ios-readiness-probe-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  classify:
-    name: Classify changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      mode: ${{ steps.scope.outputs.mode }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Classify changes (unknown means full validation)
-        id: scope
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 ci/policy.py classify
-
-  checks:
-    name: Documentation and CI policy
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24.12.0'
-          package-manager-cache: false
-      - name: Lint workflows
-        run: |
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/actionlint.tar.gz" \
-            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
-          printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
-          mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
-          "$RUNNER_TEMP/actionlint" -shellcheck= "${workflows[@]}"
-      - name: Test classification and gate policy
-        run: python3 -m unittest discover -s ci -p 'test_*.py' -v
-      - name: Install locked documentation tools
-        run: npm ci --ignore-scripts --prefix ci/checks
-      - name: Test documentation checker
-        run: npm test --prefix ci/checks
-      - name: Check Markdown format and local links
-        run: npm run check --prefix ci/checks
-
-  build-and-test:
-    name: App regression
-    needs: classify
-    if: needs.classify.outputs.mode == 'full'
+  readiness-probe:
+    name: App-free exact-runtime readiness
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ci-readiness-probe-20261111' && github.run_attempt == 1
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 25
     env:
-      CI_PART: unit-release
-      CI_SHARD_ID: unit-release
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 3
         with:
           persist-credentials: false
-      # Per-job deadline leaves 15 minutes for checkout/shutdown/evidence.
-      - name: Reserve time for test evidence
-        run: python3 ci/run-stage.py init-budget 2700
-      - name: Record tested checkout
-        run: echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-      - name: Verify toolchain and prepare project
-        id: prepare
-        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
-      - name: Bound dependency cache restore
-        id: cache-window
-        timeout-minutes: 1
-        run: python3 ci/run-stage.py cache-window python3 ci/cache_window.py plan
-      - name: Restore SwiftPM dependencies
-        id: packages
-        if: ${{ success() && steps.cache-window.outputs.restore == 'true' && contains(fromJSON('["1","2","3","4","5"]'), steps.cache-window.outputs.timeout_minutes) }}
-        timeout-minutes: ${{ fromJSON(steps.cache-window.outputs.timeout_minutes || '1') }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: build/SourcePackages
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-27.2-27B52-iphonesimulator-27.2-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
-      - name: Report cache state
-        if: ${{ always() && steps.cache-window.outcome == 'success' }}
-        timeout-minutes: 1
-        env:
-          CACHE_OUTCOME: ${{ steps.packages.outcome }}
-          CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
-          CACHE_PRIMARY_KEY: ${{ steps.packages.outputs.cache-primary-key }}
-          CACHE_MATCHED_KEY: ${{ steps.packages.outputs.cache-matched-key }}
-        run: python3 ci/run-stage.py cache-report python3 ci/cache_window.py report
-      - name: Resolve locked dependencies
-        id: resolve
-        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
-      - name: Debug unit tests
-        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
-        run: python3 ci/run-stage.py unit bash ci/test-app.sh unit
-      - name: Unsigned Release simulator build
-        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
-        run: python3 ci/run-stage.py release bash ci/test-app.sh release
-      - name: Clean up owned simulator
-        if: always()
-        timeout-minutes: 1
-        run: python3 ci/simulator.py cleanup
-      - name: Verify test-result evidence
+          ref: ${{ github.sha }}
+      # Normal-scheduling ceiling: 180 + 600 + 65 + 60 + 90 + 300 + 60 + 60
+      # = 1,415 seconds (23m35s), leaving 85s below the 25m outer job ceiling.
+      # These reserves are not a hard real-time guarantee on a stalled host.
+      - name: Supervise app-free readiness (600s plus 65s shutdown reserve)
+        id: probe
+        timeout-minutes: 12
+        run: python3 ci/readiness_probe.py run
+      - name: Collect bounded host evidence (75s plus 15s shutdown)
         if: always()
         timeout-minutes: 2
-        run: python3 ci/results.py collect
-      # GitHub isolates pull_request caches to refs/pull/<number>/merge. A PR
-      # cannot populate the base branch's cache. Only this job saves the shared key;
-      # a cache is an optimization, never evidence that UI validation passed.
-      - name: Save validated SwiftPM dependencies
-        if: success() && steps.packages.outcome == 'success' && steps.packages.outputs.cache-hit != 'true'
+        run: python3 ci/readiness_probe.py collect
+      - name: Clean up only the verified owned UUID (45s plus 15s shutdown)
+        id: cleanup
+        if: always()
         timeout-minutes: 1
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: build/SourcePackages
-          key: ${{ steps.packages.outputs.cache-primary-key }}
-      - name: Upload test results and build logs
+        run: python3 ci/readiness_probe.py cleanup
+      - name: Preserve raw and interrupted evidence
         id: artifacts
         if: always()
         timeout-minutes: 5
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ios-test-results-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
-          path: |
-            build/TestResults.xcresult
-            build/SmokeResults-*.xcresult
-            build/*.log
-            build/*-status.json
-            build/job-budget.json
-            build/*-results.json
-            build/ui-test-tree.json
-            build/ui-selectors.txt
-            build/results.json
-            build/toolchain.txt
-            build/simulator*.json
+          name: ios-readiness-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/dw-readiness-probe/
           retention-days: 30
           if-no-files-found: error
-      - name: Upload aggregate evidence manifest
-        if: always()
-        timeout-minutes: 1
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ios-evidence-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
-          path: build/results.json
-          retention-days: 30
-          if-no-files-found: error
-      - name: Publish app evidence summary
+      - name: Report readiness and uncertainty (never CI acceptance)
         if: always()
         timeout-minutes: 1
         env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+          CLEANUP_OUTCOME: ${{ steps.cleanup.outcome }}
+          ARTIFACT_OUTCOME: ${{ steps.artifacts.outcome }}
           ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-          APP_JOB_STATUS: ${{ job.status }}
-        run: python3 ci/results.py render
-
-  ui-shards:
-    name: UI shard (${{ matrix.shard }})
-    needs: classify
-    if: needs.classify.outputs.mode == 'full'
-    runs-on: xcode-27
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [cards, settings, reminders]
-    env:
-      CI_PART: ${{ matrix.shard }}
-      CI_SHARD_ID: ${{ matrix.shard }}
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        timeout-minutes: 3
-        with:
-          persist-credentials: false
-      # Each matrix job owns one deadline; no later stage may reset it.
-      - name: Reserve time for test evidence
-        run: python3 ci/run-stage.py init-budget 2700
-      - name: Record tested checkout
-        run: echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-      - name: Verify toolchain and prepare project
-        id: prepare
-        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
-      - name: Bound dependency cache restore
-        id: cache-window
-        timeout-minutes: 1
-        run: python3 ci/run-stage.py cache-window python3 ci/cache_window.py plan
-      - name: Restore SwiftPM dependencies
-        id: packages
-        if: ${{ success() && steps.cache-window.outputs.restore == 'true' && contains(fromJSON('["1","2","3","4","5"]'), steps.cache-window.outputs.timeout_minutes) }}
-        timeout-minutes: ${{ fromJSON(steps.cache-window.outputs.timeout_minutes || '1') }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: build/SourcePackages
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-27.2-27B52-iphonesimulator-27.2-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
-      - name: Report cache state
-        if: ${{ always() && steps.cache-window.outcome == 'success' }}
-        timeout-minutes: 1
-        env:
-          CACHE_OUTCOME: ${{ steps.packages.outcome }}
-          CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
-          CACHE_PRIMARY_KEY: ${{ steps.packages.outputs.cache-primary-key }}
-          CACHE_MATCHED_KEY: ${{ steps.packages.outputs.cache-matched-key }}
-        run: python3 ci/run-stage.py cache-report python3 ci/cache_window.py report
-      - name: Resolve locked dependencies
-        id: resolve
-        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
-      - name: Offline UI shard
-        if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
-        run: python3 ci/run-stage.py ui bash ci/test-app.sh ui
-      - name: Clean up owned simulator
-        if: always()
-        timeout-minutes: 1
-        run: python3 ci/simulator.py cleanup
-      - name: Verify test-result evidence
-        if: always()
-        timeout-minutes: 2
-        run: python3 ci/results.py collect
-      - name: Upload test results and build logs
-        id: artifacts
-        if: always()
-        timeout-minutes: 5
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ios-test-results-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
-          path: |
-            build/TestResults.xcresult
-            build/SmokeResults-*.xcresult
-            build/*.log
-            build/*-status.json
-            build/job-budget.json
-            build/*-results.json
-            build/ui-test-tree.json
-            build/ui-selectors.txt
-            build/results.json
-            build/toolchain.txt
-            build/simulator*.json
-          retention-days: 30
-          if-no-files-found: error
-      - name: Upload aggregate evidence manifest
-        if: always()
-        timeout-minutes: 1
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ios-evidence-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
-          path: build/results.json
-          retention-days: 30
-          if-no-files-found: error
-      - name: Publish app evidence summary
-        if: always()
-        timeout-minutes: 1
-        env:
-          ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-          APP_JOB_STATUS: ${{ job.status }}
-        run: python3 ci/results.py render
-
-  gate:
-    name: CI Gate
-    needs: [classify, checks, build-and-test, ui-shards]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Download all same-attempt evidence manifests
-        if: ${{ !cancelled() && needs.classify.outputs.mode == 'full' }}
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: ios-evidence-*-${{ github.run_id }}-${{ github.run_attempt }}-*
-          path: build/evidence
-      - name: Verify complete shard and unit/Release evidence
-        id: evidence
-        if: ${{ !cancelled() && needs.classify.outputs.mode == 'full' }}
-        env:
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          export TESTED_SHA="$(git rev-parse HEAD)"
-          python3 ci/ui_shards.py aggregate
-      - name: Require every applicable result
-        if: ${{ !cancelled() }}
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-        run: python3 ci/policy.py gate
-      - name: Reject cancelled workflow
-        if: cancelled()
-        run: exit 1
-      - name: Publish overall run summary
-        if: always()
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-          EVIDENCE_STATUS: ${{ steps.evidence.outcome }}
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          export TESTED_SHA="$(git rev-parse HEAD)"
-          python3 ci/results.py gate
+        run: python3 ci/readiness_probe.py summary
