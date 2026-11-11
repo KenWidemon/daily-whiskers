@@ -5,6 +5,59 @@ Use [app README](../DailyWhiskers/README.md#tests) for test commands and
 is a repeatable protocol plus scoped evidence, not a second backlog or release gate.
 Development tests do not retroactively validate the frozen V1 binary.
 
+## Disposable selected-test diagnostic
+
+The `codex/ci-diagnostic-20261111` branch temporarily uses the registered
+`ios.yml` workflow for one manually dispatched, exact-SHA diagnostic. Do not
+merge that workflow into an acceptance branch. Its three checks are explicitly
+**DIAGNOSTIC ONLY**, cannot satisfy **CI Gate**, and cannot replace the required
+27-test inventory. The visual lane runs the adaptive artwork regression. The
+startup/reminder lane runs Account Tools before the original permission sequence;
+the Cards lane runs largest-text landscape before adaptive window sizes. Each
+method has its own invocation/result bundle, with no test retries. Failure or
+incomplete runner evidence stops later methods in that lane, not other lanes.
+
+Each lane keeps the original 2,700-second execution deadline, 60-minute outer
+ceiling and evidence reserve. Strict Xcode/runtime/dependency pins and owned-only
+cleanup remain mandatory. Explicit boot readiness has at most 300 seconds within
+that shared deadline. Cache restore/save are disabled: this is **diagnostic
+uncached**, not a certified cold comparison. UI compilation adds
+`CI_DIAGNOSTIC_TESTING` alongside `CI_SMOKE_TESTING`; normal quiescence, original
+assertions/teardown, screenshots, videos and 720-second method allowances remain.
+
+Bounded runner markers distinguish attachment/accessibility work and app
+termination. The host observes only the exact owned runner and xcodebuild PIDs:
+one startup trigger after 45 seconds without a test-start marker, and one
+outstanding-termination trigger after 10 seconds per invocation, subject to a
+lane-wide cap of four three-second samples at 10-millisecond intervals. A separate
+one-second self-sample verifies permissions. CPU/RSS and result-file size snapshots
+occur at termination-marker arrival and, while still outstanding, at +10/+30
+seconds. Marker/export/host times are retained; late or missing data cannot prove
+a contemporaneous stall or establish I/O contention as the cause.
+Runner discovery permits at most 60 observations spaced five seconds apart,
+within one 300-second startup window from the test-only launch, capped by the
+original execution deadline. Missing runner/test-start evidence then stops that
+lane as inconclusive. After the method starts, its original 720-second allowance
+remains. Verified containers are cached within the invocation, which allows at
+most 96 host helper calls. Unchanged monitor state is not rewritten continuously.
+If no runner exists at the 45-second sample, retain an explicitly partial
+xcodebuild-only sample. That warning does not block the next selected method if
+the runner later appears, exact markers validate and the first method passes.
+Actual sampling/identity failures or startup-window expiration still stop the lane.
+
+Reminder tracing covers a bounded initial-enable observation, not the full
+method. Its app/test session, contiguous event sequence and exported watermark
+must cover the first native tap and original wait. Missing, truncated, overflowed
+or stale evidence makes that question inconclusive, even if XCTest passes.
+Evidence is exported before the next invocation and before simulator cleanup.
+Raw logs, traces, samples, lifecycle records and entire result bundles, including
+unfinished `Staging` contents, retain a configured 30-day artifact lifetime.
+Use `python3 -m unittest discover -s ci -p 'test_diagnostic.py' -v` for offline
+fixture/mock checks; these do not run Xcode, boot devices or validate app behavior.
+The unchanged acceptance-workflow shape tests apply to the original workflow,
+not this disposable replacement. Update this section with changes to the
+diagnostic contract, and remove the replacement workflow rather than promoting it.
+
 ## Required UI shard verification
 
 The [CI contract](../DailyWhiskers/README.md#continuous-integration) and

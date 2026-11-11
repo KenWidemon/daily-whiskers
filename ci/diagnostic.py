@@ -1,0 +1,221 @@
+"""Disposable selected-test diagnostic. Never produces acceptance evidence.
+
+No simulator or process operations occur on import. Hosted operations require
+the original run-stage budget and exact owned simulator preparation record.
+"""
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import plistlib
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+import simulator
+
+LANES = {
+    'visual': [('visual', 'DailyWhiskersTests/DailyCardShareVisualTests/testAdaptiveViewportRetainsArtworkScaleAndNaturalScrollingHeight')],
+    'startup-reminder': [
+        ('startup', 'DailyWhiskersUITests/RegressionSmokeTests/testAccountToolsOpenAndDismiss'),
+        ('reminder', 'DailyWhiskersUITests/ReminderUITests/testPermissionRevocationRegrantAndExplicitDisable')],
+    'cards': [
+        ('cards-largest', 'DailyWhiskersUITests/SavedCardsTests/testLargestTextLandscapeSavedCardActionsAndVibe'),
+        ('cards-adaptive', 'DailyWhiskersUITests/SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes')],
+}
+BUILD = Path('build')
+DIAGNOSTIC = BUILD / 'diagnostic'
+DERIVED = BUILD / 'DiagnosticDerivedData'
+LOCK = Path('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved')
+require = simulator.require
+
+
+def identity():
+    result = simulator.identity() | {'lane': os.environ.get('CI_DIAGNOSTIC_LANE'),
+                                     'event_sha': os.environ.get('GITHUB_SHA')}
+    require(all(result.values()), 'Missing diagnostic identity')
+    require(result['lane'] in LANES and result['shard'] == result['lane'], 'Unknown/mismatched lane')
+    require(result['job'] == 'diagnostic', 'Not a diagnostic job')
+    require(result['source_sha'] == result['tested_sha'] == result['event_sha'], 'Checkout/source mismatch')
+    require(re.fullmatch('[0-9a-f]{40}', result['source_sha']) is not None, 'Invalid source SHA')
+    require(all(re.fullmatch('[1-9][0-9]*', result[key]) for key in ('run_id', 'run_attempt')), 'Invalid run/attempt identity')
+    return result
+
+
+def write(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    simulator.write(path, value)
+
+
+def deadline():
+    value = float(os.environ['CI_EXECUTION_DEADLINE'])
+    budget = json.loads((BUILD / 'job-budget.json').read_text())
+    require(math.isfinite(value) and budget['deadline'] == value and budget['execution_seconds'] == 2700,
+            'Missing/changed original diagnostic budget')
+    require(value > time.time(), 'Diagnostic execution budget exhausted')
+    return value
+
+
+def run_output(args, seconds=10, *, until=None):
+    limit = min(seconds, (until if until is not None else deadline()) - time.time())
+    require(limit > 0, 'Command budget exhausted')
+    return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT, timeout=limit).strip()
+
+
+def owned():
+    record = json.loads((BUILD / 'simulator.json').read_text())
+    expected = simulator.identity()
+    require(all(record.get(k) == v for k, v in expected.items()), 'Stale simulator ownership record')
+    require(record.get('status') == 'ready' and record.get('readback_verified') is True
+            and record.get('ownership') == 'created', 'Diagnostic requires a verified newly owned simulator')
+    identifier = simulator.valid_uuid(record['simulator_id'])
+    require(identifier == os.environ.get('SIMULATOR_ID') and identifier not in record['preexisting_ids'],
+            'Unowned/mismatched simulator')
+    for key, value in {'runtime': simulator.RUNTIME, 'version': simulator.VERSION, 'build': simulator.BUILD,
+                       'architecture': 'arm64', 'name': simulator.NAME, 'device_type': simulator.DEVICE_TYPE}.items():
+        require(record.get(key) == value, 'Wrong simulator ' + key)
+    return record
+
+
+def boot():
+    identity()
+    record = owned()
+    identifier = record['simulator_id']
+    until = min(deadline(), time.time() + 300)
+    details = dict(identity(), simulator_id=identifier, started=time.time(), deadline=until,
+                   maximum_seconds=300, status='running')
+    write(DIAGNOSTIC / 'boot.json', details)
+    try:
+        # Read installed help on the pinned hosted toolchain, not assumptions from
+        # a developer Mac. bootstatus without -b never creates/boots another device.
+        for command, token in [('boot', 'simctl boot <device>'), ('bootstatus', 'simctl bootstatus <device>'),
+                               ('get_app_container', 'simctl get_app_container <device>')]:
+            text = run_output(['xcrun', 'simctl', 'help', command], until=until)
+            (DIAGNOSTIC / f'simctl-help-{command}.txt').write_text(text + '\n')
+            require(token in text, 'Unsupported simctl command: ' + command)
+        before = json.loads(run_output(['xcrun', 'simctl', 'list', 'devices', '--json'], until=until))
+        device = simulator.exact_device(before, identifier)
+        require(device.get('state') == 'Shutdown', 'New owned simulator not shutdown before explicit boot')
+        run_output(['xcrun', 'simctl', 'boot', identifier, '--arch=arm64'], seconds=20, until=until)
+        # Deliberately NOT Simulator.Simctl: that wrapper caps each call at 20s.
+        log = run_output(['xcrun', 'simctl', 'bootstatus', identifier], seconds=300, until=until)
+        (DIAGNOSTIC / 'boot-readiness.log').write_text(log + '\n')
+        after = json.loads(run_output(['xcrun', 'simctl', 'list', 'devices', '--json'], until=until))
+        write(DIAGNOSTIC / 'devices-booted.json', after)
+        require(simulator.exact_device(after, identifier).get('state') == 'Booted', 'Boot readiness readback failed')
+        details.update(status='success', readback_verified=True)
+    except Exception as error:
+        details.update(status='failure', error=f'{type(error).__name__}: {error}')
+        raise
+    finally:
+        details['finished'] = time.time()
+        write(DIAGNOSTIC / 'boot.json', details)
+
+
+def common():
+    return ['-project', 'DailyWhiskers.xcodeproj', '-clonedSourcePackagesDirPath',
+            str(Path(os.environ['GITHUB_WORKSPACE']) / 'build/SourcePackages'),
+            '-onlyUsePackageVersionsFromResolvedFile', '-disableAutomaticPackageResolution', 'CODE_SIGNING_ALLOWED=NO']
+
+
+def test_options(lane):
+    options = [*common(), '-scheme', 'DailyWhiskers' if lane == 'visual' else 'DailyWhiskersInteraction',
+            '-configuration', 'Debug',
+            '-destination', f"platform=iOS Simulator,id={owned()['simulator_id']},arch=arm64",
+            '-derivedDataPath', str(DERIVED), '-parallel-testing-enabled', 'NO']
+    if lane != 'visual':
+        options += ['SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING CI_DIAGNOSTIC_TESTING',
+            '-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '720',
+            '-maximum-test-execution-time-allowance', '720']
+    return options
+
+
+def check_lock():
+    require(LOCK.read_bytes() == (Path(os.environ['RUNNER_TEMP']) / 'Package.resolved.expected').read_bytes(),
+            'Dependency lock changed during diagnostic')
+
+
+def metadata(lane):
+    products = DERIVED / 'Build/Products/Debug-iphonesimulator'
+    candidates = [products / 'DailyWhiskers.app']
+    if lane != 'visual':
+        runners = list(products.glob('*-Runner.app'))
+        require(len(runners) == 1, 'Missing/ambiguous built UI runner')
+        candidates += runners
+    output = dict(identity(), bundles={})
+    for kind, path in zip(('app', 'runner'), candidates):
+        with (path / 'Info.plist').open('rb') as source:
+            data = plistlib.load(source)
+        bundle_id, executable = data.get('CFBundleIdentifier'), data.get('CFBundleExecutable')
+        require(isinstance(bundle_id, str) and bundle_id and isinstance(executable, str)
+                and Path(executable).name == executable and (path / executable).is_file(), 'Invalid built bundle metadata')
+        output['bundles'][kind] = {'bundle_id': bundle_id, 'executable': executable, 'built_path': str(path.resolve())}
+    write(DIAGNOSTIC / 'built-metadata.json', output)
+    return output
+
+
+def preflight():
+    current = identity()
+    require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-diagnostic-20261111'
+            and os.environ.get('GITHUB_RUN_ATTEMPT') == '1', 'Only one initial disposable-branch dispatch is permitted')
+    deadline()
+    owned()
+    require(not (BUILD / 'SourcePackages').exists(), 'Uncached diagnostic starts with unexpected dependency directory')
+    require(shutil.which('sample') == '/usr/bin/sample' and shutil.which('ps'), 'Missing host diagnostic tools')
+    help_text = run_output(['/usr/bin/sample', str(os.getpid()), '1', '10', '-file',
+                            str(DIAGNOSTIC / 'sample-permission-preflight.txt')], seconds=6)
+    write(DIAGNOSTIC / 'preflight.json', dict(current, status='success', pid=os.getpid(),
+          sample_preflight=help_text, sampling_interval_ms=10, cache='diagnostic uncached',
+          cache_restore='disabled', cache_save='disabled', cold_control_certified=False))
+
+
+def build(lane):
+    check_lock()
+    code = subprocess.call(['xcodebuild', 'build-for-testing', *test_options(lane),
+                            '-resultBundlePath', f'build/Diagnostic-{lane}-build.xcresult'])
+    check_lock()
+    if code == 0:
+        metadata(lane)
+    return code
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', choices=('boot', 'preflight', 'build', 'test', 'export'))
+    parser.add_argument('--stage')
+    args = parser.parse_args()
+    DIAGNOSTIC.mkdir(parents=True, exist_ok=True)
+    lane = identity()['lane']
+    if args.command == 'boot':
+        boot()
+    elif args.command == 'preflight':
+        preflight()
+    elif args.command == 'build':
+        return build(lane)
+    elif args.command == 'test':
+        from diagnostic_monitor import execute
+        expected = dict(LANES[lane])
+        require(args.stage in expected, 'Unexpected selected test stage')
+        check_lock()
+        command = ['xcodebuild', 'test-without-building', *test_options(lane),
+                   '-only-testing:' + expected[args.stage],
+                   '-resultBundlePath', f'build/Diagnostic-{args.stage}.xcresult']
+        code = execute(command, lane, args.stage)
+        check_lock()
+        return code
+    else:
+        from diagnostic_monitor import export_all
+        return export_all()
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        print(f'::error::Diagnostic failed closed: {type(error).__name__}: {error}', file=sys.stderr)
+        sys.exit(1)

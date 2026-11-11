@@ -2,8 +2,14 @@ import XCTest
 
 final class RegressionSmokeTests: XCTestCase {
     private var app: XCUIApplication!
+    #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+    private let diagnostic = CIDiagnosticTestMarkers(stream: "startup")
+    #endif
 
     override func setUpWithError() throws {
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "test", edge: "enter")
+        #endif
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
@@ -14,7 +20,15 @@ final class RegressionSmokeTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let terminationID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: terminationID)
+        #endif
         app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: terminationID)
+        diagnostic.record(test: name, phase: "test", edge: "return", terminal: true)
+        #endif
     }
 
     func testGuestDailyContentAndRelaunch() {

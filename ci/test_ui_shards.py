@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import ui_shards as shards
-from results import collect
+from results import collect, render
 from test_results import fixture
 from test_simulator import IDENTIFIER, TOOLCHAIN, preparation
 from test_cache_window import successful_record as cache_record, budget as cache_budget
@@ -143,6 +143,7 @@ class ShardTests(unittest.TestCase):
 
     def test_aggregate_rejects_incomplete_failed_cancelled_or_mismatched_evidence(self):
         changes = [lambda d: d.update(verified=False), lambda d: d.update(part='unknown'),
+                   lambda d: d.update(evidence_errors={'ui.tree': {'message': 'reader failed'}}),
                    lambda d: d.update(inventory_sha256='stale'), lambda d: d.update(required_tests=[]),
                    lambda d: d.update(observed_tests=[]),
                    lambda d: d['observed_tests'].append(d['observed_tests'][0]),
@@ -278,6 +279,175 @@ class ShardTests(unittest.TestCase):
             self.assertFalse(record['verified'])
             with self.assertRaises(ValueError):
                 shards.aggregate(directory)
+
+    def test_exit64_retains_failed_cards_identity_budget_lifecycle_and_original_timeout(self):
+        for summary_available in (False, True):
+            with self.subTest(summary_available=summary_available), tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+                directory = Path(tmp)
+                self.make_records(directory)
+                target = directory / 'cards'
+                before = json.loads((target / 'results.json').read_text())
+                status_path = target / 'ui-status.json'
+                status = json.loads(status_path.read_text()) | {'status': 'timed_out', 'exit_code': 124, 'command_exit_code': -15}
+                status_path.write_text(json.dumps(status))
+                stderr = 'Error: no testing session was found in the result bundle.'
+                failed_summary = subprocess.CalledProcessError(64, 'xcresulttool summary', stderr=stderr)
+                failed_tree = subprocess.CalledProcessError(64, 'xcresulttool tests', stderr=stderr)
+                responses = [json.dumps(summary(7)) if summary_available else failed_summary, failed_tree]
+                with patch('results.subprocess.check_output', side_effect=responses) as reader:
+                    self.assertFalse(collect(target, 'cards'))
+                self.assertEqual([call.kwargs['timeout'] for call in reader.call_args_list], [45, 45])
+                record = json.loads((target / 'results.json').read_text())
+                for key in ('part', 'identity', 'inventory_sha256', 'required_tests', 'budget', 'cache', 'simulator'):
+                    self.assertEqual(record[key], before[key], key)
+                self.assertEqual(record['environment']['toolchain'], TOOLCHAIN)
+                self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+                for key, value in status.items():
+                    self.assertEqual(record['stages']['ui'][key], value, key)
+                diagnostic = record['evidence_errors']['ui.tree']
+                self.assertEqual(diagnostic['operation'], 'xcresulttool get test-results tests')
+                self.assertEqual(diagnostic['returncode'], 64)
+                self.assertEqual(diagnostic['stderr'], stderr)
+                self.assertFalse(diagnostic['stderr_truncated'])
+                self.assertFalse(record['verified'])
+                self.assertNotIn('observed_tests', record)
+                if summary_available:
+                    self.assertEqual(record['stages']['ui']['tests']['totalTestCount'], 7)
+                    self.assertEqual(record['environment']['device'], before['environment']['device'])
+                else:
+                    self.assertNotIn('tests', record['stages']['ui'])
+                    self.assertNotIn('device', record['environment'])
+                    self.assertEqual(record['stages']['ui']['results_diagnostic']['returncode'], 64)
+                    self.assertIn('counts unavailable', render(target))
+                    self.assertIn('Observed ui destination: unavailable', render(target))
+                self.assertIn('Wrapper exit 124; command exit -15', render(target))
+                with self.assertRaisesRegex(ValueError, r'cards evidence rejected: .*timed_out') as rejected:
+                    shards.aggregate(directory)
+                self.assertNotIn('Missing/duplicate/unknown part', str(rejected.exception))
+
+    def test_tree_success_does_not_invent_missing_summary_counts_or_observed_device(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[
+                    subprocess.CalledProcessError(64, 'xcresulttool summary', stderr='No testing session'),
+                    json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertEqual(record['observed_tests'], identifiers)
+            self.assertNotIn('tests', record['stages']['ui'])
+            self.assertNotIn('device', record['environment'])
+            for key in ('identity', 'inventory_sha256', 'required_tests', 'budget', 'cache', 'simulator'):
+                self.assertEqual(record[key], before[key], key)
+            self.assertIn('Observed ui destination: unavailable', render(target))
+            self.assertIn('**no**', render(target))
+            with self.assertRaisesRegex(ValueError, 'cards evidence rejected'):
+                shards.aggregate(directory)
+
+    def test_missing_device_with_readable_counts_and_tree_keeps_independent_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            without_devices = summary(7) | {'devicesAndConfigurations': []}
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(without_devices), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertEqual(record['stages']['ui']['tests']['totalTestCount'], 7)
+            self.assertEqual(record['observed_tests'], identifiers)
+            self.assertNotIn('device', record['environment'])
+            self.assertEqual(record['budget']['execution_seconds'], 2700)
+            self.assertEqual(record['simulator']['simulator_id'], IDENTIFIER)
+            self.assertIn('device', record['evidence_errors'])
+            self.assertIn('Observed ui destination: unavailable', render(target))
+
+    def test_invalid_counts_do_not_discard_available_observed_device(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            invalid = summary(7) | {'totalTestCount': None}
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(invalid), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertNotIn('tests', record['stages']['ui'])
+            self.assertEqual(record['environment']['device']['osBuildNumber'], DEVICE['osBuildNumber'])
+            self.assertEqual(record['stages']['ui']['reported_devices'], invalid['devicesAndConfigurations'])
+            self.assertEqual(record['observed_tests'], identifiers)
+
+    def test_missing_or_malformed_components_do_not_prevent_other_capture(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            (target / 'job-budget.json').write_text('not json')
+            (target / 'cache-status.json').unlink()
+            (target / 'toolchain.txt').unlink()
+            (target / 'resolve-status.json').write_text('[]')
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(7)), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            for key in ('part', 'identity', 'inventory_sha256', 'required_tests', 'simulator', 'observed_tests'):
+                self.assertEqual(record[key], before[key], key)
+            self.assertEqual(record['environment']['device'], before['environment']['device'])
+            self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+            self.assertEqual(record['stages']['resolve']['status'], 'unavailable')
+            self.assertTrue({'budget', 'cache', 'toolchain', 'stage.resolve'} <= record['evidence_errors'].keys())
+            self.assertNotIn('budget', record)
+            self.assertNotIn('cache', record)
+            self.assertNotIn('toolchain', record['environment'])
+
+    def test_malformed_and_non_object_stage_json_preserve_other_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            for raw in ('not json', '[]', 'null', '"invalid"'):
+                with self.subTest(raw=raw):
+                    (target / 'resolve-status.json').write_text(raw)
+                    with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(7)), json.dumps(tree(identifiers))]):
+                        self.assertFalse(collect(target, 'cards'))
+                    record = json.loads((target / 'results.json').read_text())
+                    self.assertEqual(record['stages']['resolve']['status'], 'unavailable')
+                    self.assertIn('stage.resolve', record['evidence_errors'])
+                    for key in ('identity', 'budget', 'cache', 'simulator', 'observed_tests', 'environment'):
+                        self.assertEqual(record[key], before[key], key)
+                    self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+                    self.assertIn('**no**', render(target))
+
+    def test_invalid_device_shapes_or_values_preserve_provenance_without_using_requested_device(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            for device in (None, 'invalid', {}, DEVICE | {'architecture': 'x86_64'}):
+                with self.subTest(device=device):
+                    observed = summary(7)
+                    observed['devicesAndConfigurations'][0]['device'] = device
+                    with patch('results.subprocess.check_output', side_effect=[json.dumps(observed), json.dumps(tree(identifiers))]):
+                        self.assertFalse(collect(target, 'cards'))
+                    record = json.loads((target / 'results.json').read_text())
+                    for key in ('identity', 'budget', 'cache', 'simulator', 'observed_tests'):
+                        self.assertEqual(record[key], before[key], key)
+                    self.assertEqual(record['stages']['ui']['reported_devices'], observed['devicesAndConfigurations'])
+                    self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+                    if isinstance(device, dict) and device:
+                        self.assertEqual(record['environment']['device']['architecture'], 'x86_64')
+                    else:
+                        self.assertNotIn('device', record['environment'])
+                        self.assertIn('Observed ui destination: unavailable', render(target))
+                    self.assertIn('**no**', render(target))
 
     def test_workflow_matrix_and_gate_remain_complete(self):
         workflow=(shards.ROOT/'.github/workflows/ios.yml').read_text()

@@ -12,6 +12,17 @@ struct ReminderSettingsView: View {
             Form {
                 Section {
                     Toggle("Daily Reminder", isOn: Binding(get: { model.status.enabled }, set: { value in
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+                        if ReminderCommandTrace.isEnabled {
+                            let commandID = UUID().uuidString
+                            ReminderCommandTrace.$commandID.withValue(commandID) {
+                                ReminderCommandTrace.record("binding.setter", command: .enable(value),
+                                    status: model.status, busy: model.busy, loaded: model.loaded)
+                                Task { await model.send(.enable(value)) }
+                            }
+                            return
+                        }
+#endif
                         Task { await model.send(.enable(value)) }
                     }))
                     .accessibilityIdentifier("reminder-enabled")

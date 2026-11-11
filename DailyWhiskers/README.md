@@ -760,6 +760,16 @@ also includes its shard name. Raw result bundles/logs remain separate artifacts.
 A partial job rerun cannot reuse earlier-attempt manifests: rerun the complete
 workflow for a new complete gate result.
 
+Collection preserves part/run identity, the reviewed inventory, stage statuses,
+toolchain, budget, cache and simulator records independently before pass validation.
+An unreadable summary or UI tree cannot erase the remaining failure evidence.
+Each missing/unreadable component has an explicit error; xcresult reader errors
+retain the operation, exit code and at most 4096 characters of stderr, with a
+truncation flag. Readers remain bounded to 45 seconds each. Missing counts,
+observed device or executed identities stay unavailable rather than being filled
+from the requested destination or inventory. Failed manifests remain failed, and
+aggregation identifies the failing part instead of treating it as an absent shard.
+
 Overall summaries run even on dependency failure and explain docs-only app skips.
 For a docs-only PR, inspect the CI Gate summary for both source and tested merge
 SHAs, the docs classification, and explicit not-applicable app counts, duration,

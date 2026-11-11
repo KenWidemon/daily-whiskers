@@ -26,10 +26,26 @@ final class ReminderModel: ObservableObject {
 
     init(scheduler: ReminderScheduler) { self.scheduler = scheduler }
     func send(_ command: ReminderCommand) async {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if ReminderCommandTrace.isEnabled && ReminderCommandTrace.commandID == nil {
+            await ReminderCommandTrace.$commandID.withValue(UUID().uuidString) { await send(command) }
+            return
+        }
+        ReminderCommandTrace.record("model.command.enter", command: command, status: status, busy: busy, loaded: loaded)
+#endif
         operations += 1; busy = true
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("model.busy.published", command: command, status: status, busy: busy, loaded: loaded)
+#endif
         status = await scheduler.submit(command)
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("model.status.published", command: command, status: status, busy: busy, loaded: loaded)
+#endif
         loaded = true
         operations -= 1; busy = operations > 0
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("model.command.complete", command: command, status: status, busy: busy, loaded: loaded)
+#endif
     }
 
     func receiveTap(identifier: String, destination: String?) {

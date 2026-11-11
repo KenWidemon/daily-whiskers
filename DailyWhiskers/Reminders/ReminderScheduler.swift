@@ -52,10 +52,20 @@ actor ReminderScheduler {
 
     /// Registration is synchronous on the actor; waiting never changes queue order.
     func enqueue(_ command: ReminderCommand) -> Task<ReminderStatus, Never> {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("scheduler.command.enqueued", command: command)
+#endif
         let previous = tail
         let task = Task {
             _ = await previous?.value
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+            ReminderCommandTrace.record("scheduler.command.enter", command: command)
+            let result = await self.perform(command)
+            ReminderCommandTrace.record("scheduler.command.result", command: command, status: result)
+            return result
+#else
             return await self.perform(command)
+#endif
         }
         tail = task
         return task
@@ -65,14 +75,35 @@ actor ReminderScheduler {
         var upgraded = value
         upgraded.version = 3
         if upgraded.cleanupPending == nil { upgraded.cleanupPending = true }
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("storage.persist.begin", enabled: upgraded.enabled)
+        do { try store.save(upgraded) }
+        catch {
+            ReminderCommandTrace.record("storage.persist.error", enabled: upgraded.enabled, error: error)
+            throw error
+        }
+#else
         try store.save(upgraded)
+#endif
         journal = upgraded
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("storage.persist.verified", enabled: upgraded.enabled)
+#endif
     }
 
     private func perform(_ command: ReminderCommand) async -> ReminderStatus {
         confirmedPending = []
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("authorization.read.begin", command: command)
+#endif
         var authorization = await client.authorization()
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        ReminderCommandTrace.record("authorization.read.complete", command: command, authorization: authorization)
+#endif
         do {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+            ReminderCommandTrace.record("scheduler.state.begin", command: command)
+#endif
             guard !faulted else { throw ReminderStorageError.unreadable }
             var state: ReminderJournal
             if let journal { state = journal }
@@ -95,6 +126,9 @@ actor ReminderScheduler {
                 }
                 state = ReminderJournal(); try persist(state)
             }
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+            ReminderCommandTrace.record("scheduler.state.ready", command: command, enabled: state.enabled)
+#endif
             if state.requiresRecovery {
                 // A verified quarantine may record OFF, but never erase history,
                 // enable scheduling, or repair missing provenance implicitly.
@@ -107,13 +141,32 @@ actor ReminderScheduler {
             switch command {
             case .refresh: break
             case .enable(let enabled):
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+                ReminderCommandTrace.record("scheduler.enable.intent", command: command, enabled: enabled)
+#endif
                 state.enabled = enabled
                 if !enabled { state.clearDelivered = true; state.cleanupPending = true }
                 try persist(state)
                 if enabled && authorization == .notDetermined {
-                    do { try await client.requestAlerts() }
-                    catch { return status(state, authorization: await client.authorization(), message: "Couldn't request permission. Try again when you're ready.") }
+                    do {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+                        ReminderCommandTrace.record("authorization.request.begin", command: command)
+#endif
+                        try await client.requestAlerts()
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+                        ReminderCommandTrace.record("authorization.request.complete", command: command)
+#endif
+                    }
+                    catch {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+                        ReminderCommandTrace.record("authorization.request.error", command: command, error: error)
+#endif
+                        return status(state, authorization: await client.authorization(), message: "Couldn't request permission. Try again when you're ready.")
+                    }
                     authorization = await client.authorization()
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+                    ReminderCommandTrace.record("authorization.read.complete", command: command, authorization: authorization)
+#endif
                 }
             case .time(let time):
                 guard time.isValid else { return status(state, authorization: authorization, message: "Choose a valid reminder time.") }
@@ -122,6 +175,9 @@ actor ReminderScheduler {
             }
             return try await reconcile(state, authorization: authorization)
         } catch {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+            ReminderCommandTrace.record("scheduler.command.error", command: command, authorization: authorization, error: error)
+#endif
             // Once a persistence outcome is uncertain, do not issue another add
             // in this process. Preserve the file for recovery; never reset it.
             if case ReminderStorageError.quarantined = error {

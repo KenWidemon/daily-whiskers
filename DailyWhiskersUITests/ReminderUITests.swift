@@ -4,13 +4,13 @@ import XCTest
 /// access, so these tests never request system permission or deliver alerts.
 final class ReminderUITests: XCTestCase {
     private var app: XCUIApplication!
-    override func setUp() {
+    override func setUp() { diagnosticTestEntered()
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["--ci-smoke", "--ci-smoke-reminders", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["DW_REMINDER_TEST_ID"] = UUID().uuidString
     }
-    override func tearDown() { app.terminate() }
+    override func tearDown() { diagnosticWillTerminate(); app.terminate(); diagnosticDidTerminate() }
 
     private func openSettings() {
         let settings = app.buttons["Settings"]
@@ -22,17 +22,17 @@ final class ReminderUITests: XCTestCase {
     }
     private func waitEnabled(_ control: XCUIElement) {
         let wait = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: control)
-        XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 15), .completed)
+        XCTAssertEqual(diagnosticWait(wait, control: control, expected: "enabled", timeout: 15), .completed)
     }
     private func waitValue(_ control: XCUIElement, _ value: String) {
         let wait = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: control)
-        XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 15), .completed)
+        XCTAssertEqual(diagnosticWait(wait, control: control, expected: value, timeout: 15), .completed)
     }
     private func tapToggle(_ control: XCUIElement) {
         // SwiftUI exposes a labeled row and its native switch. Tap the switch,
         // not the noninteractive center of the label's full-width frame.
         let native = control.switches.firstMatch
-        XCTAssertTrue(native.exists); native.tap()
+        XCTAssertTrue(native.exists); diagnosticTap(native)
     }
     private func reveal(_ control: XCUIElement) {
         for _ in 0..<6 { if control.isHittable { return }; app.swipeUp() }
@@ -87,7 +87,7 @@ final class ReminderUITests: XCTestCase {
     }
 
     func testPermissionRevocationRegrantAndExplicitDisable() {
-        app.launch(); openSettings()
+        configureReminderDiagnostic(); app.launch(); openSettings()
         let toggle = app.switches["reminder-enabled"]
         tapToggle(toggle); waitValue(toggle, "1"); waitEnabled(toggle)
         XCTAssertEqual(app.staticTexts["reminder-permission"].label, "Notifications allowed.")
@@ -251,4 +251,137 @@ final class ReminderUITests: XCTestCase {
         XCTAssertTrue(app.buttons["saved-card-row"].firstMatch.waitForExistence(timeout: 10))
         capture("Saved card retained after reminder dismissed share")
     }
+
+    // Helpers remain below the original scenarios: the original failing
+    // XCTAssertEqual stays at the same file/line and evaluates only one 15s wait.
+    private func diagnosticWait(_ wait: XCTNSPredicateExpectation, control: XCUIElement,
+                                expected: String, timeout: TimeInterval) -> XCTWaiter.Result {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let began = DispatchTime.now().uptimeNanoseconds
+#endif
+        let result = XCTWaiter.wait(for: [wait], timeout: timeout)
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if diagnosticSelected {
+            let ended = DispatchTime.now().uptimeNanoseconds
+            var evidence: [String: Any] = [
+                "event": "wait.return", "session_id": app.launchEnvironment["DW_REMINDER_TEST_ID"] ?? "missing",
+                "wait_started_monotonic_ns": began, "wait_returned_monotonic_ns": ended,
+                "wall_time_unix": Date().timeIntervalSince1970, "timeout_seconds": timeout,
+                "completed": result == .completed, "expected": expected, "action_index": diagnosticTapIndex
+            ]
+            if result != .completed {
+                // Read-only snapshots, no retry/tap/second wait, before XCTest's
+                // original fatal assertion. Fixed categories exclude user data.
+                let parentExists = control.exists
+                let native = control.switches.firstMatch
+                let nativeExists = parentExists && native.exists
+                evidence["parent_exists"] = parentExists
+                evidence["parent_value"] = parentExists ? diagnosticValue(control) : "absent"
+                evidence["parent_enabled"] = parentExists && control.isEnabled
+                evidence["parent_hittable"] = parentExists && control.isHittable
+                evidence["native_exists"] = nativeExists
+                evidence["native_value"] = nativeExists ? diagnosticValue(native) : "absent"
+                evidence["native_enabled"] = nativeExists && native.isEnabled
+                evidence["native_hittable"] = nativeExists && native.isHittable
+                let error = app.staticTexts["reminder-error"]
+                evidence["error_exists"] = error.exists
+                evidence["error_category"] = diagnosticError(error)
+                evidence["permission_status"] = diagnosticPermission(app.staticTexts["reminder-permission"])
+                evidence["observation_completed_monotonic_ns"] = DispatchTime.now().uptimeNanoseconds
+                diagnosticEvidence(evidence, attach: true)
+                capture("Reminder diagnostic before original wait assertion")
+            } else { diagnosticEvidence(evidence, attach: false) }
+        }
+#endif
+        return result
+    }
+
+    private func diagnosticTap(_ native: XCUIElement) {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if diagnosticSelected { diagnosticTapIndex += 1 }
+        let began = DispatchTime.now().uptimeNanoseconds
+#endif
+        native.tap() // Exactly the original single native tap, with no alternate path.
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if diagnosticSelected {
+            diagnosticEvidence(["event": "native_tap.return",
+                "session_id": app.launchEnvironment["DW_REMINDER_TEST_ID"] ?? "missing",
+                "action_index": diagnosticTapIndex,
+                "tap_started_monotonic_ns": began,
+                "tap_returned_monotonic_ns": DispatchTime.now().uptimeNanoseconds,
+                "wall_time_unix": Date().timeIntervalSince1970], attach: false)
+        }
+#endif
+    }
+
+    private func configureReminderDiagnostic() {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        app.launchArguments.append("--ci-diagnostic-reminder-trace")
+        diagnosticEvidence(["event": "launch.configured",
+            "session_id": app.launchEnvironment["DW_REMINDER_TEST_ID"] ?? "missing",
+            "observation_scope": "initial_enable",
+            "monotonic_ns": DispatchTime.now().uptimeNanoseconds,
+            "wall_time_unix": Date().timeIntervalSince1970], attach: true)
+#endif
+    }
+
+    private func diagnosticTestEntered() {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if diagnosticSelected { diagnosticMarkers.record(test: name, phase: "test", edge: "enter") }
+#endif
+    }
+    private func diagnosticWillTerminate() {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if diagnosticSelected {
+            diagnosticMarkers.record(test: name, phase: "app_termination", edge: "enter", operationID: diagnosticTerminationID)
+        }
+#endif
+    }
+    private func diagnosticDidTerminate() {
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        if diagnosticSelected {
+            diagnosticMarkers.record(test: name, phase: "app_termination", edge: "return", operationID: diagnosticTerminationID)
+            diagnosticMarkers.record(test: name, phase: "test", edge: "return", terminal: true)
+        }
+#endif
+    }
+
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+    private var diagnosticSelected: Bool { name.contains("testPermissionRevocationRegrantAndExplicitDisable") }
+    private let diagnosticMarkers = CIDiagnosticTestMarkers(stream: "reminder_ui")
+    private let diagnosticTerminationID = UUID().uuidString
+    private var diagnosticTapIndex = 0
+
+    private func diagnosticValue(_ element: XCUIElement) -> String {
+        guard let value = element.value as? String, value == "0" || value == "1" else { return "other" }
+        return value
+    }
+    private func diagnosticError(_ element: XCUIElement) -> String {
+        guard element.exists else { return "none" }
+        let value = element.label
+        if value.contains("history needs recovery") { return "storage_recovery" }
+        if value.contains("state couldn't be verified") { return "storage_verification" }
+        if value.contains("Couldn't request permission") { return "authorization_request" }
+        return "other"
+    }
+    private func diagnosticPermission(_ element: XCUIElement) -> String {
+        guard element.exists else { return "absent" }
+        let value = element.label
+        if value == "Notifications allowed." { return "authorized" }
+        if value.hasPrefix("Quiet notifications allowed.") { return "quiet" }
+        if value.hasPrefix("Blocked in iOS Settings.") { return "denied_enabled" }
+        if value.hasPrefix("Notifications aren't allowed.") { return "denied_disabled" }
+        if value.hasPrefix("Permission will be requested") { return "not_determined" }
+        return "other"
+    }
+    private func diagnosticEvidence(_ evidence: [String: Any], attach: Bool) {
+        guard let data = try? JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else { return }
+        print("DW_REMINDER_UI_DIAGNOSTIC " + text)
+        if attach {
+            let attachment = XCTAttachment(string: text)
+            attachment.name = "Reminder diagnostic state"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+    }
+#endif
 }

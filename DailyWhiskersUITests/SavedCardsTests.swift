@@ -1,9 +1,150 @@
 import XCTest
 import UIKit
 
+#if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+import Darwin
+
+/// Disposable diagnostic transport, independent of xcodebuild's forwarded output.
+/// The host must verify the runner container/identity and treat a missing final
+/// record, partial line, export error, or overflow as incomplete evidence.
+final class CIDiagnosticTestMarkers: @unchecked Sendable {
+    private let stream: String
+    private let sessionID = UUID().uuidString
+    private let pid = ProcessInfo.processInfo.processIdentifier
+    private let processName = ProcessInfo.processInfo.processName
+    private let runnerBundleID = Bundle.main.bundleIdentifier ?? "<missing>"
+    private let containerHome = NSHomeDirectory()
+    private let queue = DispatchQueue(label: "ci.diagnostic.test-markers", qos: .utility)
+    private let lock = NSLock()
+    // Only the short admission critical section uses this lock, never file I/O.
+    private var sequence = 0
+    private var dropped = 0
+    private var terminalSubmitted = false
+    // The following state is owned exclusively by the serial writer queue.
+    private var handle: FileHandle?
+    private var exportError: String?
+    private var bytesWritten = 0
+    private let eventLimit = 512
+    private let byteLimit = 1_048_576
+
+    init(stream: String) {
+        self.stream = String(stream.filter { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }.prefix(32))
+    }
+
+    func record(test: String, phase: String, edge: String, operationID: String = "",
+                captureName: String = "", detail: String = "", terminal: Bool = false) {
+        let wall = Date().timeIntervalSince1970
+        let monotonic = String(DispatchTime.now().uptimeNanoseconds)
+        lock.lock()
+        defer { lock.unlock() }
+        guard !terminalSubmitted else { return }
+        sequence += 1
+        let currentSequence = sequence
+        var outputPhase = phase, outputEdge = edge
+        if !terminal && currentSequence > eventLimit {
+            dropped += 1
+            // One explicit overflow record, then drop without allocating work.
+            guard dropped == 1 else { return }
+            outputPhase = "marker_overflow"; outputEdge = "error"
+        }
+        if terminal { terminalSubmitted = true }
+        let droppedCount = dropped
+        let fields = [test, outputPhase, outputEdge, operationID, captureName, detail]
+        let limits = [256, 64, 16, 64, 256, 512]
+        let bounded = zip(fields, limits).map { String($0.0.prefix($0.1)) }
+        let fieldsTruncated = zip(fields, bounded).contains { $0.0 != $0.1 }
+        // Enqueue while holding the admission lock so file order matches sequence.
+        // There is no wait, retry, fsync, host acknowledgment, or XCTest call here.
+        queue.async {
+            self.export(sequence: currentSequence, wall: wall, monotonic: monotonic,
+                        fields: bounded, fieldsTruncated: fieldsTruncated,
+                        dropped: droppedCount, terminal: terminal)
+        }
+    }
+
+    private var fileURL: URL {
+        URL(fileURLWithPath: containerHome, isDirectory: true)
+            .appendingPathComponent("Documents/ci-diagnostic", isDirectory: true)
+            .appendingPathComponent("\(stream)-\(pid)-\(sessionID).jsonl")
+    }
+
+    private func export(sequence: Int, wall: Double, monotonic: String,
+                        fields: [String], fieldsTruncated: Bool, dropped: Int, terminal: Bool) {
+        guard exportError == nil else { return }
+        do {
+            if handle == nil {
+                let file = fileURL
+                try FileManager.default.createDirectory(at: file.deletingLastPathComponent(),
+                                                        withIntermediateDirectories: true)
+                let descriptor = open(file.path, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0o600)
+                guard descriptor >= 0 else {
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+                }
+                handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+            }
+            let row: [String: Any] = [
+                "schema_version": 1, "stream": stream, "session_id": sessionID,
+                "pid": pid, "process_name": processName, "runner_bundle_id": runnerBundleID,
+                "container_home": containerHome, "test": fields[0], "sequence": sequence,
+                "event_wall_time": wall, "event_monotonic_ns": monotonic,
+                "export_wall_time": Date().timeIntervalSince1970,
+                "export_monotonic_ns": String(DispatchTime.now().uptimeNanoseconds),
+                "phase": fields[1], "edge": fields[2], "operation_id": fields[3],
+                "capture_name": fields[4], "detail": fields[5],
+                "fields_truncated": fieldsTruncated, "record_complete": true,
+                "stream_complete": terminal && dropped == 0,
+                "terminal": terminal, "dropped_event_count": dropped,
+                "export_error": NSNull()
+            ]
+            var data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+            data.append(0x0a)
+            guard bytesWritten + data.count <= byteLimit else {
+                throw NSError(domain: "CIDiagnosticTestMarkers", code: 2,
+                              userInfo: [NSLocalizedDescriptionKey: "Marker byte limit exceeded"])
+            }
+            try handle?.write(contentsOf: data)
+            bytesWritten += data.count
+            if terminal {
+                try handle?.close()
+                handle = nil
+            }
+        } catch {
+            exportError = String(String(describing: error).prefix(512))
+            // This sidecar is best effort: if the whole container is unwritable,
+            // missing markers remain an explicit host-side collection failure.
+            let failure: [String: Any] = [
+                "schema_version": 1, "stream": stream, "session_id": sessionID,
+                "pid": pid, "runner_bundle_id": runnerBundleID, "test": fields[0],
+                "sequence": sequence, "event_wall_time": wall,
+                "event_monotonic_ns": monotonic, "record_complete": true,
+                "stream_complete": false, "export_error": exportError ?? "Unknown export error"
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
+                try? data.write(to: fileURL.appendingPathExtension("error.json"), options: .atomic)
+                var line = Data("CI_DIAGNOSTIC_EXPORT_ERROR ".utf8)
+                line.append(data); line.append(0x0a)
+                try? FileHandle.standardError.write(contentsOf: line)
+            }
+        }
+    }
+}
+#endif
+
 final class SavedCardsTests: XCTestCase {
     private var app: XCUIApplication!
+    #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+    private let diagnostic = CIDiagnosticTestMarkers(stream: "cards")
+
+    override func record(_ issue: XCTIssue) {
+        diagnostic.record(test: name, phase: "xctest_issue", edge: "error",
+                          detail: "\(issue.type): \(issue.compactDescription)")
+        super.record(issue)
+    }
+    #endif
     override func setUpWithError() throws {
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "test", edge: "enter")
+        #endif
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
@@ -12,12 +153,58 @@ final class SavedCardsTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
         clear()
     }
-    override func tearDownWithError() throws { capture("Final test state"); app.terminate() }
+    override func tearDownWithError() throws {
+        capture("Final test state")
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let terminationID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: terminationID)
+        #endif
+        app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: terminationID)
+        diagnostic.record(test: name, phase: "test", edge: "return", terminal: true)
+        #endif
+    }
     private func capture(_ name: String) {
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let operationID = UUID().uuidString
+        func mark(_ phase: String, _ edge: String) {
+            diagnostic.record(test: self.name, phase: phase, edge: edge,
+                              operationID: operationID, captureName: name)
+        }
+        // Keep temporary screenshot/string lifetimes scoped to attachment creation.
+        let attachment: XCTAttachment
+        do {
+            mark("screenshot_create", "enter")
+            let screenshot = XCUIScreen.main.screenshot()
+            mark("screenshot_create", "return")
+            mark("screenshot_attachment_create", "enter")
+            attachment = XCTAttachment(screenshot: screenshot)
+            mark("screenshot_attachment_create", "return")
+        }
+        attachment.name = name; attachment.lifetime = .keepAlways
+        mark("screenshot_attachment_add", "enter")
+        add(attachment)
+        mark("screenshot_attachment_add", "return")
+        let hierarchy: XCTAttachment
+        do {
+            mark("accessibility_capture", "enter")
+            let description = app.debugDescription
+            mark("accessibility_capture", "return")
+            mark("accessibility_attachment_create", "enter")
+            hierarchy = XCTAttachment(string: description)
+            mark("accessibility_attachment_create", "return")
+        }
+        hierarchy.name = name + " accessibility"; hierarchy.lifetime = .keepAlways
+        mark("accessibility_attachment_add", "enter")
+        add(hierarchy)
+        mark("accessibility_attachment_add", "return")
+        #else
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = name + " accessibility"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        #endif
     }
     private func clear() {
         app.buttons["Settings"].tap()
@@ -41,7 +228,15 @@ final class SavedCardsTests: XCTestCase {
         app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(save, "Saved"))
         capture("01 Today saved")
-        app.terminate(); app.launch()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let firstRelaunchID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: firstRelaunchID)
+        #endif
+        app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: firstRelaunchID)
+        #endif
+        app.launch()
         // Today may have advanced at midnight. Persistence belongs to the
         // originally saved card, not whichever card a new launch selects.
         XCTAssertTrue(app.buttons["open-saved-cards"].waitForExistence(timeout: 10))
@@ -102,7 +297,15 @@ final class SavedCardsTests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(row.waitForExistence(timeout: 5)); row.tap()
         XCTAssertTrue(waitForOptionsValue("Saved"))
-        app.terminate(); app.launch()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let secondRelaunchID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: secondRelaunchID)
+        #endif
+        app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: secondRelaunchID)
+        #endif
+        app.launch()
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 10))
         app.buttons["Settings"].tap(); app.buttons["Clear Saved Cards"].tap()
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
@@ -160,7 +363,14 @@ final class SavedCardsTests: XCTestCase {
     func testLargestTextSavedCardQuoteAndControlsRemainReachable() {
         app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let terminationID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: terminationID)
+        #endif
         app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: terminationID)
+        #endif
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         XCTAssertTrue(app.buttons["open-saved-cards"].waitForExistence(timeout: 10))
@@ -182,7 +392,14 @@ final class SavedCardsTests: XCTestCase {
     func testLargestTextLandscapeSavedCardActionsAndVibe() {
         app.toggleDailyCardSave()
         XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let terminationID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: terminationID)
+        #endif
         app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: terminationID)
+        #endif
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         app.buttons["open-saved-cards"].tap()
@@ -245,7 +462,14 @@ final class SavedCardsTests: XCTestCase {
     }
 
     func testLargestTextPairedGeometryAndOptions() {
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let terminationID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: terminationID)
+        #endif
         app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: terminationID)
+        #endif
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
@@ -482,7 +706,14 @@ final class SavedCardsTests: XCTestCase {
         var labels: [String] = []
         for fixture in ["shortest", "longest"] {
             XCUIDevice.shared.orientation = .portrait
+            #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+            let terminationID = UUID().uuidString
+            diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: terminationID)
+            #endif
             app.terminate()
+            #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+            diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: terminationID)
+            #endif
             app.launchArguments = ["--ci-smoke", "--ci-smoke-\(fixture)-card",
                                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
             app.launch()
@@ -560,7 +791,14 @@ final class SavedCardsTests: XCTestCase {
             capture("Actual wide window restored saved card")
         }
 
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        let largestTextRelaunchID = UUID().uuidString
+        diagnostic.record(test: name, phase: "app_termination", edge: "enter", operationID: largestTextRelaunchID)
+        #endif
         app.terminate()
+        #if DEBUG && CI_SMOKE_TESTING && CI_DIAGNOSTIC_TESTING
+        diagnostic.record(test: name, phase: "app_termination", edge: "return", operationID: largestTextRelaunchID)
+        #endif
         app.launchArguments = ["--ci-smoke", "--ci-smoke-longest-card",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
