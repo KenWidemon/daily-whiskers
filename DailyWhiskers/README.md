@@ -739,8 +739,16 @@ Changing the epoch safely abandons an old cache without deleting evidence.
 The app timeout is 60 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
-with seven-day retention. Hard termination can prevent artifact upload; missing
-artifacts are not proof of success.
+with 30-day retention. This gives investigation and acceptance reviews more time
+than seven days without the storage use of 90 days. The policy applies only to
+new artifacts uploaded by a revision with this setting; it does not extend or
+restore existing artifacts. After an authorized validation, verify the actual
+artifact expiry and source/tested SHA, run and attempt before relying on that
+window. Preserve still-needed evidence separately before its recorded expiry.
+Repository or organization limits can cap effective retention. Hard termination
+can prevent artifact upload; missing artifacts are not proof of success.
+The separate manual release-policy rehearsal retains its synthetic report for
+seven days, as documented in the [distribution record](../docs/distribution-readiness.md).
 
 ### Gate verification and rollout
 
