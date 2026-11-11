@@ -20,7 +20,14 @@ Reminder permission/time/navigation sequences remain single test methods in
 whole-class shards. Saved Cards clears its collection in setup; load-state,
 Stillness and Reminders use per-test UUID fixtures. Smoke tests relaunch the
 offline app and each relevant class establishes its own preconditions. No
-cross-class ordering requirement was identified in this review. Separate
+cross-class ordering requirement was identified in this review. The complete
+`SavedCardsLoadStateTests` class shares the lighter `reminders` shard to reduce
+the Cards execution-budget pressure. Its disposable SQLite fixture does not
+read or clear the ordinary collection used by Saved Cards and Reminders; each
+load-state method sets portrait and its own text size before launch and terminates
+the app afterward. Required case counts are Cards 7, Settings 8 and Reminders 12.
+This assignment preserves all 27 methods; any timing improvement must be measured
+on the final candidate, not inferred as a verified speedup. Separate
 simulators change cross-class history; sharded results do not reproduce the
 original serial full-suite diagnostic context or resolve its recorded failures.
 Saved Cards recovery checks use XCTest's native alert-disappearance wait after

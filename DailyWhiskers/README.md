@@ -662,9 +662,9 @@ hosted jobs select whole classes from the interaction scheme:
 
 | Shard | Required classes | Cases |
 | --- | --- | --- |
-| `cards` | `SavedCardsTests`, `SavedCardsLoadStateTests` | 11 |
+| `cards` | `SavedCardsTests` | 7 |
 | `settings` | `RegressionSmokeTests`, `StillnessModeTests` | 8 |
-| `reminders` | `ReminderUITests` | 8 |
+| `reminders` | `ReminderUITests`, `SavedCardsLoadStateTests` | 12 |
 
 The inventory lists every method and explicitly identifies the existing optional
 `AuthLayoutTests`, `BonusCardTests` and `DailyCardSharingTests` coverage. Source

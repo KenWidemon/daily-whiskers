@@ -2,15 +2,15 @@
   "schema": 1,
   "shards": {
     "cards": [
-      "SavedCardsTests",
-      "SavedCardsLoadStateTests"
+      "SavedCardsTests"
     ],
     "settings": [
       "RegressionSmokeTests",
       "StillnessModeTests"
     ],
     "reminders": [
-      "ReminderUITests"
+      "ReminderUITests",
+      "SavedCardsLoadStateTests"
     ]
   },
   "classes": {

@@ -57,6 +57,13 @@ class ShardTests(unittest.TestCase):
         data = shards.inventory()
         self.assertEqual(set(sum(data['shards'].values(), [])), {'RegressionSmokeTests', 'SavedCardsTests',
             'SavedCardsLoadStateTests', 'StillnessModeTests', 'ReminderUITests'})
+        self.assertEqual(data['shards'], {
+            'cards': ['SavedCardsTests'],
+            'settings': ['RegressionSmokeTests', 'StillnessModeTests'],
+            'reminders': ['ReminderUITests', 'SavedCardsLoadStateTests'],
+        })
+        self.assertEqual({p: len(shards.expected_tests(data, p)) for p in shards.SHARDS},
+                         {'cards': 7, 'settings': 8, 'reminders': 12})
         self.assertEqual(sum(len(shards.expected_tests(data, p)) for p in shards.SHARDS), 27)
         self.assertEqual(set(data['optional']), {'AuthLayoutTests', 'BonusCardTests', 'DailyCardSharingTests'})
 
