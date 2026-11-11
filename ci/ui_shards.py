@@ -107,6 +107,21 @@ def annotate(output, directory, part, tree=None):
         tests = output['stages']['ui']['tests']
         require(tests['totalTestCount'] == tests['executions'] == len(output['observed_tests']), 'UI count/identity mismatch')
 
+    verify_stages(output['stages'], part, output['identity'])
+
+
+def verify_stages(stages, part, current):
+    require(set(stages) == set(stages_for(part)), 'Missing/unknown stages')
+    expected = {'source_sha': current['SOURCE_SHA'], 'tested_sha': current['TESTED_SHA'],
+                'run_id': current['GITHUB_RUN_ID'], 'run_attempt': current['GITHUB_RUN_ATTEMPT'],
+                'job': 'build-and-test' if part == 'unit-release' else 'ui-shards', 'shard': part}
+    for name, stage in stages.items():
+        require(stage.get('stage') == name, 'Mismatched stage name')
+        require(all(stage.get(key) == value for key, value in expected.items()),
+                'Cross-source/checkout/run/attempt/job/shard stage evidence')
+        require(stage.get('status') == 'success' and type(stage.get('exit_code')) is int
+                and stage['exit_code'] == 0, 'Unsuccessful/incomplete command')
+
 
 def verify_record(record, part, data, current):
     from results import test_counts
@@ -114,10 +129,7 @@ def verify_record(record, part, data, current):
     require(record.get('identity') == current, 'Cross-source/checkout/run/attempt evidence')
     require(record.get('inventory_sha256') == digest(data), 'Stale inventory evidence')
     stages = record['stages']
-    require(set(stages) == set(stages_for(part)), 'Missing/unknown stages')
-    for stage in stages.values():
-        require(stage.get('status') == 'success' and type(stage.get('exit_code')) is int
-                and stage['exit_code'] == 0, 'Unsuccessful/incomplete command')
+    verify_stages(stages, part, current)
     suite = 'unit' if part == 'unit-release' else 'ui'
     tests = stages[suite]['tests']
     counts = test_counts(dict(tests, devicesAndConfigurations=tests.get('devices', [])))

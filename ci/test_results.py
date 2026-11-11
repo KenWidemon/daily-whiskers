@@ -1,6 +1,8 @@
 import importlib.util
 import json
 import os
+import subprocess
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -70,6 +72,30 @@ class ResultTests(unittest.TestCase):
             self.assertIn('**no**', text)
             self.assertIn('Artifact link unavailable', text)
 
+    def test_routine_ci_uploads_and_summary_keep_30_day_retention(self):
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / '.github/workflows/ios.yml').read_text()
+        # Check every upload block so future shards cannot silently retain a
+        # shorter window. This does not cover separate manual diagnostics.
+        uploads = [step for step in re.split(r'^      - ', workflow, flags=re.M)
+                   if re.search(r'uses: actions/upload-artifact@', step)]
+        self.assertTrue(uploads, 'Routine CI must preserve artifact uploads')
+        for step in uploads:
+            self.assertEqual(re.findall(r'^          retention-days: (.+)$', step, re.M), ['30'])
+            self.assertIn('if: always()', step)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for verified in (True, False):
+                (directory / 'results.json').write_text(json.dumps({'stages': {}, 'verified': verified}))
+                with patch.dict(os.environ, {'ARTIFACT_URL': 'https://example.invalid/artifact'}):
+                    summary = render(directory)
+                self.assertIn('(30-day configured retention; verify the artifact expiry in GitHub).', summary)
+                self.assertIn(f"Evidence complete and passing: **{'yes' if verified else 'no'}**", summary)
+            with patch.dict(os.environ, {'ARTIFACT_URL': ''}):
+                summary = render(directory)
+            self.assertIn('Artifact link unavailable', summary)
+            self.assertNotIn('30-day', summary)
+
     def test_full_success_and_failed_process_with_passing_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -122,6 +148,35 @@ class ResultTests(unittest.TestCase):
             with patch('results.subprocess.check_output', return_value='not json'):
                 self.assertFalse(collect(directory))
             self.assertIn('Unreadable result bundle', render(directory))
+
+    def test_hung_result_reader_is_bounded_and_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'SmokeResults.xcresult').mkdir()
+            with patch('results.subprocess.check_output',
+                       side_effect=subprocess.TimeoutExpired('xcresulttool', 45)) as reader:
+                self.assertFalse(collect(directory))
+            self.assertEqual(reader.call_args.kwargs['timeout'], 45)
+            self.assertIn('TimeoutExpired', render(directory))
+
+    def test_timeout_with_passing_bundle_never_passes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for stage in ('prepare', 'resolve', 'unit', 'ui', 'release'):
+                (directory / f'{stage}-status.json').write_text(json.dumps({'status': 'success'}))
+            (directory / 'ui-status.json').write_text(json.dumps({
+                'status': 'timed_out', 'exit_code': 124, 'command_exit_code': 0,
+                'cleanup_errors': [{'signal': 'SIGKILL', 'error': 'PermissionError', 'errno': 1}]}))
+            for name in ('TestResults', 'SmokeResults'):
+                (directory / f'{name}.xcresult').mkdir()
+            with patch('results.subprocess.check_output', return_value=json.dumps(fixture())):
+                self.assertFalse(collect(directory))
+            summary = render(directory)
+            self.assertIn('timed_out', summary)
+            self.assertIn('Wrapper exit 124; command exit 0', summary)
+            self.assertIn('Cleanup unverified', summary)
+            self.assertIn('PermissionError', summary)
+            self.assertIn('**no**', summary)
 
     def test_running_stage_is_interrupted_not_passed(self):
         with tempfile.TemporaryDirectory() as temporary:

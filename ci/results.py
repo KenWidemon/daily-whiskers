@@ -49,10 +49,11 @@ def collect(directory, part=None):
             continue
         try:
             raw = subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "summary",
-                                           "--path", str(directory / bundle)], text=True, stderr=subprocess.PIPE)
+                                           "--path", str(directory / bundle)], text=True, stderr=subprocess.PIPE,
+                                          timeout=45)
             (directory / f"{stage}-results.json").write_text(raw)
             record["tests"] = test_counts(json.loads(raw))
-        except (OSError, subprocess.CalledProcessError, ValueError) as error:
+        except (OSError, subprocess.SubprocessError, ValueError) as error:
             record["results_error"] = f"Unreadable result bundle ({type(error).__name__}); counts unavailable"
     valid = all(records[s]["status"] == "success" for s in stages) and all(
         records[s].get("tests", {}).get("valid_pass", False) for s in suites)
@@ -62,11 +63,12 @@ def collect(directory, part=None):
             tree = None
             if part != "unit-release":
                 raw = subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "tests",
-                                               "--path", str(directory / suites["ui"])], text=True, stderr=subprocess.PIPE)
+                                               "--path", str(directory / suites["ui"])], text=True, stderr=subprocess.PIPE,
+                                              timeout=45)
                 (directory / "ui-test-tree.json").write_text(raw)
                 tree = json.loads(raw)
             annotate(output, directory, part, tree)
-        except (OSError, subprocess.CalledProcessError, ValueError, KeyError, TypeError) as error:
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as error:
             output["evidence_error"] = str(error)
             valid = False
         output["verified"] = valid
@@ -102,6 +104,14 @@ def render(directory):
         if status == "running":
             status = "interrupted / cancelled / infrastructure termination; no completed result"
         lines.append(f"| {stage} | {safe(status)} | {safe(record.get('duration_seconds', 'unavailable'))} |")
+        if status in ('timed_out', 'interrupted'):
+            lines.append(f"| {stage} termination | Wrapper exit {safe(record.get('exit_code', 'unavailable'))}; "
+                         f"command exit {safe(record.get('command_exit_code', 'not started / unavailable'))}; "
+                         f"forced kill {safe(record.get('forced_kill', False))} | — |")
+        if record.get('cleanup_errors') or record.get('cleanup_reap_error'):
+            lines.append(f"| {stage} cleanup | Cleanup unverified: "
+                         f"{safe(record.get('cleanup_errors', []))}; "
+                         f"{safe(record.get('cleanup_reap_error', ''))} | — |")
         if stage in SUITES:
             tests = record.get("tests")
             if tests:
@@ -125,7 +135,7 @@ def render(directory):
             lines.append(f"Observed {stage} destination: " + safe(" / ".join(str(details.get(k, "unknown")) for k in
                          ("deviceName", "osVersion", "architecture", "deviceId"))))
     artifact = os.getenv("ARTIFACT_URL")
-    lines += ["", f"[Logs and result bundles]({artifact}) (7-day retention)." if artifact else
+    lines += ["", f"[Logs and result bundles]({artifact}) (30-day configured retention; verify the artifact expiry in GitHub)." if artifact else
               "Artifact link unavailable; upload may have failed, been cancelled, or produced no files.",
               "Failed/incomplete stages require inspection of their logs and result bundle; missing evidence is never a pass. "
               "No live authentication, signed archive, distribution, VoiceOver, or physical-device acceptance is established."]

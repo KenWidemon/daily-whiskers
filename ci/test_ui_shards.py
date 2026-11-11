@@ -39,7 +39,10 @@ class ShardTests(unittest.TestCase):
             target = directory / part
             target.mkdir()
             for stage in shards.stages_for(part):
-                (target / f'{stage}-status.json').write_text(json.dumps(dict(status='success', exit_code=0)))
+                (target / f'{stage}-status.json').write_text(json.dumps(dict(status='success', exit_code=0, stage=stage,
+                    source_sha=ENV['SOURCE_SHA'], tested_sha=ENV['TESTED_SHA'], run_id=ENV['GITHUB_RUN_ID'],
+                    run_attempt=ENV['GITHUB_RUN_ATTEMPT'],
+                    job='build-and-test' if part == 'unit-release' else 'ui-shards', shard=part)))
             (target / 'toolchain.txt').write_text('Xcode 26.6\nBuild version 17F113\nSwift 6.3.3\n26.5')
             tests = [] if part == 'unit-release' else shards.expected_tests(data, part)
             bundle = 'TestResults.xcresult' if part == 'unit-release' else f'SmokeResults-{part}.xcresult'
@@ -125,6 +128,10 @@ class ShardTests(unittest.TestCase):
                    lambda d: d['stages']['ui'].update(exit_code=65),
                    lambda d: d['stages']['ui']['tests'].update(totalTestCount=0),
                    lambda d: d['environment'].update(toolchain='different')]
+        changes += [lambda d, k=k: d['stages']['ui'].update({k: 'stale'})
+                    for k in ('stage', 'source_sha', 'tested_sha', 'run_id', 'run_attempt', 'job', 'shard')]
+        changes += [lambda d, k=k: d['stages']['ui'].pop(k)
+                    for k in ('stage', 'source_sha', 'tested_sha', 'run_id', 'run_attempt', 'job', 'shard')]
         changes += [lambda d, k=k: d['identity'].update({k:'wrong'}) for k in shards.IDENTITY_KEYS]
         changes += [lambda d, s=s: d['stages']['ui'].update(status=s)
                     for s in ('failure', 'timed_out', 'cancelled', 'skipped', 'running', 'not run')]
@@ -165,6 +172,55 @@ class ShardTests(unittest.TestCase):
             with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))), json.dumps(tree(identifiers))]):
                 self.assertFalse(collect(target, 'settings'))
             self.assertIn('Missing/unknown UI tests', (target/'results.json').read_text())
+
+    def test_collector_cannot_relabel_stale_stage_as_current_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            target = directory / 'cards'
+            status = json.loads((target / 'ui-status.json').read_text())
+            status.update(source_sha='c' * 40, shard='reminders')
+            (target / 'ui-status.json').write_text(json.dumps(status))
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))),
+                       json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertFalse(record['verified'])
+            self.assertIn('stage evidence', record['evidence_error'])
+
+    def test_hung_shard_tree_reader_is_bounded_and_writes_failed_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            target = directory / 'cards'
+            count = len(shards.expected_tests(shards.inventory(), 'cards'))
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(count)),
+                       subprocess.TimeoutExpired('xcresulttool tests', 45)]) as reader:
+                self.assertFalse(collect(target, 'cards'))
+            self.assertEqual([call.kwargs['timeout'] for call in reader.call_args_list], [45, 45])
+            record = json.loads((target / 'results.json').read_text())
+            self.assertFalse(record['verified'])
+            self.assertIn('timed out', record['evidence_error'])
+            with self.assertRaises(ValueError):
+                shards.aggregate(directory)
+
+    def test_timed_out_shard_with_passing_bundle_is_rejected_end_to_end(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            target = directory / 'reminders'
+            status = json.loads((target / 'ui-status.json').read_text())
+            status.update(status='timed_out', exit_code=124, command_exit_code=0)
+            (target / 'ui-status.json').write_text(json.dumps(status))
+            identifiers = shards.expected_tests(shards.inventory(), 'reminders')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))),
+                       json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'reminders'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertEqual(record['part'], 'reminders')
+            self.assertEqual(record['identity'], ENV)
+            self.assertTrue(record['stages']['ui']['tests']['valid_pass'])
+            self.assertFalse(record['verified'])
+            with self.assertRaises(ValueError):
+                shards.aggregate(directory)
 
     def test_workflow_matrix_and_gate_remain_complete(self):
         workflow=(shards.ROOT/'.github/workflows/ios.yml').read_text()

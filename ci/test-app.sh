@@ -27,6 +27,9 @@ case "${1:?Specify resolve, unit, ui or release}" in
       "${selectors[@]}" \
       -destination "platform=iOS Simulator,id=$SIMULATOR_ID,arch=arm64" \
       -derivedDataPath build/SmokeDerivedData -resultBundlePath "build/SmokeResults-$CI_PART.xcresult" \
+      -test-timeouts-enabled YES \
+      -default-test-execution-time-allowance 720 \
+      -maximum-test-execution-time-allowance 720 \
       -parallel-testing-enabled NO
     ;;
   release)

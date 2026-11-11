@@ -76,12 +76,17 @@ jobs:
     timeout-minutes: 60
     env:
       CI_PART: unit-release
+      CI_SHARD_ID: unit-release
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
         with:
           persist-credentials: false
+      # Per-job deadline leaves 15 minutes for checkout/shutdown/evidence.
+      - name: Reserve time for test evidence
+        run: python3 ci/run-stage.py init-budget 2700
       - name: Record tested checkout
         run: echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Verify toolchain and prepare project
@@ -89,6 +94,7 @@ jobs:
         run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
       - name: Restore SwiftPM dependencies
         id: packages
+        timeout-minutes: 5
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
@@ -108,12 +114,14 @@ jobs:
         run: python3 ci/run-stage.py release bash ci/test-app.sh release
       - name: Verify test-result evidence
         if: always()
+        timeout-minutes: 2
         run: python3 ci/results.py collect
       # GitHub isolates pull_request caches to refs/pull/<number>/merge. A PR
       # cannot populate the base branch's cache. Only this job saves the shared key;
       # a cache is an optimization, never evidence that UI validation passed.
       - name: Save validated SwiftPM dependencies
         if: success() && steps.packages.outputs.cache-hit != 'true'
+        timeout-minutes: 1
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
@@ -121,6 +129,7 @@ jobs:
       - name: Upload test results and build logs
         id: artifacts
         if: always()
+        timeout-minutes: 5
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-test-results-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
@@ -129,23 +138,26 @@ jobs:
             build/SmokeResults-*.xcresult
             build/*.log
             build/*-status.json
+            build/job-budget.json
             build/*-results.json
             build/ui-test-tree.json
             build/ui-selectors.txt
             build/results.json
             build/toolchain.txt
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: error
       - name: Upload aggregate evidence manifest
         if: always()
+        timeout-minutes: 1
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-evidence-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
           path: build/results.json
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: error
       - name: Publish app evidence summary
         if: always()
+        timeout-minutes: 1
         env:
           ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
           APP_JOB_STATUS: ${{ job.status }}
@@ -163,12 +175,17 @@ jobs:
         shard: [cards, settings, reminders]
     env:
       CI_PART: ${{ matrix.shard }}
+      CI_SHARD_ID: ${{ matrix.shard }}
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
         with:
           persist-credentials: false
+      # Each matrix job owns one deadline; no later stage may reset it.
+      - name: Reserve time for test evidence
+        run: python3 ci/run-stage.py init-budget 2700
       - name: Record tested checkout
         run: echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Verify toolchain and prepare project
@@ -176,6 +193,7 @@ jobs:
         run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
       - name: Restore SwiftPM dependencies
         id: packages
+        timeout-minutes: 5
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
@@ -192,10 +210,12 @@ jobs:
         run: python3 ci/run-stage.py ui bash ci/test-app.sh ui
       - name: Verify test-result evidence
         if: always()
+        timeout-minutes: 2
         run: python3 ci/results.py collect
       - name: Upload test results and build logs
         id: artifacts
         if: always()
+        timeout-minutes: 5
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-test-results-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
@@ -204,23 +224,26 @@ jobs:
             build/SmokeResults-*.xcresult
             build/*.log
             build/*-status.json
+            build/job-budget.json
             build/*-results.json
             build/ui-test-tree.json
             build/ui-selectors.txt
             build/results.json
             build/toolchain.txt
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: error
       - name: Upload aggregate evidence manifest
         if: always()
+        timeout-minutes: 1
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-evidence-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.CI_PART }}
           path: build/results.json
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: error
       - name: Publish app evidence summary
         if: always()
+        timeout-minutes: 1
         env:
           ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
           APP_JOB_STATUS: ${{ job.status }}
