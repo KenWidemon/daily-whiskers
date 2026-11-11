@@ -125,7 +125,7 @@ class TimeLimitTests(unittest.TestCase):
             self.assertIn('run-stage.py init-budget 2700\n', block)
             self.assertLess(block.index('run-stage.py init-budget'), block.index('run-stage.py prepare'))
             steps = re.split(r'^      - ', block, flags=re.M)[1:]
-            bounded = {'Verify test-result evidence': 2, 'Upload test results and build logs': 5,
+            bounded = {'Clean up owned simulator': 1, 'Verify test-result evidence': 2, 'Upload test results and build logs': 5,
                        'Upload aggregate evidence manifest': 1, 'Publish app evidence summary': 1}
             for name, minutes in bounded.items():
                 step = next(step for step in steps if step.startswith(f'name: {name}\n'))
@@ -133,9 +133,14 @@ class TimeLimitTests(unittest.TestCase):
                 self.assertIn(f'        timeout-minutes: {minutes}\n', step)
             raw = next(step for step in steps if step.startswith('name: Upload test results and build logs\n'))
             self.assertIn('            build/job-budget.json\n', raw)
+            self.assertIn('            build/simulator*.json\n', raw)
+            self.assertLess(block.index('python3 ci/simulator.py cleanup'), block.index('python3 ci/results.py collect'))
             self.assertIn('        timeout-minutes: 3\n', steps[0])
             cache = next(step for step in steps if step.startswith('name: Restore SwiftPM dependencies\n'))
-            self.assertIn('        timeout-minutes: 5\n', cache)
+            self.assertIn("timeout-minutes: ${{ fromJSON(steps.cache-window.outputs.timeout_minutes || '1') }}", cache)
+            self.assertIn("steps.cache-window.outputs.restore == 'true'", cache)
+            self.assertIn("contains(fromJSON('[\"1\",\"2\",\"3\",\"4\",\"5\"]'), steps.cache-window.outputs.timeout_minutes)", cache)
+            self.assertLess(block.index('python3 ci/cache_window.py plan'), block.index('name: Restore SwiftPM dependencies'))
 
     def test_every_app_job_has_a_bounded_evidence_reserve(self):
         workflow = (ROOT / '.github/workflows/ios.yml').read_text()

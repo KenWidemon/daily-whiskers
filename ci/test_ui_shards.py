@@ -12,9 +12,11 @@ from unittest.mock import patch
 import ui_shards as shards
 from results import collect
 from test_results import fixture
+from test_simulator import IDENTIFIER, TOOLCHAIN, preparation
+from test_cache_window import successful_record as cache_record, budget as cache_budget
 
-DEVICE = dict(deviceName='iPhone 17 Pro', modelName='iPhone 17 Pro', osVersion='26.4.1',
-              osBuildNumber='23E254a', architecture='arm64', platform='iOS Simulator')
+DEVICE = dict(deviceName='iPhone 17 Pro', modelName='iPhone 17 Pro', osVersion='27.0',
+              osBuildNumber='24A434', architecture='arm64', platform='iOS Simulator', deviceId=IDENTIFIER)
 ENV = dict(SOURCE_SHA='a'*40, TESTED_SHA='b'*40, GITHUB_SHA='b'*40,
            GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='1', GITHUB_REPOSITORY='KenWidemon/daily-whiskers')
 
@@ -42,8 +44,21 @@ class ShardTests(unittest.TestCase):
                 (target / f'{stage}-status.json').write_text(json.dumps(dict(status='success', exit_code=0, stage=stage,
                     source_sha=ENV['SOURCE_SHA'], tested_sha=ENV['TESTED_SHA'], run_id=ENV['GITHUB_RUN_ID'],
                     run_attempt=ENV['GITHUB_RUN_ATTEMPT'],
-                    job='build-and-test' if part == 'unit-release' else 'ui-shards', shard=part)))
-            (target / 'toolchain.txt').write_text('Xcode 26.6\nBuild version 17F113\nSwift 6.3.3\n26.5')
+                    job='build-and-test' if part == 'unit-release' else 'ui-shards', shard=part,
+                    **({'deadline': 3700} if stage != 'cleanup' else {}))))
+            cleanup_path = target / 'cleanup-status.json'
+            cleanup = json.loads(cleanup_path.read_text())
+            cleanup.update(ownership='preexisting', simulator_id=IDENTIFIER,
+                           operation='preserved-preexisting', readback_verified=True)
+            cleanup_path.write_text(json.dumps(cleanup))
+            (target / 'simulator.json').write_text(json.dumps(preparation(
+                {key: cleanup[key] for key in ('source_sha', 'tested_sha', 'run_id', 'run_attempt', 'job', 'shard')})))
+            (target / 'toolchain.txt').write_text(TOOLCHAIN)
+            cache_env = dict(ENV, CI_PART=part, CI_SHARD_ID=part,
+                             GITHUB_JOB='build-and-test' if part == 'unit-release' else 'ui-shards',
+                             CI_EXECUTION_DEADLINE='3700')
+            (target / 'cache-status.json').write_text(json.dumps(cache_record(cache_env)))
+            (target / 'job-budget.json').write_text(json.dumps(cache_budget(cache_env)))
             tests = [] if part == 'unit-release' else shards.expected_tests(data, part)
             bundle = 'TestResults.xcresult' if part == 'unit-release' else f'SmokeResults-{part}.xcresult'
             (target / bundle).mkdir()
@@ -132,6 +147,27 @@ class ShardTests(unittest.TestCase):
                    lambda d: d.update(observed_tests=[]),
                    lambda d: d['observed_tests'].append(d['observed_tests'][0]),
                    lambda d: d['stages'].pop('prepare'),
+                   lambda d: d['stages'].pop('cleanup'),
+                   lambda d: d['stages']['cleanup'].update(status='failure', exit_code=1),
+                   lambda d: d['stages']['cleanup'].update(readback_verified=False),
+                   lambda d: d['stages']['cleanup'].update(ownership='uncertain'),
+                   lambda d: d['simulator'].update(simulator_id='invalid'),
+                   lambda d: d['simulator'].update(run_attempt='2'),
+                   lambda d: d['simulator'].update(build='24B99'),
+                   lambda d: d['stages']['ui']['tests']['devices'][0]['device'].update(deviceId='wrong'),
+                   lambda d: d['stages']['ui']['tests']['devices'][0]['device'].update(osBuildNumber='wrong'),
+                   lambda d: d.pop('cache'),
+                   lambda d: d['cache'].update(classification='cold_miss'),
+                   lambda d: d['cache'].update(timeout_minutes=0),
+                   lambda d: d['cache'].update(run_attempt='2'),
+                   lambda d: d['cache'].update(started=2000, deadline=4700, planned_at=2100, reported_at=2101),
+                   lambda d: d['budget'].update(started=2000, deadline=4700),
+                   lambda d: d['budget'].update(run_attempt='2'),
+                   lambda d: d['budget'].update(execution_seconds=3600),
+                   lambda d: d['stages']['cache-window'].update(deadline=4700),
+                   lambda d: d['stages']['cache-report'].update(deadline=4700),
+                   lambda d: d['stages']['ui'].update(deadline=4700),
+                   lambda d: d['stages']['resolve'].pop('deadline'),
                    lambda d: d['stages']['ui'].update(exit_code=65),
                    lambda d: d['stages']['ui']['tests'].update(totalTestCount=0),
                    lambda d: d['environment'].update(toolchain='different')]
@@ -170,6 +206,20 @@ class ShardTests(unittest.TestCase):
                        lambda d: d['testNodes'][0]['children'][0].update(nodeIdentifier='unknown')):
             data=tree(identifiers); change(data)
             with self.assertRaises(ValueError): shards.test_identifiers(data)
+
+    def test_explicit_budget_skip_is_valid_evidence_but_neither_warm_nor_cold(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            env = dict(ENV, CI_PART='cards', CI_SHARD_ID='cards', GITHUB_JOB='ui-shards', CI_EXECUTION_DEADLINE='3700')
+            (target / 'cache-status.json').write_text(json.dumps(cache_record(env, 'skipped_budget')))
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))), json.dumps(tree(identifiers))]):
+                self.assertTrue(collect(target, 'cards'))
+            records = shards.aggregate(directory)
+            record = next(record for record in records if record['part'] == 'cards')
+            self.assertEqual(record['cache']['classification'], 'skipped_budget')
 
     def test_collector_rejects_partial_but_passing_test_tree(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):

@@ -185,6 +185,46 @@ class ResultTests(unittest.TestCase):
             self.assertFalse(collect(directory))
             self.assertIn('interrupted / cancelled', render(directory))
 
+    def test_summary_exposes_uncertain_simulator_cleanup_and_exact_requested_build(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'results.json').write_text(json.dumps({'verified': False, 'stages': {
+                'cleanup': {'status': 'failure', 'operation': 'delete-owned', 'readback_verified': False,
+                            'error': 'Owned simulator still present after delete'}}}))
+            (directory / 'simulator.json').write_text(json.dumps({'status': 'ready', 'ownership': 'created',
+                                                                'simulator_id': 'synthetic'}))
+            summary = render(directory)
+            self.assertIn('iOS 27.0 (24A434)', summary)
+            self.assertIn('Simulator preparation: ready / created / synthetic', summary)
+            self.assertIn('Simulator cleanup: failure / delete-owned / False / Owned simulator still present', summary)
+            self.assertIn('**no**', summary)
+
+    def test_malformed_lifecycle_and_cache_json_do_not_destroy_failure_summary(self):
+        for raw in ('not json', '[]', 'null', '"invalid"', '42'):
+            with self.subTest(raw=raw), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                (directory / 'results.json').write_text(json.dumps({'verified': False, 'stages': {},
+                                                                  'evidence_error': 'Preparation evidence rejected'}))
+                (directory / 'simulator.json').write_text(raw)
+                (directory / 'cache-status.json').write_text(raw)
+                summary = render(directory)
+                self.assertIn('Simulator preparation: unavailable; unreadable lifecycle evidence', summary)
+                self.assertIn('Cache evidence error: Unreadable cache evidence', summary)
+                self.assertIn('Evidence rejected: Preparation evidence rejected', summary)
+                self.assertIn('**no**', summary)
+
+    def test_invalid_manifest_cache_shape_is_not_hidden_by_valid_fallback(self):
+        for cache in ([], ['cache'], None, 'invalid', 0, True):
+            with self.subTest(cache=cache), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                (directory / 'results.json').write_text(json.dumps({'verified': False, 'stages': {}, 'cache': cache}))
+                (directory / 'cache-status.json').write_text(json.dumps({'classification': 'exact_hit', 'status': 'success'}))
+                summary = render(directory)
+                self.assertIn('SwiftPM cache: unavailable', summary)
+                self.assertIn('Cache evidence error: Unreadable cache evidence: expected an object', summary)
+                self.assertNotIn('exact_hit', summary)
+                self.assertIn('**no**', summary)
+
     def test_docs_only_summary(self):
         summary = gate_summary({'classify': {'outputs': {'mode': 'docs'}, 'result': 'success'},
                                 'checks': {'result': 'success'}, 'build-and-test': {'result': 'skipped'}, 'ui-shards': {'result': 'skipped'}})

@@ -46,6 +46,19 @@ claims no app pass. A partial-attempt rerun fails closed; use a complete rerun.
 Adding a feature branch with a new required UI class requires extending the
 inventory and assignment before integration, without dropping existing classes.
 
+The Xcode 27.2 / SDK 27.2 migration requires fresh hosted evidence on the official
+ARM64 preview image and exact iPhone 17 Pro / iOS 27.0 build 24A434. Local runtime
+availability and the image manifest are preflight inputs, not hosted acceptance.
+Inspect runtime compatibility, device creation/reuse provenance, owned-only cleanup
+and readback before relying on the same-attempt aggregate. Fail missing/uncertain
+cleanup even with passing test bundles. Run the mocked lifecycle cases in
+`ci/test_simulator.py`; never use local simulator creation/deletion as an offline
+policy test. New cache keys separate the toolchains, so an old warm control cannot
+qualify this stack. Preserve historical timings and teardown failures under their
+original environment; an upgrade alone does not resolve them. Verify the cache
+window's deadline/provenance evidence and actual failure-path uploads before
+accepting the evidence-reserve assumptions described in the CI contract.
+
 Compare timing using GitHub's job start/end timestamps for the same environment
 and cache state: report elapsed wall time from the first app job start through
 the last app job completion separately from the sum of all app job durations

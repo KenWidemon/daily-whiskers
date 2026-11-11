@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from simulator import BUILD, NAME, VERSION
 
 SUITES = {"unit": "TestResults.xcresult", "ui": "SmokeResults.xcresult"}
 STAGES = ("prepare", "resolve", "unit", "ui", "release")
@@ -127,13 +128,39 @@ def render(directory):
               "Parameterized executions and test cases are different counts; no console totals are added.", ""]
     toolchain = directory / "toolchain.txt"
     lines.append("Toolchain: " + safe(toolchain.read_text().strip() if toolchain.exists() else "unavailable (preparation did not complete)"))
-    lines.append("Requested Debug destination: iPhone 17 Pro / iOS 26.4.1 / arm64. "
+    cache = data.get('cache', {})
+    cache_path = directory / 'cache-status.json'
+    if 'cache' not in data and cache_path.exists():
+        try:
+            cache = json.loads(cache_path.read_text())
+        except (ValueError, OSError):
+            cache = {'classification': 'unavailable', 'error': 'Unreadable cache evidence'}
+    if not isinstance(cache, dict):
+        cache = {'classification': 'unavailable', 'error': 'Unreadable cache evidence: expected an object'}
+    lines.append("SwiftPM cache: " + safe(" / ".join(str(cache.get(k, 'unavailable')) for k in
+                 ('classification', 'decision', 'status'))) + ". Skipped/failed/partial restore is neither a warm hit nor a cold miss.")
+    if cache.get('error'):
+        lines.append('Cache evidence error: ' + safe(cache['error']))
+    lines.append(f"Requested Debug destination: {NAME} / iOS {VERSION} ({BUILD}) / arm64. "
                  "Unsigned Release destination: generic iOS Simulator (compilation/packaging only).")
+    preparation = directory / 'simulator.json'
+    if preparation.exists():
+        try:
+            device_record = json.loads(preparation.read_text())
+            if not isinstance(device_record, dict):
+                raise ValueError('Expected a simulator evidence object')
+            lines.append("Simulator preparation: " + safe(" / ".join(str(device_record.get(k, 'unknown')) for k in
+                         ('status', 'ownership', 'simulator_id'))))
+        except (ValueError, OSError, TypeError) as error:
+            lines.append(f'Simulator preparation: unavailable; unreadable lifecycle evidence ({type(error).__name__}).')
+    cleanup_record = data['stages'].get('cleanup', {})
+    lines.append("Simulator cleanup: " + safe(" / ".join(str(cleanup_record.get(k, 'unavailable')) for k in
+                 ('status', 'operation', 'readback_verified', 'error'))))
     for stage in SUITES:
         for device in data["stages"].get(stage, {}).get("tests", {}).get("devices", []):
             details = device.get("device", {})
             lines.append(f"Observed {stage} destination: " + safe(" / ".join(str(details.get(k, "unknown")) for k in
-                         ("deviceName", "osVersion", "architecture", "deviceId"))))
+                         ("deviceName", "osVersion", "osBuildNumber", "architecture", "deviceId"))))
     artifact = os.getenv("ARTIFACT_URL")
     lines += ["", f"[Logs and result bundles]({artifact}) (30-day configured retention; verify the artifact expiry in GitHub)." if artifact else
               "Artifact link unavailable; upload may have failed, been cancelled, or produced no files.",

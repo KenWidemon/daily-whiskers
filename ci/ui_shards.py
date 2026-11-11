@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import re
 import sys
+from simulator import BUILD, NAME, VERSION, verify_evidence, verify_toolchain
+from cache_window import verify_record as verify_cache_record
 
 ROOT = Path(__file__).resolve().parent.parent
 SHARDS = ('cards', 'settings', 'reminders')
@@ -54,7 +56,8 @@ def expected_tests(data, part):
 
 def stages_for(part):
     require(part in PARTS, 'Unknown evidence part')
-    return ('prepare', 'resolve', 'unit', 'release') if part == 'unit-release' else ('prepare', 'resolve', 'ui')
+    common = ('prepare', 'cache-window', 'cache-report', 'resolve')
+    return (*common, 'unit', 'release', 'cleanup') if part == 'unit-release' else (*common, 'ui', 'cleanup')
 
 
 def identity():
@@ -87,8 +90,9 @@ def device_environment(tests):
     device = devices[0]['device']
     environment = {key: device[key] for key in DEVICE_KEYS}
     require(all(environment.values()), 'Missing device evidence')
-    require(environment['deviceName'] == environment['modelName'] == 'iPhone 17 Pro'
-            and environment['osVersion'] == '26.4.1' and environment['architecture'] == 'arm64'
+    require(environment['deviceName'] == environment['modelName'] == NAME
+            and environment['osVersion'] == VERSION and environment['osBuildNumber'] == BUILD
+            and environment['architecture'] == 'arm64'
             and environment['platform'] == 'iOS Simulator', 'Unexpected test destination')
     return environment
 
@@ -100,17 +104,24 @@ def annotate(output, directory, part, tree=None):
     suite = 'unit' if part == 'unit-release' else 'ui'
     output['environment'] = {'toolchain': (directory / 'toolchain.txt').read_text().strip(),
                              'device': device_environment(output['stages'][suite]['tests'])}
-    require(output['environment']['toolchain'], 'Missing toolchain')
+    verify_toolchain(output['environment']['toolchain'])
+    output['budget'] = json.loads((directory / 'job-budget.json').read_text())
+    output['cache'] = json.loads((directory / 'cache-status.json').read_text())
+    verify_cache_record(output['cache'], output['identity'], part, output['budget'])
+    output['simulator'] = json.loads((directory / 'simulator.json').read_text())
+    simulator_id = verify_evidence(output['simulator'], output['stages']['cleanup'], output['identity'], part)
+    require(output['stages'][suite]['tests']['devices'][0]['device'].get('deviceId') == simulator_id,
+            'Observed test device differs from prepared simulator')
     if part != 'unit-release':
         output['observed_tests'] = test_identifiers(tree)
         require(output['observed_tests'] == output['required_tests'], 'Missing/unknown UI tests')
         tests = output['stages']['ui']['tests']
         require(tests['totalTestCount'] == tests['executions'] == len(output['observed_tests']), 'UI count/identity mismatch')
 
-    verify_stages(output['stages'], part, output['identity'])
+    verify_stages(output['stages'], part, output['identity'], output['budget']['deadline'])
 
 
-def verify_stages(stages, part, current):
+def verify_stages(stages, part, current, deadline):
     require(set(stages) == set(stages_for(part)), 'Missing/unknown stages')
     expected = {'source_sha': current['SOURCE_SHA'], 'tested_sha': current['TESTED_SHA'],
                 'run_id': current['GITHUB_RUN_ID'], 'run_attempt': current['GITHUB_RUN_ATTEMPT'],
@@ -121,6 +132,8 @@ def verify_stages(stages, part, current):
                 'Cross-source/checkout/run/attempt/job/shard stage evidence')
         require(stage.get('status') == 'success' and type(stage.get('exit_code')) is int
                 and stage['exit_code'] == 0, 'Unsuccessful/incomplete command')
+        if name != 'cleanup':
+            require(stage.get('deadline') == deadline, 'Execution stages disagree with the shared budget deadline')
 
 
 def verify_record(record, part, data, current):
@@ -129,13 +142,16 @@ def verify_record(record, part, data, current):
     require(record.get('identity') == current, 'Cross-source/checkout/run/attempt evidence')
     require(record.get('inventory_sha256') == digest(data), 'Stale inventory evidence')
     stages = record['stages']
-    verify_stages(stages, part, current)
+    verify_stages(stages, part, current, record['budget']['deadline'])
     suite = 'unit' if part == 'unit-release' else 'ui'
     tests = stages[suite]['tests']
     counts = test_counts(dict(tests, devicesAndConfigurations=tests.get('devices', [])))
     require(counts['valid_pass'], 'Non-passing test counts')
     require(record['environment']['device'] == device_environment(tests), 'Inconsistent device evidence')
-    require(bool(record['environment']['toolchain']), 'Missing toolchain')
+    verify_toolchain(record['environment']['toolchain'])
+    verify_cache_record(record['cache'], current, part, record['budget'])
+    simulator_id = verify_evidence(record['simulator'], stages['cleanup'], current, part)
+    require(tests['devices'][0]['device'].get('deviceId') == simulator_id, 'Wrong observed simulator UUID')
     required = [] if part == 'unit-release' else expected_tests(data, part)
     require(record.get('required_tests') == required, 'Wrong required inventory')
     if part != 'unit-release':

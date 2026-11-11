@@ -637,12 +637,33 @@ updates must update the lockfile and pass the checks in the same PR.
 
 ### App validation and pinned inputs
 
-Every app job uses the `macos-26` ARM64 runner, Xcode **26.6 / 17F113**, the iOS
-simulator SDK 26.5, and **iPhone 17 Pro / iOS 26.4.1**. It verifies Xcode and the
-exact simulator rather than falling back to another installation. Runner image,
-architecture, Swift/SDK versions, and simulator identity are logged. Hosted
-runner images remain mutable; reproducibility means pinned inputs with explicit
-drift failures, not byte-identical signed artifacts.
+Every app job uses the official `xcode-27` ARM64 **preview** runner, explicitly
+selects `/Applications/Xcode_27.2.app/Contents/Developer`, and requires Xcode
+**27.2 / 27B52**, simulator SDK **27.2**, and **iPhone 17 Pro / iOS 27.0 / 24A434**.
+The [official image manifest](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+at image `20261104.0337.1` lists Xcode 27.2, but defaults to 27.1 and does not
+list or promise a precreated iPhone 17 Pro. The workflow does not change global Xcode defaults, download
+another runtime, or fall back to another installation/model/runtime. Runner image,
+architecture, Swift/SDK versions and simulator provenance are logged. Hosted
+images remain mutable; pinned inputs fail closed on drift, not byte-identical
+signed artifacts. The preview label is narrowly allowed in `.github/actionlint.yaml`
+because actionlint 1.7.12's built-in catalog predates it; other validation remains.
+
+`ci/simulator.py` requires one available exact runtime identifier
+`com.apple.CoreSimulator.SimRuntime.iOS-27-0`, version 27.0, build 24A434, ARM64
+support and an explicit compatible iPhone 17 Pro device type. It reuses exactly
+one matching available named device, rejects ambiguity, or creates one only when
+none exists. Creation intent, baseline UUIDs, returned UUID/ownership and readback
+are durable before testing. A timeout or unreadable creation result leaves
+ownership uncertain, never permission to guess a UUID or delete by name.
+
+Every app job runs bounded `always()` cleanup before collecting evidence. Only a
+positively owned UUID absent from the baseline may be shut down/deleted; preexisting
+devices are preserved. Cleanup shares a 45-second command deadline inside a
+one-minute step and verifies absence after deletion. Missing, failed or uncertain
+cleanup fails the job and manifest gate. Runtime/device snapshots, preparation and
+cleanup status are uploaded with the other evidence. Local offline tests mock all
+simctl operations; they do not prove hosted compatibility or cleanup behavior.
 
 XcodeGen **2.46.0** is downloaded from its release and checked against a committed
 SHA-256. Actions use Node 24 and full commit SHAs with release comments; actionlint **1.7.12**
@@ -732,8 +753,9 @@ run/attempt, job and shard to the current manifest; current outer metadata canno
 relabel stale stage evidence. The final gate downloads four small manifests (unit/Release plus all three UI
 shards) and validates their contents independently of the matrix status. It
 rejects absent, unreadable, duplicated, stale or incompatible evidence. Device
-UUIDs may differ across runners; model, architecture, OS/build and toolchain must
-match. Artifact names include source SHA, run, attempt and part; each UI bundle
+UUIDs may differ across runners; each observed test UUID must match its own prepared
+device and verified cleanup record. Model, architecture, exact OS/build and
+toolchain must match across jobs. Artifact names include source SHA, run, attempt and part; each UI bundle
 also includes its shard name. Raw result bundles/logs remain separate artifacts.
 A partial job rerun cannot reuse earlier-attempt manifests: rerun the complete
 workflow for a new complete gate result.
@@ -773,6 +795,32 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
+Immediately before restore, `ci/cache_window.py` verifies the existing budget's
+source/run/attempt/job/shard identity, 2700-second duration and exported absolute
+deadline. It never renews or rewrites the budget. From the remaining seconds it
+subtracts **60 seconds** for ordinary runner transition/helper overhead, rounds
+down to whole minutes and caps restore at **five minutes**. Fewer than one usable
+minute skips only the cache optimization. For example, 120 seconds remaining
+permits one minute; just under 120 skips; 360 permits five minutes. Missing,
+malformed or stale budget data fails closed instead of enabling a fallback.
+
+Both plan and report run through the shared deadline wrapper. Report requires a
+successful plan, so preparation timeout cannot add an unconditional cache-report
+step afterward. The restore action additionally requires an explicit enabled flag
+and an allowlisted timeout of 1–5; missing/zero/unknown outputs cannot start it.
+A skipped plan exports a finite inert one-minute timeout, never zero/unlimited.
+Cache save requires a successfully completed restore action and validated tests.
+
+`build/cache-status.json`, its wrapper logs/status and the aggregate manifest
+retain the selected/skipped window and observed action outputs. Collection and
+aggregation validate that provenance against the current source/tested checkout,
+run/attempt/job/shard and the original budget file. All wrapped execution stages,
+including cache plan/report, must carry that same deadline; cleanup is outside it.
+A self-consistent cache window cannot substitute a renewed deadline. Summaries distinguish `exact_hit`, `cold_miss`,
+`partial_restore`, `skipped_budget` and unavailable/failed evidence. A valid skip
+does not fail app validation, but skipped/partial/failed restore never qualifies
+as either a cold or warm control. A report after the deadline is rejected.
+
 Each app job keeps a 60-minute hard timeout. After checkout, each unit/Release
 job and UI shard initializes its own shared **45-minute execution budget** once.
 Preparation, cache restore, dependency resolution and that job's validation stages
@@ -780,9 +828,21 @@ share the same absolute deadline; subsequent stages fail without starting once i
 expires. The 15-minute reserve covers checkout (three minutes), up to 60 seconds
 of graceful process-group shutdown plus bounded forced termination, result reading
 (45 seconds per reader; two-minute step), cache save (one minute in unit/Release),
-raw artifact upload (five minutes), manifest upload (one minute), and summary
-publication (one minute), with remaining time for runner overhead. Cache restore
-is also bounded to five minutes and consumes the execution budget.
+owned-device cleanup (one-minute step, 45-second shared command deadline), raw
+artifact upload (five minutes), manifest upload (one minute), and summary
+publication (one minute). Accounting must follow the actual conditional paths:
+success requires no watchdog grace, so the reserve step caps total 840 seconds
+for unit/Release or 780 seconds for UI. A watchdog failure allows 65 seconds for
+shutdown/reaping but skips the success-only cache save, totaling 845 seconds for
+either job. This leaves at least 55 seconds of nominal runner overhead within the
+900-second reserve; cleanup's shorter command deadline is additional margin.
+The cache window removes the old unconditional five-minute restore overrun under
+its stated 60-second transition/helper-overhead assumption. GitHub's action timeout
+is relative to action execution, not the shared wall-clock deadline: arbitrary
+runner suspension or scheduling delay can exceed that allowance. The following
+wrapped stage rejects an expired budget, but cannot reclaim lost upload time.
+Verify actual hosted timing and failure-path uploads; the accounting is not a
+guarantee during runner stalls, clock changes, service cancellation or runner loss.
 
 This retains the shard job ceilings instead of carrying the serial 90-minute
 ceiling into every parallel job. The 45-minute budget is provisional and must be
@@ -817,7 +877,7 @@ timeout diagnostics, so this is not an exact wall-clock kill; the job watchdog
 bounds the overall process. Swift Testing/unit execution is bounded by the shared
 job deadline; this UI XCTest setting does not claim per-test Swift Testing limits.
 
-The starting allowance is calibrated to two hosted iPhone 17 Pro / iOS 26.4.1,
+The starting allowance retains its historical calibration from two hosted iPhone 17 Pro / iOS 26.4.1,
 Xcode 26.6 / 17F113 / simulator SDK 26.5 samples:
 [run 42527479814](https://github.com/KenWidemon/daily-whiskers/actions/runs/42527479814)
 (source `8ba6bd88df3c385e354eb3efe76d67d55f587cce`, tested merge
@@ -842,6 +902,12 @@ without adding that feature or changing trunk's required test selection. Retain
 that distinction when recalibrating after sharding, toolchain, test-inventory or
 runner changes. Validate normal slow cases and a deliberate over-budget probe
 with exact source/run/toolchain identities before treating a new limit as accepted.
+The Xcode 27.2 / iOS 27.0 migration invalidates earlier runtime and timing
+acceptance; the retained 720-second limit and 2700-second job budget are
+provisional on this stack. Fresh cold/warm controls, normal slow cases and isolated
+timeout proofs are required. A toolchain update is not evidence that the earlier
+Saved Cards `app.terminate()` teardown failure was caused by, or fixed by, a
+configured timeout. Preserve each failure's original source and environment.
 
 The deadline wrapper is exercised with real silent, SIGTERM-ignoring and descendant
 processes in `ci/test_time_limits.py`. To verify XCTest behavior separately, use an

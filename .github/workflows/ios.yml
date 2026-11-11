@@ -72,12 +72,12 @@ jobs:
     name: App regression
     needs: classify
     if: needs.classify.outputs.mode == 'full'
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       CI_PART: unit-release
       CI_SHARD_ID: unit-release
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -92,17 +92,27 @@ jobs:
       - name: Verify toolchain and prepare project
         id: prepare
         run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
+      - name: Bound dependency cache restore
+        id: cache-window
+        timeout-minutes: 1
+        run: python3 ci/run-stage.py cache-window python3 ci/cache_window.py plan
       - name: Restore SwiftPM dependencies
         id: packages
-        timeout-minutes: 5
+        if: ${{ success() && steps.cache-window.outputs.restore == 'true' && contains(fromJSON('["1","2","3","4","5"]'), steps.cache-window.outputs.timeout_minutes) }}
+        timeout-minutes: ${{ fromJSON(steps.cache-window.outputs.timeout_minutes || '1') }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-27.2-27B52-iphonesimulator-27.2-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
       - name: Report cache state
+        if: ${{ always() && steps.cache-window.outcome == 'success' }}
+        timeout-minutes: 1
         env:
+          CACHE_OUTCOME: ${{ steps.packages.outcome }}
           CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
-        run: printf 'SwiftPM cache hit = %s\n' "$CACHE_HIT" >> "$GITHUB_STEP_SUMMARY"
+          CACHE_PRIMARY_KEY: ${{ steps.packages.outputs.cache-primary-key }}
+          CACHE_MATCHED_KEY: ${{ steps.packages.outputs.cache-matched-key }}
+        run: python3 ci/run-stage.py cache-report python3 ci/cache_window.py report
       - name: Resolve locked dependencies
         id: resolve
         run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
@@ -112,6 +122,10 @@ jobs:
       - name: Unsigned Release simulator build
         if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
         run: python3 ci/run-stage.py release bash ci/test-app.sh release
+      - name: Clean up owned simulator
+        if: always()
+        timeout-minutes: 1
+        run: python3 ci/simulator.py cleanup
       - name: Verify test-result evidence
         if: always()
         timeout-minutes: 2
@@ -120,7 +134,7 @@ jobs:
       # cannot populate the base branch's cache. Only this job saves the shared key;
       # a cache is an optimization, never evidence that UI validation passed.
       - name: Save validated SwiftPM dependencies
-        if: success() && steps.packages.outputs.cache-hit != 'true'
+        if: success() && steps.packages.outcome == 'success' && steps.packages.outputs.cache-hit != 'true'
         timeout-minutes: 1
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -144,6 +158,7 @@ jobs:
             build/ui-selectors.txt
             build/results.json
             build/toolchain.txt
+            build/simulator*.json
           retention-days: 30
           if-no-files-found: error
       - name: Upload aggregate evidence manifest
@@ -167,7 +182,7 @@ jobs:
     name: UI shard (${{ matrix.shard }})
     needs: classify
     if: needs.classify.outputs.mode == 'full'
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -176,7 +191,7 @@ jobs:
     env:
       CI_PART: ${{ matrix.shard }}
       CI_SHARD_ID: ${{ matrix.shard }}
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -191,23 +206,37 @@ jobs:
       - name: Verify toolchain and prepare project
         id: prepare
         run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
+      - name: Bound dependency cache restore
+        id: cache-window
+        timeout-minutes: 1
+        run: python3 ci/run-stage.py cache-window python3 ci/cache_window.py plan
       - name: Restore SwiftPM dependencies
         id: packages
-        timeout-minutes: 5
+        if: ${{ success() && steps.cache-window.outputs.restore == 'true' && contains(fromJSON('["1","2","3","4","5"]'), steps.cache-window.outputs.timeout_minutes) }}
+        timeout-minutes: ${{ fromJSON(steps.cache-window.outputs.timeout_minutes || '1') }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/SourcePackages
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.6-17F113-iphonesimulator-26.5-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-27.2-27B52-iphonesimulator-27.2-${{ hashFiles('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ inputs.cache_epoch || 'v2' }}
       - name: Report cache state
+        if: ${{ always() && steps.cache-window.outcome == 'success' }}
+        timeout-minutes: 1
         env:
+          CACHE_OUTCOME: ${{ steps.packages.outcome }}
           CACHE_HIT: ${{ steps.packages.outputs.cache-hit }}
-        run: printf 'SwiftPM cache hit = %s\n' "$CACHE_HIT" >> "$GITHUB_STEP_SUMMARY"
+          CACHE_PRIMARY_KEY: ${{ steps.packages.outputs.cache-primary-key }}
+          CACHE_MATCHED_KEY: ${{ steps.packages.outputs.cache-matched-key }}
+        run: python3 ci/run-stage.py cache-report python3 ci/cache_window.py report
       - name: Resolve locked dependencies
         id: resolve
         run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
       - name: Offline UI shard
         if: ${{ !cancelled() && steps.resolve.outcome == 'success' }}
         run: python3 ci/run-stage.py ui bash ci/test-app.sh ui
+      - name: Clean up owned simulator
+        if: always()
+        timeout-minutes: 1
+        run: python3 ci/simulator.py cleanup
       - name: Verify test-result evidence
         if: always()
         timeout-minutes: 2
@@ -230,6 +259,7 @@ jobs:
             build/ui-selectors.txt
             build/results.json
             build/toolchain.txt
+            build/simulator*.json
           retention-days: 30
           if-no-files-found: error
       - name: Upload aggregate evidence manifest
