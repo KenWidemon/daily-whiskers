@@ -59,6 +59,11 @@ class MockRun:
                   'exec_attempt_observed': True, 'launch_authorized': True, 'output_truncated': False}
         self.commands.append(record)
         value = self.answers.get(name, 'fixture')
+        # Installed Xcode 27.2 help, captured in diagnostic run 43065852973:
+        # Usage: simctl boot <device> [--arch=<arch>] ...
+        # Keep the positional parser strict, rather than echoing probe success.
+        if name == 'boot' and argv != ['xcrun', 'simctl', 'boot', UUID, '--arch=arm64']:
+            value = CommandFailure('simctl boot requires <device> [--arch=<arch>]')
         if kwargs.get('absolute_deadline') is not None and self.clock() >= kwargs['absolute_deadline']:
             record.update(status='not_started', pid=None, launch_authorized=False)
             value = CommandFailure('Deadline passed; no launch')
@@ -136,13 +141,19 @@ class ReadinessTests(unittest.TestCase):
         self.assertTrue(state['boot_readback_verified'])
         boot = [c for c in run.calls if c[0] in ('boot', 'bootstatus', 'devices-booted')]
         self.assertEqual([c[3]['absolute_deadline'] for c in boot], [400, 400, 400])
-        self.assertEqual(boot[0][1], ['xcrun', 'simctl', 'boot', '--arch=arm64', UUID])
+        self.assertEqual(boot[0][1], ['xcrun', 'simctl', 'boot', UUID, '--arch=arm64'])
         self.assertEqual(boot[0][2], 20)
         self.assertEqual(boot[1][1], ['xcrun', 'simctl', 'bootstatus', UUID])
         clean = MockRun()
         self.assertEqual(probe.cleanup(self.root, clean, ENV), 0)
         self.assertEqual([c[0] for c in clean.calls], ['cleanup-before', 'shutdown', 'delete', 'cleanup-after'])
         self.assertEqual(probe.summary(self.root, ENV), 0)
+
+    def test_boot_fixture_rejects_option_in_device_position(self):
+        run = MockRun()
+        with self.assertRaisesRegex(CommandFailure, r'simctl boot requires <device>'):
+            run.run('boot', ['xcrun', 'simctl', 'boot', '--arch=arm64', UUID], timeout=20)
+        self.assertEqual(run.commands[-1]['status'], 'failure')
 
     def test_prepared_device_must_be_shutdown_before_boot(self):
         code, run, _ = self.prepare({'devices-prepared': json.dumps(device_fixture('Booted'))})

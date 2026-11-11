@@ -168,7 +168,7 @@ def execute(directory, run, env=os.environ):
                 == 'Shutdown', 'Prepared owned device is not Shutdown')
         # Both boot commands share one original 300-second maximum.
         boot_deadline = min(run.deadline, run.clock() + 300)
-        sim(run, 'boot', 'boot', '--arch=arm64', identifier, timeout=20, absolute_deadline=boot_deadline)
+        sim(run, 'boot', 'boot', identifier, '--arch=arm64', timeout=20, absolute_deadline=boot_deadline)
         remaining = boot_deadline - run.clock()
         require(remaining > 0, 'Boot budget exhausted before bootstatus')
         sim(run, 'bootstatus', 'bootstatus', identifier, timeout=300, absolute_deadline=boot_deadline)
