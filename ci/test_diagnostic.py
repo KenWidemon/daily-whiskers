@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 
 import diagnostic as d
 import diagnostic_monitor as monitor
+import diagnostic_postrun as postrun
 import diagnostic_results as evidence
 import simulator
 
@@ -25,7 +26,7 @@ ENV = {'SOURCE_SHA': 'a' * 40, 'TESTED_SHA': 'a' * 40, 'GITHUB_SHA': 'a' * 40,
 
 def summary():
     counts = {'passedTests': 1, 'failedTests': 0, 'skippedTests': 0, 'expectedFailures': 0}
-    return dict(counts, totalTestCount=1, result='Passed', devicesAndConfigurations=[dict(counts, device={
+    return dict(counts, startTime=150, finishTime=180, totalTestCount=1, result='Passed', devicesAndConfigurations=[dict(counts, device={
         'deviceName': simulator.NAME, 'modelName': simulator.NAME, 'osVersion': simulator.VERSION,
         'osBuildNumber': simulator.BUILD, 'architecture': 'arm64', 'platform': 'iOS Simulator', 'deviceId': UUID})])
 
@@ -359,7 +360,7 @@ class DiagnosticTests(unittest.TestCase):
             self.assertTrue(result['tests']['cards-largest']['bundle_exists'])
             self.assertFalse(result['tests']['cards-largest']['info_plist_exists'])
             self.assertTrue((Path(temporary) / 'Diagnostic-cards-largest.xcresult/Staging').exists())
-            self.assertIn('validate.markers.cards-largest', result['errors'])
+            self.assertIn('validate.postrun.cards-largest', result['errors'])
 
 
 class ManagedLaunchTests(unittest.TestCase):
@@ -381,6 +382,9 @@ class ManagedLaunchTests(unittest.TestCase):
         timer.start()
         self.addCleanup(timer.stop)
         self.current = d.identity()
+        verifier = patch.object(postrun, 'verify_evidence', return_value={'fixture': 'independently tested in test_diagnostic_postrun'})
+        verifier.start()
+        self.addCleanup(verifier.stop)
         self.prep = simulator.identity() | {'status': 'ready', 'readback_verified': True, 'ownership': 'created',
             'simulator_id': UUID, 'preexisting_ids': [], 'runtime': simulator.RUNTIME, 'version': simulator.VERSION,
             'build': simulator.BUILD, 'architecture': 'arm64', 'name': simulator.NAME, 'device_type': simulator.DEVICE_TYPE}
@@ -388,7 +392,10 @@ class ManagedLaunchTests(unittest.TestCase):
         d.write(self.build / 'job-budget.json', self.current | {'execution_seconds': 2700, 'started': 100, 'deadline': 2800})
 
     def launch(self, stage='cards-largest'):
-        value = dict(self.current, stage=stage, pid=42, deadline=2800, command=d.test_command('cards', stage))
+        value = dict(self.current, stage=stage, pid=42, deadline=2800, command=d.test_command('cards', stage),
+                     started=140, started_monotonic_ns=100, evidence_mode='post-run-only')
+        d.write(self.directory / stage / 'exit.json', dict(self.current, stage=stage, launch=value,
+                exit_code=0, finished=190, finished_monotonic_ns=1000))
         d.write(self.directory / stage / 'launch.json', value)
         bundle = self.build / f'Diagnostic-{stage}.xcresult'
         bundle.mkdir(exist_ok=True)
@@ -428,7 +435,10 @@ class ManagedLaunchTests(unittest.TestCase):
             d.write(self.directory / 'preflight.json', current | {'status': 'success', 'cache_restore': 'disabled', 'cache_save': 'disabled'})
             d.write(self.directory / 'export.json', current | {'status': 'complete', 'errors': []})
             d.write(self.directory / 'built-metadata.json', current)
-            launch = current | {'stage': 'visual', 'pid': 42, 'deadline': 2800, 'command': d.test_command('visual', 'visual')}
+            launch = current | {'stage': 'visual', 'pid': 42, 'deadline': 2800, 'command': d.test_command('visual', 'visual'),
+                                'started': 140, 'started_monotonic_ns': 100, 'evidence_mode': 'post-run-only'}
+            d.write(self.directory / 'visual/exit.json', current | {'stage': 'visual', 'launch': launch,
+                    'exit_code': 0, 'finished': 190, 'finished_monotonic_ns': 1000})
             d.write(self.directory / 'visual/launch.json', launch)
             bundle = self.build / 'Diagnostic-visual.xcresult'
             bundle.mkdir()
@@ -451,7 +461,7 @@ class ManagedLaunchTests(unittest.TestCase):
                 d.write(self.directory / 'visual/verified-result.json', checkpoint | mutation)
                 result = collect()
                 self.assertFalse(result['diagnostic_evidence_complete'])
-                self.assertFalse(result['selected_tests_passed'])
+                self.assertTrue(result['selected_tests_passed'])  # Result pass independent of checkpoint provenance.
             d.write(self.directory / 'visual/verified-result.json', checkpoint)
             (self.directory / 'visual/launch.json').unlink()
             result = collect()
@@ -505,7 +515,7 @@ class ManagedLaunchTests(unittest.TestCase):
             self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', 0)
             reader.assert_not_called()
         self.assertTrue((bundle / 'Staging').is_dir())
-        with patch.object(monitor, 'execute') as execute:
+        with patch.object(postrun, 'execute') as execute:
             self.assertRaises(FileNotFoundError, d.test, 'cards', 'cards-adaptive')
             execute.assert_not_called()
 
@@ -517,7 +527,7 @@ class ManagedLaunchTests(unittest.TestCase):
                            ('errors', {'summary': 'unavailable'})]:
             with self.subTest(key=key):
                 d.write(self.directory / 'cards-largest/verified-result.json', record | {key: value})
-                with patch.object(monitor, 'execute') as execute:
+                with patch.object(postrun, 'execute') as execute:
                     self.assertRaises(ValueError, d.test, 'cards', 'cards-adaptive')
                     execute.assert_not_called()
         for change in [lambda x: x['launch'].update(run_attempt='2'),
@@ -540,7 +550,7 @@ class ManagedLaunchTests(unittest.TestCase):
             self.assertRaises(ValueError, evidence.verify_predecessor, 'cards', 'cards-adaptive')
 
     def test_test_path_validates_before_return_and_forbids_repeated_launch(self):
-        with patch.object(d, 'check_lock'), patch.object(monitor, 'execute', return_value=0) as execute, \
+        with patch.object(d, 'check_lock'), patch.object(postrun, 'execute', return_value=0) as execute, \
              patch.object(evidence, 'checkpoint', side_effect=ValueError('foreign result')) as check:
             self.assertRaises(ValueError, d.test, 'cards', 'cards-largest')
             check.assert_called_once_with('cards-largest', 0)
@@ -549,7 +559,7 @@ class ManagedLaunchTests(unittest.TestCase):
             self.assertEqual(command[command.index('-destination') + 1], f'platform=iOS Simulator,id={UUID},arch=arm64')
             self.assertEqual([arg for arg in command if arg.startswith('-only-testing:')], ['-only-testing:' + SELECTOR])
         self.launch()
-        with patch.object(monitor, 'execute') as execute:
+        with patch.object(postrun, 'execute') as execute:
             self.assertRaises(ValueError, d.test, 'cards', 'cards-largest')
             execute.assert_not_called()
 

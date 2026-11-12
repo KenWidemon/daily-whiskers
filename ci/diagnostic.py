@@ -115,7 +115,7 @@ def test_command(lane, stage):
 
 
 def test(lane, stage):
-    from diagnostic_monitor import execute
+    from diagnostic_postrun import execute
     from diagnostic_results import checkpoint, verify_predecessor
     command = test_command(lane, stage)
     verify_predecessor(lane, stage)
@@ -150,7 +150,14 @@ def metadata(lane):
         bundle_id, executable = data.get('CFBundleIdentifier'), data.get('CFBundleExecutable')
         require(isinstance(bundle_id, str) and bundle_id and isinstance(executable, str)
                 and Path(executable).name == executable and (path / executable).is_file(), 'Invalid built bundle metadata')
-        output['bundles'][kind] = {'bundle_id': bundle_id, 'executable': executable, 'built_path': str(path.resolve())}
+        from diagnostic_postrun import digest
+        binaries = {str(file.relative_to(path)): digest(file) for file in path.rglob('*')
+                    if file.is_file() and (file.name == executable or file.suffix == '.dylib' or file.parent.suffix == '.xctest'
+                                           and file.name == file.parent.stem)}
+        require(kind != 'runner' or any(Path(name).parent.suffix == '.xctest'
+                and Path(name).name == Path(name).parent.stem for name in binaries), 'Missing built UI test executable')
+        output['bundles'][kind] = {'bundle_id': bundle_id, 'executable': executable,
+                                  'built_path': str(path.resolve()), 'binaries': binaries}
     write(DIAGNOSTIC / 'built-metadata.json', output)
     return output
 
@@ -163,12 +170,10 @@ def preflight():
     deadline()
     owned()
     require(not (BUILD / 'SourcePackages').exists(), 'Uncached diagnostic starts with unexpected dependency directory')
-    require(shutil.which('sample') == '/usr/bin/sample' and shutil.which('ps'), 'Missing host diagnostic tools')
-    help_text = run_output(['/usr/bin/sample', str(os.getpid()), '1', '10', '-file',
-                            str(DIAGNOSTIC / 'sample-permission-preflight.txt')], seconds=6)
-    write(DIAGNOSTIC / 'preflight.json', dict(current, status='success', pid=os.getpid(),
-          sample_preflight=help_text, sampling_interval_ms=10, cache='diagnostic uncached',
-          cache_restore='disabled', cache_save='disabled', cold_control_certified=False))
+    write(DIAGNOSTIC / 'preflight.json', dict(current, status='success',
+          evidence_mode='post-run-only', live_diagnostics='not requested', startup_cutoff_seconds=None,
+          cache='diagnostic uncached', cache_restore='disabled', cache_save='disabled',
+          cold_control_certified=False))
 
 
 def build(lane):
@@ -195,7 +200,7 @@ def main():
     elif args.command == 'test':
         return test(lane, args.stage)
     else:
-        from diagnostic_monitor import export_all
+        from diagnostic_postrun import export_all
         return export_all()
     return 0
 

@@ -59,7 +59,7 @@ jobs:
       - name: Verify strict pins and prepare owned simulator
         id: prepare
         run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
-      - name: Verify diagnostic identity and sample permissions
+      - name: Verify diagnostic identity and uncached setup
         id: preflight
         run: python3 ci/run-stage.py diagnostic-preflight python3 ci/diagnostic.py preflight
       # No cache restore/save: diagnostic uncached, never a certified cold control.
@@ -70,7 +70,7 @@ jobs:
         id: build
         run: python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build
       # xcodebuild launches only the prepared UUID; no separate boot/readiness gate.
-      - name: First selected method with bounded host observation
+      - name: First selected method with post-run evidence verification
         id: first
         env:
           DIAGNOSTIC_STAGE: ${{ matrix.first }}
