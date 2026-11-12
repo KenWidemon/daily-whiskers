@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import shutil
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -280,6 +281,112 @@ class PostrunTests(unittest.TestCase):
         after = p.marker_uptime_ns()
         self.assertLessEqual(before, child)
         self.assertLessEqual(child, after)
+
+    def relocated_fixture(self):
+        self.fixture()
+        first = p.verify_evidence('cards-largest', collect=True)
+        d.write(self.directory / 'postrun.json', first)
+        status = dict(self.current, stage='cards-largest', status='success', exit_code=0, deadline=2800)
+        d.write(self.build / 'cards-largest-status.json', status)
+        checkpoint = dict(self.current, stage='cards-largest', status='success', exit_code=0, errors={},
+            deadline=2800, simulator_id=UUID, launch=self.launch,
+            summary=summary() | {'startTime': 9.2, 'finishTime': 10.8}, tree=tree(),
+            product_test_passed=True, postrun_evidence_complete=True, postrun=first)
+        d.write(self.directory / 'verified-result.json', checkpoint)
+        stage = 'cards-adaptive'
+        directory = self.diag / stage
+        launch = dict(self.launch, stage=stage, command=d.test_command('cards', stage),
+                      started=12, started_monotonic_ns=120)
+        exited = dict(self.exited, stage=stage, launch=launch, finished=14, finished_monotonic_ns=140)
+        d.write(directory / 'launch.json', launch)
+        d.write(directory / 'exit.json', exited)
+        rows = marker_rows()
+        session = '22222222-2222-4222-8222-222222222222'
+        selector = dict(d.LANES['cards'])[stage]
+        for row in rows:
+            row.update(pid=124, session_id=session, container_home='/moved',
+                test=f'-[DailyWhiskersUITests.SavedCardsTests {selector.split("/")[-1]}]',
+                event_wall_time=13, export_wall_time=13.1, event_monotonic_ns='130', export_monotonic_ns='131')
+        folder = directory / 'exported/runner'; folder.mkdir(parents=True)
+        current = folder / f'cards-124-{session}.jsonl'
+        current.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        original = Path(first['marker_evidence']['path'])
+        shutil.copyfile(original, folder / original.name)
+        export = dict(self.current, status='complete', errors=[], launched_stages=['cards-largest', stage],
+                      containers=[], files=[])
+        for kind in ('app', 'runner'):
+            receipt = directory / f'{kind}-container-metadata.plist'
+            receipt.write_bytes(plistlib.dumps({'MCMMetadataIdentifier': kind + '.bundle'}))
+            export['containers'].append({'kind': kind, 'bundle_id': kind + '.bundle',
+                'path': '/moved' if kind == 'runner' else '/moved-app', 'metadata': str(receipt)})
+        for file in folder.glob('*.jsonl'):
+            export['files'].append({'kind': 'runner', 'path': str(file),
+                'source': '/moved/Documents/ci-diagnostic/' + file.name, 'sha256': p.digest(file)})
+        d.write(self.diag / (stage + '-export.json'), export)
+        report = dict(self.current, stage=stage, mode='post-run-only', installed=first['installed'])
+        d.write(directory / 'postrun.json', report)
+        return directory, export, checkpoint, status, original
+
+    def test_relocated_history_keeps_original_successful_container_binding(self):
+        directory, export, checkpoint, status, original = self.relocated_fixture()
+        result = p.verify_evidence('cards-adaptive', collect=True)
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(result['marker_evidence']['runner_data_container'], '/moved')
+        historical = result['historical_marker_evidence']['cards-largest']
+        self.assertEqual(historical['original_container'], '/owned')
+        self.assertEqual(historical['sha256'], p.digest(original))
+        self.assertEqual(historical['pid'], 123)
+
+    def test_relocated_history_requires_successful_same_run_stage_and_checkpoint(self):
+        directory, export, checkpoint, status, original = self.relocated_fixture()
+        for mutation in [{'status': 'failure'}, {'exit_code': 65}, {'source_sha': 'b' * 40},
+                         {'run_attempt': '2'}, {'deadline': 2700}, {'cleanup_errors': ['uncertain']}]:
+            d.write(self.build / 'cards-largest-status.json', status | mutation)
+            self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
+        d.write(self.build / 'cards-largest-status.json', status)
+        for mutation in [{'status': 'failure'}, {'postrun_evidence_complete': False}, {'run_id': '13'},
+                         {'product_test_passed': False}, {'errors': {'verification': 'failed'}}]:
+            d.write(self.directory / 'verified-result.json', checkpoint | mutation)
+            self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
+
+    def test_relocated_changed_pid_session_bytes_or_original_export_fail_closed(self):
+        directory, export, checkpoint, status, original = self.relocated_fixture()
+        migrated = directory / 'exported/runner' / original.name
+        original_bytes = original.read_bytes()
+        for key, value in [('pid', 999), ('session_id', '33333333-3333-4333-8333-333333333333'),
+                           ('container_home', '/moved'), ('detail', 'changed')]:
+            rows = [json.loads(line) for line in original_bytes.splitlines()]
+            for row in rows: row[key] = value
+            migrated.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+            changed = copy.deepcopy(export)
+            next(item for item in changed['files'] if item['path'] == str(migrated))['sha256'] = p.digest(migrated)
+            d.write(self.diag / 'cards-adaptive-export.json', changed)
+            self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
+        migrated.write_bytes(original_bytes)
+        d.write(self.diag / 'cards-adaptive-export.json', export)
+        original.write_bytes(original_bytes + b'\n')
+        self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
+
+    def test_relocated_missing_duplicate_unknown_and_future_history_rejected(self):
+        directory, export, checkpoint, status, original = self.relocated_fixture()
+        migrated = directory / 'exported/runner' / original.name
+        data = migrated.read_bytes()
+        migrated.unlink()
+        changed = copy.deepcopy(export)
+        changed['files'] = [row for row in changed['files'] if row['path'] != str(migrated)]
+        d.write(self.diag / 'cards-adaptive-export.json', changed)
+        self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
+        migrated.write_bytes(data)
+        d.write(self.diag / 'cards-adaptive-export.json', export | {'launched_stages': ['cards-adaptive', 'cards-largest']})
+        self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
+        for test_name in ('-[Other testUnknown]', '-[DailyWhiskersUITests.SavedCardsTests testAdaptiveCardAndSavedTilesAcrossWindowSizes]'):
+            rows = [json.loads(line) for line in data.splitlines()]
+            for row in rows: row['test'] = test_name
+            migrated.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+            changed = copy.deepcopy(export)
+            next(item for item in changed['files'] if item['path'] == str(migrated))['sha256'] = p.digest(migrated)
+            d.write(self.diag / 'cards-adaptive-export.json', changed)
+            self.assertRaises(ValueError, p.verify_evidence, 'cards-adaptive', collect=True)
 
 
 if __name__ == '__main__':

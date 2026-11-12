@@ -66,7 +66,13 @@ bundles. The exact method, stream, process name, container, PID/session, contigu
 sequence, complete terminal marker and paired termination operations must match.
 Unknown, stale, partial, ambiguous or cross-invocation files fail closed. Each
 invocation retains a separate hashed export before its checkpoint can unlock the
-next selected method; prior streams must still match their own invocation.
+next selected method. If Xcode relocates the runner data container between methods,
+a strictly earlier stream may retain its original container identity only when its
+filename, complete bytes, SHA-256, PID and session match the original frozen export
+and successful same-run/source/deadline checkpoint and stage. The original
+checkpoint, launch, exit and container association are revalidated. Current-stage
+markers still require the current MCM container; unknown, future, changed, duplicate,
+missing or failed-predecessor streams fail closed.
 Product-test pass and post-run evidence completeness are reported separately.
 
 Reminder tracing covers a bounded initial-enable observation, not the full

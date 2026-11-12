@@ -286,7 +286,11 @@ def verify_evidence(stage, *, collect=False):
     actual = list((directory / 'exported').glob('*/*'))
     d.require({str(p) for p in actual} == {f['path'] for f in export['files']}, 'Unrecorded/duplicate exported files')
     d.require(not list((directory / 'exported/runner').glob('*.error.json')), 'Marker export sidecar error')
+    planned = [name for name, _ in d.LANES[current['lane']]]
+    index = planned.index(stage)
+    d.require(export['launched_stages'] == planned[:index + 1], 'Unexpected launched-stage order')
     markers = {}
+    historical = {}
     for file in (directory / 'exported/runner').glob('*.jsonl'):
         rows, complete = read_markers(file)
         d.require(rows and complete, 'Empty/partial exported marker stream')
@@ -298,9 +302,35 @@ def verify_evidence(stage, *, collect=False):
         launch = json.loads((d.DIAGNOSTIC / name / 'launch.json').read_text())
         exited = json.loads((d.DIAGNOSTIC / name / 'exit.json').read_text())
         validate_invocation(launch, exited, name)
-        markers[name] = validate_stream(file, name, launch, exited, containers['runner']['path'], metadata)
+        if name == stage:
+            markers[name] = validate_stream(file, name, launch, exited, containers['runner']['path'], metadata)
+        else:
+            # Xcode may relocate a runner data container while preserving files.
+            # A historical stream keeps its ORIGINAL verified container binding;
+            # current MCM metadata cannot authenticate its earlier container_home.
+            d.require(planned.index(name) < index, 'Future marker stream')
+            from diagnostic_results import validate_checkpoint, verify_stage
+            prior = json.loads((d.DIAGNOSTIC / name / 'verified-result.json').read_text())
+            status = json.loads((d.BUILD / f'{name}-status.json').read_text())
+            verify_stage(status, name, current, launch['deadline'])
+            validate_checkpoint(prior, name, current, launch['deadline'], d.owned()['simulator_id'])
+            original = prior['postrun']['marker_evidence']
+            original_path = Path(original['path'])
+            d.require(original_path.parent == d.DIAGNOSTIC / name / 'exported/runner'
+                      and original_path.name == file.name
+                      and original['pid'] == rows[0]['pid'] and original['session_id'] == rows[0]['session_id']
+                      and original['sha256'] == digest(original_path) == digest(file)
+                      and original_path.read_bytes() == file.read_bytes(), 'Changed/unattributed historical marker')
+            markers[name] = original
+            historical[name] = {'path': str(file), 'original_path': str(original_path),
+                                'sha256': original['sha256'], 'pid': original['pid'],
+                                'session_id': original['session_id'],
+                                'original_container': original['runner_data_container'],
+                                'basis': 'exact bytes of successful frozen predecessor checkpoint'}
     d.require(set(markers) == set(export['launched_stages']) and stage in markers, 'Missing selected marker stream')
     report['marker_evidence'] = markers[stage]
+    if historical:
+        report['historical_marker_evidence'] = historical
     if stage == 'reminder':
         from diagnostic_results import validate_trace
         traces = list((directory / 'exported/app').glob('reminder-*.json'))
