@@ -41,7 +41,8 @@ def identity():
     require(result['job'] == 'diagnostic', 'Not a diagnostic job')
     require(result['source_sha'] == result['tested_sha'] == result['event_sha'], 'Checkout/source mismatch')
     require(re.fullmatch('[0-9a-f]{40}', result['source_sha']) is not None, 'Invalid source SHA')
-    require(all(re.fullmatch('[1-9][0-9]*', result[key]) for key in ('run_id', 'run_attempt')), 'Invalid run/attempt identity')
+    require(re.fullmatch('[1-9][0-9]*', result['run_id']) and result['run_attempt'] == '1',
+            'Invalid run/attempt identity')
     return result
 
 
@@ -50,11 +51,19 @@ def write(path, value):
     simulator.write(path, value)
 
 
-def deadline():
+def budget():
+    record = json.loads((BUILD / 'job-budget.json').read_text())
+    current = identity()
     value = float(os.environ['CI_EXECUTION_DEADLINE'])
-    budget = json.loads((BUILD / 'job-budget.json').read_text())
-    require(math.isfinite(value) and budget['deadline'] == value and budget['execution_seconds'] == 2700,
-            'Missing/changed original diagnostic budget')
+    require(math.isfinite(value) and record['deadline'] == value and record['execution_seconds'] == 2700
+            and record['deadline'] - record['started'] == 2700, 'Missing/changed original diagnostic budget')
+    require(all(record.get(key) == current[key] for key in ('source_sha', 'run_id', 'run_attempt', 'job', 'shard')),
+            'Cross-run diagnostic budget')
+    return record
+
+
+def deadline():
+    value = budget()['deadline']
     require(value > time.time(), 'Diagnostic execution budget exhausted')
     return value
 
@@ -80,41 +89,6 @@ def owned():
     return record
 
 
-def boot():
-    identity()
-    record = owned()
-    identifier = record['simulator_id']
-    until = min(deadline(), time.time() + 300)
-    details = dict(identity(), simulator_id=identifier, started=time.time(), deadline=until,
-                   maximum_seconds=300, status='running')
-    write(DIAGNOSTIC / 'boot.json', details)
-    try:
-        # Read installed help on the pinned hosted toolchain, not assumptions from
-        # a developer Mac. bootstatus without -b never creates/boots another device.
-        for command, token in [('boot', 'simctl boot <device>'), ('bootstatus', 'simctl bootstatus <device>'),
-                               ('get_app_container', 'simctl get_app_container <device>')]:
-            text = run_output(['xcrun', 'simctl', 'help', command], until=until)
-            (DIAGNOSTIC / f'simctl-help-{command}.txt').write_text(text + '\n')
-            require(token in text, 'Unsupported simctl command: ' + command)
-        before = json.loads(run_output(['xcrun', 'simctl', 'list', 'devices', '--json'], until=until))
-        device = simulator.exact_device(before, identifier)
-        require(device.get('state') == 'Shutdown', 'New owned simulator not shutdown before explicit boot')
-        run_output(['xcrun', 'simctl', 'boot', identifier, '--arch=arm64'], seconds=20, until=until)
-        # Deliberately NOT Simulator.Simctl: that wrapper caps each call at 20s.
-        log = run_output(['xcrun', 'simctl', 'bootstatus', identifier], seconds=300, until=until)
-        (DIAGNOSTIC / 'boot-readiness.log').write_text(log + '\n')
-        after = json.loads(run_output(['xcrun', 'simctl', 'list', 'devices', '--json'], until=until))
-        write(DIAGNOSTIC / 'devices-booted.json', after)
-        require(simulator.exact_device(after, identifier).get('state') == 'Booted', 'Boot readiness readback failed')
-        details.update(status='success', readback_verified=True)
-    except Exception as error:
-        details.update(status='failure', error=f'{type(error).__name__}: {error}')
-        raise
-    finally:
-        details['finished'] = time.time()
-        write(DIAGNOSTIC / 'boot.json', details)
-
-
 def common():
     return ['-project', 'DailyWhiskers.xcodeproj', '-clonedSourcePackagesDirPath',
             str(Path(os.environ['GITHUB_WORKSPACE']) / 'build/SourcePackages'),
@@ -131,6 +105,30 @@ def test_options(lane):
             '-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '720',
             '-maximum-test-execution-time-allowance', '720']
     return options
+
+
+def test_command(lane, stage):
+    require(stage in dict(LANES[lane]), 'Unexpected selected test stage')
+    return ['xcodebuild', 'test-without-building', *test_options(lane),
+            '-only-testing:' + dict(LANES[lane])[stage],
+            '-resultBundlePath', f'build/Diagnostic-{stage}.xcresult']
+
+
+def test(lane, stage):
+    from diagnostic_monitor import execute
+    from diagnostic_results import checkpoint, verify_predecessor
+    command = test_command(lane, stage)
+    verify_predecessor(lane, stage)
+    require(not (BUILD / f'Diagnostic-{stage}.xcresult').exists()
+            and not (DIAGNOSTIC / stage / 'launch.json').exists()
+            and not (DIAGNOSTIC / stage / 'verified-result.json').exists(), 'Selected method must run only once')
+    check_lock()
+    code = execute(command, lane, stage)
+    check_lock()
+    # Even an exit-zero command cannot unlock the next method without actual
+    # xcresult method/count/device evidence, inside the unchanged lane deadline.
+    checkpoint(stage, code)
+    return code
 
 
 def check_lock():
@@ -160,7 +158,7 @@ def metadata(lane):
 def preflight():
     current = identity()
     require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
-            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-diagnostic-20261111'
+            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-managed-launch-20261111'
             and os.environ.get('GITHUB_RUN_ATTEMPT') == '1', 'Only one initial disposable-branch dispatch is permitted')
     deadline()
     owned()
@@ -185,28 +183,17 @@ def build(lane):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('boot', 'preflight', 'build', 'test', 'export'))
+    parser.add_argument('command', choices=('preflight', 'build', 'test', 'export'))
     parser.add_argument('--stage')
     args = parser.parse_args()
     DIAGNOSTIC.mkdir(parents=True, exist_ok=True)
     lane = identity()['lane']
-    if args.command == 'boot':
-        boot()
-    elif args.command == 'preflight':
+    if args.command == 'preflight':
         preflight()
     elif args.command == 'build':
         return build(lane)
     elif args.command == 'test':
-        from diagnostic_monitor import execute
-        expected = dict(LANES[lane])
-        require(args.stage in expected, 'Unexpected selected test stage')
-        check_lock()
-        command = ['xcodebuild', 'test-without-building', *test_options(lane),
-                   '-only-testing:' + expected[args.stage],
-                   '-resultBundlePath', f'build/Diagnostic-{args.stage}.xcresult']
-        code = execute(command, lane, args.stage)
-        check_lock()
-        return code
+        return test(lane, args.stage)
     else:
         from diagnostic_monitor import export_all
         return export_all()

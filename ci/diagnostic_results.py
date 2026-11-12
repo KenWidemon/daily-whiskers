@@ -81,6 +81,9 @@ def validate_selected(summary, tree, selector, identifier):
               'Failed/skipped/repeated selected execution')
     devices = counts['devices']
     d.require(len(devices) == 1, 'Ambiguous observed destination')
+    d.require(all(devices[0].get(key) == value for key, value in {
+        'passedTests': 1, 'failedTests': 0, 'skippedTests': 0, 'expectedFailures': 0}.items()),
+        'Contradictory observed-device test counts')
     observed = devices[0]['device']
     for key, value in {'deviceName': simulator.NAME, 'modelName': simulator.NAME,
                        'osVersion': simulator.VERSION, 'osBuildNumber': simulator.BUILD,
@@ -97,6 +100,68 @@ def verify_stage(record, name, current, deadline):
     if name != 'cleanup':
         d.require(record.get('deadline') == deadline, 'Changed execution budget in ' + name)
     d.require(not record.get('cleanup_errors') and not record.get('cleanup_reap_error'), 'Uncertain process cleanup')
+
+
+def validate_launch(launch, stage, current, deadline):
+    d.require(all(launch.get(k) == v for k, v in current.items()) and launch.get('stage') == stage
+              and type(launch.get('pid')) is int and launch['pid'] > 0
+              and launch.get('deadline') == deadline
+              and launch.get('command') == d.test_command(current['lane'], stage),
+              'Cross-run/missing PID or wrong managed destination launch')
+
+
+def validate_checkpoint(record, stage, current, deadline, identifier):
+    d.require(all(record.get(k) == v for k, v in current.items()) and record.get('stage') == stage
+              and record.get('status') == 'success' and record.get('exit_code') == 0 and record.get('errors') == {}
+              and record.get('deadline') == deadline and record.get('simulator_id') == identifier,
+              'Missing/failed/cross-run selected result checkpoint')
+    validate_launch(record['launch'], stage, current, deadline)
+    d.require(record['launch'] == json.loads((d.DIAGNOSTIC / stage / 'launch.json').read_text()),
+              'Checkpoint differs from original launch record')
+    return validate_selected(record['summary'], record['tree'], dict(d.LANES[current['lane']])[stage], identifier)
+
+
+def checkpoint(stage, code):
+    current = d.identity()
+    record = dict(current, stage=stage, status='failure', exit_code=code, summary=None, tree=None, errors={})
+    path = d.DIAGNOSTIC / stage / 'verified-result.json'
+    try:
+        record.update(deadline=d.deadline(), simulator_id=d.owned()['simulator_id'])
+        record['launch'] = json.loads((path.parent / 'launch.json').read_text())
+        validate_launch(record['launch'], stage, current, record['deadline'])
+        bundle = d.BUILD / f'Diagnostic-{stage}.xcresult'
+        d.require((bundle / 'Info.plist').is_file(), 'No finalized selected result; raw Staging retained')
+        # Preserve each reader independently if the other fails.
+        for operation, key in (('summary', 'summary'), ('tests', 'tree')):
+            try:
+                raw = d.run_output(['xcrun', 'xcresulttool', 'get', 'test-results', operation,
+                                    '--path', str(bundle)], seconds=20, until=record['deadline'])
+                (path.parent / f'{operation}.json').write_text(raw + '\n')
+                record[key] = json.loads(raw)
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                record['errors'][operation] = str(error)[:4096]
+        d.require(code == 0 and not record['errors'], 'Selected command/readers failed')
+        validate_selected(record['summary'], record['tree'], dict(d.LANES[current['lane']])[stage], record['simulator_id'])
+        d.deadline()  # No late evidence can unlock another method.
+        record['status'] = 'success'
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError) as error:
+        record['errors']['verification'] = f'{type(error).__name__}: {error}'
+    finally:
+        d.write(path, record)
+    d.require(record['status'] == 'success', 'Selected result checkpoint failed; next method blocked')
+    return record
+
+
+def verify_predecessor(lane, stage):
+    stages = [name for name, _ in d.LANES[lane]]
+    index = stages.index(stage)
+    if index:
+        previous = stages[index - 1]
+        current, deadline = d.identity(), d.deadline()
+        status = json.loads((d.BUILD / f'{previous}-status.json').read_text())
+        record = json.loads((d.DIAGNOSTIC / previous / 'verified-result.json').read_text())
+        verify_stage(status, previous, current, deadline)
+        validate_checkpoint(record, previous, current, deadline, d.owned()['simulator_id'])
 
 
 def validate_markers(paths, selector, monitor, metadata):
@@ -190,6 +255,7 @@ def collect():
     lane = current['lane']
     output = dict(schema='selected-diagnostic-v1', identity=current, acceptance=False,
                   scope='Selected diagnostic only; cannot satisfy 27-test acceptance or CI Gate',
+                  launch_strategy='xcodebuild-managed',
                   cache='diagnostic uncached; not a certified cold control', stages={}, tests={}, errors={},
                   diagnostic_evidence_complete=False, selected_tests_passed=False)
     def capture(key, function):
@@ -201,13 +267,12 @@ def collect():
             return None
     def read(path):
         return json.loads(path.read_text())
-    stage_names = ['prepare', 'boot', 'diagnostic-preflight', 'resolve', 'diagnostic-build',
+    stage_names = ['prepare', 'diagnostic-preflight', 'resolve', 'diagnostic-build',
                    *[name for name, _ in d.LANES[lane]], 'cleanup']
     for name in stage_names:
         output['stages'][name] = capture('stage.' + name, lambda name=name: read(d.BUILD / f'{name}-status.json'))
-    output['budget'] = capture('budget', lambda: read(d.BUILD / 'job-budget.json'))
-    output['simulator'] = capture('simulator', lambda: read(d.BUILD / 'simulator.json'))
-    output['boot'] = capture('boot', lambda: read(d.DIAGNOSTIC / 'boot.json'))
+    output['budget'] = capture('budget', d.budget)
+    output['simulator'] = capture('simulator', d.owned)
     output['preflight'] = capture('preflight', lambda: read(d.DIAGNOSTIC / 'preflight.json'))
     output['export'] = capture('export', lambda: read(d.DIAGNOSTIC / 'export.json'))
     output['metadata'] = capture('metadata', lambda: read(d.DIAGNOSTIC / 'built-metadata.json'))
@@ -225,6 +290,7 @@ def collect():
             value = capture(f'{stage}.{operation}', read_result)
             result['summary' if operation == 'summary' else 'tree'] = value
         result['launch'] = capture(stage + '.launch', lambda stage=stage: read(d.DIAGNOSTIC / stage / 'launch.json'))
+        result['checkpoint'] = capture(stage + '.checkpoint', lambda stage=stage: read(d.DIAGNOSTIC / stage / 'verified-result.json'))
         if lane != 'visual':
             result['monitor'] = capture(stage + '.monitor', lambda stage=stage: read(d.DIAGNOSTIC / stage / 'monitor.json'))
     def verify():
@@ -242,12 +308,10 @@ def collect():
         cleanup = output['stages']['cleanup']
         d.require(cleanup.get('operation') == 'delete-owned' and cleanup.get('simulator_id') == identifier
                   and cleanup.get('readback_verified') is True, 'Missing cleanup readback')
-        d.require(output['boot']['status'] == 'success' and output['boot']['readback_verified'] is True
-                  and output['boot']['simulator_id'] == identifier, 'Missing explicit boot readiness')
         simulator.verify_toolchain((d.BUILD / 'toolchain.txt').read_text())
         d.require(output['preflight']['status'] == 'success' and output['preflight']['cache_restore'] == 'disabled'
                   and output['preflight']['cache_save'] == 'disabled', 'Missing diagnostic preflight')
-        for component in ('boot', 'preflight', 'export', 'metadata'):
+        for component in ('preflight', 'export', 'metadata'):
             d.require(all(output[component].get(k) == v for k, v in current.items()), 'Cross-run ' + component)
         d.require(output['export']['status'] == 'complete' and not output['export']['errors'], 'Incomplete final export')
     capture('provenance', verify)
@@ -261,12 +325,11 @@ def collect():
         result['verified_selected_method'] = capture('validate.selected.' + stage,
             lambda result=result, selector=selector: validate_selected(
                 result['summary'], result['tree'], selector, output['simulator']['simulator_id']))
-        def verify_launch(result=result, stage=stage):
-            launch = result['launch']
-            d.require(all(launch.get(k) == v for k, v in current.items()) and launch.get('stage') == stage
-                      and type(launch.get('pid')) is int and launch['pid'] > 0
-                      and launch.get('deadline') == output['budget']['deadline'], 'Cross-run/missing PID launch')
-        capture('validate.launch.' + stage, verify_launch)
+        capture('validate.launch.' + stage, lambda result=result, stage=stage:
+                validate_launch(result['launch'], stage, current, output['budget']['deadline']))
+        result['verified_checkpoint_method'] = capture('validate.checkpoint.' + stage, lambda result=result, stage=stage:
+                validate_checkpoint(result['checkpoint'], stage, current, output['budget']['deadline'],
+                                    output['simulator']['simulator_id']))
         if lane != 'visual':
             def verify_monitor(result=result):
                 monitor = result['monitor']
@@ -285,7 +348,9 @@ def collect():
             d.require(len(traces) == 1, 'Missing/ambiguous reminder trace')
             return validate_trace(traces[0], d.BUILD / 'reminder.log')
         output['reminder_trace'] = capture('validate.reminder_trace', verify_reminder)
-    output['selected_tests_passed'] = all(result['verified_selected_method'] for result in output['tests'].values())
+    output['selected_tests_passed'] = all(result['verified_selected_method'] and result['verified_checkpoint_method']
+        and 'validate.stage.' + stage not in output['errors'] and 'validate.launch.' + stage not in output['errors']
+        for stage, result in output['tests'].items())
     output['diagnostic_evidence_complete'] = not output['errors']
     d.write(d.DIAGNOSTIC / 'results.json', output)
     return output

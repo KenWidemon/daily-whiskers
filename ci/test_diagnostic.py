@@ -2,6 +2,7 @@
 import copy
 import json
 import os
+import plistlib
 from pathlib import Path
 import re
 import subprocess
@@ -53,7 +54,12 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual(list(d.LANES), ['visual', 'startup-reminder', 'cards'])
         self.assertEqual([stage for pairs in d.LANES.values() for stage, _ in pairs],
                          ['visual', 'startup', 'reminder', 'cards-largest', 'cards-adaptive'])
-        self.assertEqual(len({selector for pairs in d.LANES.values() for _, selector in pairs}), 5)
+        self.assertEqual([selector for pairs in d.LANES.values() for _, selector in pairs], [
+            'DailyWhiskersTests/DailyCardShareVisualTests/testAdaptiveViewportRetainsArtworkScaleAndNaturalScrollingHeight',
+            'DailyWhiskersUITests/RegressionSmokeTests/testAccountToolsOpenAndDismiss',
+            'DailyWhiskersUITests/ReminderUITests/testPermissionRevocationRegrantAndExplicitDisable',
+            'DailyWhiskersUITests/SavedCardsTests/testLargestTextLandscapeSavedCardActionsAndVibe',
+            'DailyWhiskersUITests/SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes'])
 
     def test_only_ui_options_add_diagnostic_flags_and_method_allowances(self):
         with patch.object(d, 'common', return_value=[]), patch.object(d, 'owned', return_value={'simulator_id': UUID}):
@@ -92,11 +98,11 @@ class DiagnosticTests(unittest.TestCase):
         self.assertLess(text.index('diagnostic.py export'), text.index('simulator.py cleanup'))
         self.assertNotIn('policy.py gate', text)
 
-    def test_workflow_builds_before_one_boot_under_original_budget(self):
+    def test_workflow_manages_launch_under_one_original_budget(self):
         text = (ROOT / '.github/workflows/ios.yml').read_text()
         steps = re.split(r'^      - ', text, flags=re.M)[1:]
         commands = []
-        for step in steps[:10]:
+        for step in steps[:9]:
             run = re.search(r'^        run: (.+)$', step, re.M)
             commands.append(run[1] if run else step.splitlines()[0].split('@', 1)[0])
         selected = 'python3 ci/run-stage.py "$DIAGNOSTIC_STAGE" python3 ci/diagnostic.py test --stage "$DIAGNOSTIC_STAGE"'
@@ -107,38 +113,27 @@ class DiagnosticTests(unittest.TestCase):
             'python3 ci/run-stage.py diagnostic-preflight python3 ci/diagnostic.py preflight',
             'python3 ci/run-stage.py resolve bash ci/test-app.sh resolve',
             'python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build',
-            'python3 ci/run-stage.py boot python3 ci/diagnostic.py boot',
             selected, selected])
         self.assertIn('ref: ${{ github.sha }}', steps[0])
         self.assertIn('test "$GITHUB_SHA" = "$EXPECTED_SOURCE_SHA"', steps[1])
         self.assertIn('test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"', steps[1])
         self.assertIn('echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"', steps[1])
         self.assertEqual(text.count('init-budget'), 1)
-        self.assertEqual(text.count('diagnostic.py boot'), 1)
+        self.assertNotIn('diagnostic.py boot', text)
+        self.assertNotIn('simctl boot', text)
+        self.assertNotIn('bootstatus', text)
+        self.assertFalse(hasattr(d, 'boot'))
+        self.assertIn("github.ref == 'refs/heads/codex/ci-managed-launch-20261111'", text)
         self.assertNotIn('CI_EXECUTION_DEADLINE', text)  # No per-stage deadline reset.
 
     def test_identity_rejects_missing_or_cross_source_lane(self):
         with patch.dict(os.environ, ENV, clear=True):
             self.assertEqual(d.identity()['lane'], 'cards')
-            for key, value in [('GITHUB_JOB', 'ui-shards'), ('TESTED_SHA', 'b' * 40), ('CI_SHARD_ID', 'settings'), ('GITHUB_RUN_ID', '')]:
+            for key, value in [('GITHUB_JOB', 'ui-shards'), ('TESTED_SHA', 'b' * 40), ('CI_SHARD_ID', 'settings'), ('GITHUB_RUN_ID', ''), ('GITHUB_RUN_ATTEMPT', '2')]:
                 with self.subTest(key=key), patch.dict(os.environ, {key: value}):
                     self.assertRaises(ValueError, d.identity)
 
-    def test_readiness_caps_remaining_budget_without_simctl_wrapper(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            with patch.object(d, 'DIAGNOSTIC', Path(temporary)), patch.object(d, 'identity', return_value={}), \
-                 patch.object(d, 'owned', return_value={'simulator_id': UUID}), \
-                 patch.object(d, 'deadline', return_value=110), patch.object(d.time, 'time', return_value=100), \
-                 patch.object(d.simulator, 'exact_device', side_effect=[{'state': 'Shutdown'}, {'state': 'Booted'}]), \
-                 patch.object(d, 'run_output', side_effect=['simctl boot <device>', 'simctl bootstatus <device>',
-                     'simctl get_app_container <device>', '{}', '', 'ready', '{}']) as command:
-                d.boot()
-                calls = command.call_args_list
-                readiness = next(call for call in calls if call.args[0][2] == 'bootstatus')
-                self.assertEqual(readiness.kwargs, {'seconds': 300, 'until': 110})
-                self.assertTrue(all(call.kwargs['until'] == 110 for call in calls))
-
-    def test_readiness_rejects_preexisting_or_mismatched_ownership(self):
+    def test_preparation_rejects_preexisting_or_mismatched_ownership(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(d, 'BUILD', Path(temporary)), patch.dict(os.environ, ENV | {'SIMULATOR_ID': UUID}):
             record = simulator.identity() | {'status': 'ready', 'readback_verified': True, 'ownership': 'preexisting', 'simulator_id': UUID}
             (Path(temporary) / 'simulator.json').write_text(json.dumps(record))
@@ -157,7 +152,10 @@ class DiagnosticTests(unittest.TestCase):
                      lambda s, t: t['testNodes'].append(copy.deepcopy(t['testNodes'][0])),
                      lambda s, t: t['testNodes'][0].update(nodeIdentifierURL='test://Other/' + SELECTOR.split('/', 1)[1]),
                      lambda s, t: s['devicesAndConfigurations'][0]['device'].update(deviceId='wrong'),
-                     lambda s, t: s['devicesAndConfigurations'][0].update(passedTests=2)]
+                     lambda s, t: s['devicesAndConfigurations'][0].update(passedTests=2),
+                     lambda s, t: s['devicesAndConfigurations'][0].update(passedTests=0, failedTests=1),
+                     lambda s, t: s['devicesAndConfigurations'][0].update(passedTests=0, skippedTests=1),
+                     lambda s, t: s['devicesAndConfigurations'][0].update(passedTests=0, expectedFailures=1)]
         for mutate in mutations:
             s, t = summary(), tree()
             mutate(s, t)
@@ -362,6 +360,282 @@ class DiagnosticTests(unittest.TestCase):
             self.assertFalse(result['tests']['cards-largest']['info_plist_exists'])
             self.assertTrue((Path(temporary) / 'Diagnostic-cards-largest.xcresult/Staging').exists())
             self.assertIn('validate.markers.cards-largest', result['errors'])
+
+
+class ManagedLaunchTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve()
+        self.build = self.root / 'build'
+        self.directory = self.build / 'diagnostic'
+        for target, value in [('BUILD', self.build), ('DIAGNOSTIC', self.directory)]:
+            patcher = patch.object(d, target, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        env = patch.dict(os.environ, ENV | {'SIMULATOR_ID': UUID, 'CI_EXECUTION_DEADLINE': '2800',
+                         'GITHUB_WORKSPACE': str(self.root)}, clear=True)
+        env.start()
+        self.addCleanup(env.stop)
+        timer = patch.object(d.time, 'time', return_value=200)
+        timer.start()
+        self.addCleanup(timer.stop)
+        self.current = d.identity()
+        self.prep = simulator.identity() | {'status': 'ready', 'readback_verified': True, 'ownership': 'created',
+            'simulator_id': UUID, 'preexisting_ids': [], 'runtime': simulator.RUNTIME, 'version': simulator.VERSION,
+            'build': simulator.BUILD, 'architecture': 'arm64', 'name': simulator.NAME, 'device_type': simulator.DEVICE_TYPE}
+        d.write(self.build / 'simulator.json', self.prep)
+        d.write(self.build / 'job-budget.json', self.current | {'execution_seconds': 2700, 'started': 100, 'deadline': 2800})
+
+    def launch(self, stage='cards-largest'):
+        value = dict(self.current, stage=stage, pid=42, deadline=2800, command=d.test_command('cards', stage))
+        d.write(self.directory / stage / 'launch.json', value)
+        bundle = self.build / f'Diagnostic-{stage}.xcresult'
+        bundle.mkdir(exist_ok=True)
+        (bundle / 'Info.plist').write_text('fixture only')
+        return value
+
+    def good_checkpoint(self):
+        self.launch()
+        with patch.object(d, 'run_output', side_effect=[json.dumps(summary()), json.dumps(tree())]) as reader:
+            record = evidence.checkpoint('cards-largest', 0)
+            self.assertEqual(reader.call_count, 2)
+            self.assertTrue(all(call.kwargs == {'seconds': 20, 'until': 2800} for call in reader.call_args_list))
+        status = simulator.identity() | {'stage': 'cards-largest', 'status': 'success', 'exit_code': 0, 'deadline': 2800}
+        d.write(self.build / 'cards-largest-status.json', status)
+        return record
+
+    def test_checkpoint_and_dependent_method_require_actual_result_not_boot(self):
+        record = self.good_checkpoint()
+        self.assertEqual(record['status'], 'success')
+        self.assertFalse((self.directory / 'boot.json').exists())
+        evidence.verify_predecessor('cards', 'cards-adaptive')
+        self.assertEqual(evidence.validate_checkpoint(record, 'cards-largest', self.current, 2800, UUID), SELECTOR)
+
+    def test_complete_visual_collection_needs_no_boot_and_rejects_missing_provenance(self):
+        with patch.dict(os.environ, {'CI_DIAGNOSTIC_LANE': 'visual', 'CI_SHARD_ID': 'visual'}):
+            current = d.identity()
+            d.write(self.build / 'simulator.json', self.prep | {'shard': 'visual'})
+            d.write(self.build / 'job-budget.json', current | {'execution_seconds': 2700, 'started': 100, 'deadline': 2800})
+            for name in ('prepare', 'diagnostic-preflight', 'resolve', 'diagnostic-build', 'visual', 'cleanup'):
+                record = simulator.identity() | {'stage': name, 'status': 'success', 'exit_code': 0, 'deadline': 2800}
+                if name == 'cleanup':
+                    record.update(operation='delete-owned', simulator_id=UUID, readback_verified=True)
+                d.write(self.build / f'{name}-status.json', record)
+            (self.build / 'toolchain.txt').write_text('\n'.join([
+                'Developer directory: ' + simulator.DEVELOPER_DIR, 'Architecture: arm64',
+                'Xcode 27.2', 'Build version 27B52', 'Simulator SDK: 27.2', 'Apple Swift version fixture']))
+            d.write(self.directory / 'preflight.json', current | {'status': 'success', 'cache_restore': 'disabled', 'cache_save': 'disabled'})
+            d.write(self.directory / 'export.json', current | {'status': 'complete', 'errors': []})
+            d.write(self.directory / 'built-metadata.json', current)
+            launch = current | {'stage': 'visual', 'pid': 42, 'deadline': 2800, 'command': d.test_command('visual', 'visual')}
+            d.write(self.directory / 'visual/launch.json', launch)
+            bundle = self.build / 'Diagnostic-visual.xcresult'
+            bundle.mkdir()
+            (bundle / 'Info.plist').write_text('fixture')
+            selected = d.LANES['visual'][0][1]
+            visual_tree = {'testNodes': [{'nodeType': 'Test Case', 'result': 'Passed',
+                'nodeIdentifier': '/'.join(selected.split('/')[1:]) + '()', 'nodeIdentifierURL': 'test://' + selected}]}
+            with patch.object(d, 'run_output', side_effect=[json.dumps(summary()), json.dumps(visual_tree)]):
+                checkpoint = evidence.checkpoint('visual', 0)
+            def collect():
+                with patch.object(d, 'run_output', side_effect=[json.dumps(summary()), json.dumps(visual_tree)]):
+                    return evidence.collect()
+            result = collect()
+            self.assertTrue(result['diagnostic_evidence_complete'], result['errors'])
+            self.assertTrue(result['selected_tests_passed'])
+            self.assertFalse(result['acceptance'])
+            self.assertNotIn('boot', result)
+            self.assertFalse((self.directory / 'boot.json').exists())
+            for mutation in [{'status': 'failure'}, {'run_attempt': '2'}, {'simulator_id': 'foreign'}]:
+                d.write(self.directory / 'visual/verified-result.json', checkpoint | mutation)
+                result = collect()
+                self.assertFalse(result['diagnostic_evidence_complete'])
+                self.assertFalse(result['selected_tests_passed'])
+            d.write(self.directory / 'visual/verified-result.json', checkpoint)
+            (self.directory / 'visual/launch.json').unlink()
+            result = collect()
+            self.assertFalse(result['diagnostic_evidence_complete'])
+            self.assertFalse(result['selected_tests_passed'])
+
+    def test_budget_source_attempt_and_absolute_deadline_are_not_replaceable(self):
+        original = d.budget()
+        for key, value in [('execution_seconds', 3000), ('deadline', 2801), ('started', 101),
+                           ('source_sha', 'b' * 40), ('run_id', '13'), ('run_attempt', '2'),
+                           ('job', 'other'), ('shard', 'other')]:
+            with self.subTest(key=key):
+                d.write(self.build / 'job-budget.json', original | {key: value})
+                self.assertRaises(ValueError, d.deadline)
+        d.write(self.build / 'job-budget.json', original)
+        with patch.object(d.time, 'time', return_value=2800):
+            self.assertRaises(ValueError, d.deadline)
+
+    def test_checkpoint_rejects_failed_foreign_missing_and_unlaunched_results(self):
+        self.launch()
+        for key, value in [('deviceId', 'foreign'), ('modelName', 'other'), ('deviceName', 'other'),
+                           ('architecture', 'x86_64'), ('osVersion', '27.1'), ('osBuildNumber', 'other'),
+                           ('platform', 'iOS')]:
+            broken = summary()
+            broken['devicesAndConfigurations'][0]['device'][key] = value
+            with self.subTest(key=key), patch.object(d, 'run_output', side_effect=[json.dumps(broken), json.dumps(tree())]):
+                self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', 0)
+        for code in (1, 65, 124):
+            with patch.object(d, 'run_output', side_effect=[json.dumps(summary()), json.dumps(tree())]):
+                self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', code)
+        for broken in [None, {}, dict(summary(), failedTests=1, passedTests=0),
+                       dict(summary(), skippedTests=1, passedTests=0)]:
+            with patch.object(d, 'run_output', side_effect=[json.dumps(broken), json.dumps(tree())]):
+                self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', 0)
+        with patch.object(d, 'run_output', side_effect=[json.dumps(summary()), ValueError('No test tree')]):
+            self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', 0)
+        saved = json.loads((self.directory / 'cards-largest/verified-result.json').read_text())
+        self.assertEqual(saved['summary'], summary())  # Independent evidence survives.
+        self.assertEqual(saved['status'], 'failure')
+        (self.directory / 'cards-largest/launch.json').unlink()
+        with patch.object(d, 'run_output') as reader:
+            self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', 0)
+            reader.assert_not_called()
+
+    def test_unfinalized_result_preserves_staging_and_never_unlocks_next_method(self):
+        self.launch()
+        bundle = self.build / 'Diagnostic-cards-largest.xcresult'
+        (bundle / 'Info.plist').unlink()
+        (bundle / 'Staging').mkdir()
+        with patch.object(d, 'run_output') as reader:
+            self.assertRaises(ValueError, evidence.checkpoint, 'cards-largest', 0)
+            reader.assert_not_called()
+        self.assertTrue((bundle / 'Staging').is_dir())
+        with patch.object(monitor, 'execute') as execute:
+            self.assertRaises(FileNotFoundError, d.test, 'cards', 'cards-adaptive')
+            execute.assert_not_called()
+
+    def test_checkpoint_and_launch_mutations_block_second_method(self):
+        record = self.good_checkpoint()
+        for key, value in [('source_sha', 'b' * 40), ('tested_sha', 'b' * 40), ('event_sha', 'b' * 40),
+                           ('run_id', '13'), ('run_attempt', '2'), ('shard', 'other'), ('lane', 'other'),
+                           ('deadline', 2900), ('status', 'failure'), ('exit_code', 65), ('simulator_id', 'foreign'),
+                           ('errors', {'summary': 'unavailable'})]:
+            with self.subTest(key=key):
+                d.write(self.directory / 'cards-largest/verified-result.json', record | {key: value})
+                with patch.object(monitor, 'execute') as execute:
+                    self.assertRaises(ValueError, d.test, 'cards', 'cards-adaptive')
+                    execute.assert_not_called()
+        for change in [lambda x: x['launch'].update(run_attempt='2'),
+                       lambda x: x['launch'].update(pid=None),
+                       lambda x: x['launch'].update(pid=43),
+                       lambda x: x['launch'].update(command=['xcodebuild', 'test']),
+                       lambda x: x['launch']['command'].__setitem__(x['launch']['command'].index('-destination') + 1,
+                                                                 'platform=iOS Simulator,id=foreign,arch=arm64'),
+                       lambda x: x['summary']['devicesAndConfigurations'][0]['device'].update(deviceId='foreign'),
+                       lambda x: x['tree']['testNodes'][0].update(result='Failed')]:
+            broken = copy.deepcopy(record)
+            change(broken)
+            d.write(self.directory / 'cards-largest/verified-result.json', broken)
+            self.assertRaises(ValueError, evidence.verify_predecessor, 'cards', 'cards-adaptive')
+        d.write(self.directory / 'cards-largest/verified-result.json', record)
+        status = json.loads((self.build / 'cards-largest-status.json').read_text())
+        for change in [{'status': 'failure'}, {'exit_code': 65}, {'source_sha': 'b' * 40}, {'run_attempt': '2'},
+                       {'deadline': 2801}, {'cleanup_errors': ['denied']}]:
+            d.write(self.build / 'cards-largest-status.json', status | change)
+            self.assertRaises(ValueError, evidence.verify_predecessor, 'cards', 'cards-adaptive')
+
+    def test_test_path_validates_before_return_and_forbids_repeated_launch(self):
+        with patch.object(d, 'check_lock'), patch.object(monitor, 'execute', return_value=0) as execute, \
+             patch.object(evidence, 'checkpoint', side_effect=ValueError('foreign result')) as check:
+            self.assertRaises(ValueError, d.test, 'cards', 'cards-largest')
+            check.assert_called_once_with('cards-largest', 0)
+            command = execute.call_args.args[0]
+            self.assertEqual(command[0:2], ['xcodebuild', 'test-without-building'])
+            self.assertEqual(command[command.index('-destination') + 1], f'platform=iOS Simulator,id={UUID},arch=arm64')
+            self.assertEqual([arg for arg in command if arg.startswith('-only-testing:')], ['-only-testing:' + SELECTOR])
+        self.launch()
+        with patch.object(monitor, 'execute') as execute:
+            self.assertRaises(ValueError, d.test, 'cards', 'cards-largest')
+            execute.assert_not_called()
+
+    def test_discovery_tolerates_only_bounded_known_startup_states(self):
+        metadata = dict(self.current, bundles={'runner': {'bundle_id': 'runner', 'executable': 'Runner'}})
+        command = ['xcrun', 'simctl', 'get_app_container', UUID, 'runner', 'app']
+        header = 'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=405):\n'
+        for state in ('Shutdown', 'Booting'):
+            instance = monitor.Monitor('cards', 'cards-largest', Mock(pid=42), metadata, 2800, started=200)
+            with patch.object(monitor, 'container', side_effect=subprocess.CalledProcessError(
+                    149, command, output=header + 'Unable to lookup in current state: ' + state)):
+                instance.discover()
+                self.assertIsNone(instance.runner_pid)
+                self.assertFalse(instance.test_started)
+                self.assertEqual(instance.report['container_unavailable'][0]['transitional_state'], True)
+                self.assertEqual(instance.startup_until, 500)
+        missing = 'An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=2):\nNo such file or directory'
+        instance = monitor.Monitor('cards', 'cards-largest', Mock(pid=42), metadata, 2800, started=200)
+        with patch.object(monitor, 'container', side_effect=subprocess.CalledProcessError(2, command, output=missing)):
+            instance.discover()
+            self.assertFalse(instance.report['container_unavailable'][0]['transitional_state'])
+        shutdown = header + 'Unable to lookup in current state: Shutdown'
+        for error in [subprocess.CalledProcessError(1, command, output='Access denied'),
+                      subprocess.CalledProcessError(149, command, output=header + 'Unable to lookup in current state: Unknown'),
+                      subprocess.CalledProcessError(149, command, output=shutdown + '\nAccess denied'),
+                      subprocess.CalledProcessError(149, command, output='Fatal error\n' + shutdown),
+                      subprocess.CalledProcessError(127, command, output=shutdown),
+                      subprocess.CalledProcessError(127, command, output='xcrun tool not found'),
+                      subprocess.CalledProcessError(2, command, output=missing + '\npermission denied'),
+                      subprocess.CalledProcessError(2, command, output='not installed'),
+                      subprocess.CalledProcessError(149, command[:3] + ['foreign'] + command[4:], output=shutdown),
+                      subprocess.CalledProcessError(149, command[:4] + ['foreign', 'app'], output=shutdown),
+                      subprocess.CalledProcessError(149, ['/bin/ps'], output=shutdown),
+                      subprocess.TimeoutExpired(command, 3)]:
+            instance = monitor.Monitor('cards', 'cards-largest', Mock(pid=42), metadata, 2800, started=200)
+            with patch.object(monitor, 'container', side_effect=error):
+                self.assertRaises((ValueError, subprocess.TimeoutExpired), instance.discover)
+        instance = monitor.Monitor('cards', 'cards-largest', Mock(pid=42), metadata, 2800, started=200)
+        with patch.object(monitor, 'container', return_value=Path('/owned')), \
+             patch.object(monitor, 'discover_runner', side_effect=subprocess.CalledProcessError(
+                 2, ['/bin/ps'], output='No such file or directory')):
+            self.assertRaises(subprocess.CalledProcessError, instance.discover)
+
+    def container_fixture(self):
+        home = self.root / 'home'
+        root = home / 'Library/Developer/CoreSimulator/Devices' / UUID
+        data = root / 'data'
+        container = data / 'Containers/Data/Application' / UUID
+        container.mkdir(parents=True)
+        info = {'UDID': UUID, 'name': simulator.NAME, 'runtime': simulator.RUNTIME,
+                'deviceType': simulator.DEVICE_TYPE, 'isDeleted': False}
+        (root / 'device.plist').write_bytes(plistlib.dumps(info))
+        meta = container / '.com.apple.mobile_container_manager.metadata.plist'
+        meta.write_bytes(plistlib.dumps({'MCMMetadataIdentifier': 'runner.bundle'}))
+        d.write(self.build / 'simulator-devices-prepared.json', {'devices': {simulator.RUNTIME: [{
+            'udid': UUID, 'name': simulator.NAME, 'deviceTypeIdentifier': simulator.DEVICE_TYPE,
+            'isAvailable': True, 'dataPath': str(data), 'state': 'Shutdown'}]}})
+        return home, root, container, meta, info
+
+    def test_shutdown_export_uses_exact_owned_metadata_without_simctl(self):
+        home, root, container, meta, info = self.container_fixture()
+        with patch.object(Path, 'home', return_value=home), patch.object(d, 'run_output') as command:
+            self.assertEqual(monitor.exported_container({'bundle_id': 'runner.bundle'}, 2800), (container, meta))
+            command.assert_not_called()
+            for key, value in [('UDID', 'foreign'), ('runtime', 'foreign'), ('deviceType', 'foreign'),
+                               ('name', 'foreign'), ('isDeleted', True)]:
+                (root / 'device.plist').write_bytes(plistlib.dumps(info | {key: value}))
+                self.assertRaises(ValueError, monitor.exported_container, {'bundle_id': 'runner.bundle'}, 2800)
+            (root / 'device.plist').write_bytes(plistlib.dumps(info))
+            self.assertRaises(ValueError, monitor.exported_container, {'bundle_id': 'foreign'}, 2800)
+            self.assertRaises(ValueError, monitor.exported_container, {'bundle_id': 'runner.bundle'}, 199)
+            extra = container.parent / '22222222-2222-4222-8222-222222222222'
+            extra.mkdir()
+            (extra / meta.name).write_bytes(meta.read_bytes())
+            self.assertRaises(ValueError, monitor.exported_container, {'bundle_id': 'runner.bundle'}, 2800)
+
+    def test_unlaunched_export_is_explicitly_inconclusive_without_container_access(self):
+        d.write(self.directory / 'built-metadata.json', dict(self.current, bundles={'runner': {'bundle_id': 'runner.bundle'}}))
+        with patch.object(monitor, 'exported_container') as container, patch.object(d, 'run_output') as command:
+            self.assertEqual(monitor.export_all(), 1)
+            container.assert_not_called()
+            command.assert_not_called()
+        record = json.loads((self.directory / 'export.json').read_text())
+        self.assertEqual(record['status'], 'inconclusive')
+        self.assertEqual(record['launched_stages'], [])
+        self.assertIn('No selected method launched', record['errors'][0])
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 """Bounded, exact-PID diagnostic observation, never a system-wide sampler."""
 import json
 import os
+import plistlib
 from pathlib import Path
 import re
 import shutil
@@ -33,6 +34,42 @@ def container(bundle, kind, until):
     d.require(identifier in path.parts and 'Containers' in path.parts, 'Container is outside the owned simulator')
     d.require(path.is_dir(), 'Container is not a directory')
     return path
+
+
+def exported_container(bundle, until):
+    """Read the owned device's exact MCM identity even after xcodebuild shuts it down.
+
+    No boot, inventory polling, guessed container, or fallback to another device.
+    The fixed local device set must agree with the preparation snapshot and plist.
+    """
+    identifier = d.owned()['simulator_id']
+    prepared = json.loads((d.BUILD / 'simulator-devices-prepared.json').read_text())
+    device = d.simulator.exact_device(prepared, identifier)
+    root = Path.home() / 'Library/Developer/CoreSimulator/Devices' / identifier
+    data = root / 'data'
+    d.require(root.resolve(strict=True) == root and data.resolve(strict=True) == data
+              and Path(device['dataPath']) == data, 'Foreign/symlinked owned-device data path')
+    def plist(path):
+        d.require(time.time() < until and path.stat().st_size <= 65536
+                  and path.resolve(strict=True) == path, 'Container metadata bound/path exceeded')
+        return plistlib.loads(path.read_bytes())
+    info = plist(root / 'device.plist')
+    d.require(all(info.get(k) == v for k, v in {'UDID': identifier, 'name': d.simulator.NAME,
+              'runtime': d.simulator.RUNTIME, 'deviceType': d.simulator.DEVICE_TYPE, 'isDeleted': False}.items()),
+              'Owned-device metadata mismatch')
+    folder = data / 'Containers/Data/Application'
+    d.require(folder.resolve(strict=True) == folder, 'Foreign container directory')
+    matches = []
+    for index, item in enumerate(folder.iterdir()):
+        d.require(index < 512 and time.time() < until, 'Container scan bound exceeded')
+        d.simulator.valid_uuid(item.name)
+        d.require(item.is_dir() and item.resolve(strict=True) == item, 'Foreign/symlinked container')
+        meta = item / '.com.apple.mobile_container_manager.metadata.plist'
+        value = plist(meta)
+        if value.get('MCMMetadataIdentifier') == bundle['bundle_id']:
+            matches.append((item, meta))
+    d.require(len(matches) == 1, 'Missing/ambiguous exact bundle container metadata')
+    return matches[0]
 
 
 def process_row(pid, until):
@@ -218,25 +255,38 @@ class Monitor:
         self.next_discovery = now + 5
         # Installation is asynchronous after test-without-building. This bounded
         # observation is not a test retry, launch, or app-interaction command.
+        bundle = self.metadata['bundles']['runner']
         try:
-            bundle = self.metadata['bundles']['runner']
             # Cache verified containers within this invocation, so the 60
-            # observations use at most62 helpers rather than180 repeated calls.
+            # observations use at most 62 helpers rather than 180 repeated calls.
             if self.runner_executable is None:
                 installed = container(bundle, 'app', self.startup_until)
                 self.runner_executable = installed / bundle['executable']
             if self.runner_data is None:
                 self.runner_data = container(bundle, 'data', self.startup_until)
-            self.runner_pid = discover_runner(self.runner_executable, self.startup_until)
-            if self.runner_pid:
-                self.report.update(runner_pid=self.runner_pid, runner_executable=str(self.runner_executable),
-                                   runner_data_container=str(self.runner_data), runner_first_observed_wall_time=time.time())
-                self.write()
         except subprocess.CalledProcessError as error:
-            # Only a documented not-installed result is expected while launching.
-            message = str(error.output or '')
-            d.require('No such file' in message or 'not installed' in message or 'not found' in message,
+            # Only complete known responses from this exact owned-container
+            # lookup are transient. Tool failures, mixed errors and ps failures
+            # must not be swallowed as ordinary asynchronous installation.
+            identifier = d.owned()['simulator_id']
+            expected = ['xcrun', 'simctl', 'get_app_container', identifier, bundle['bundle_id']]
+            message = str(error.output or '').strip()
+            transitional = error.returncode == 149 and message in {
+                'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=405):\n'
+                + 'Unable to lookup in current state: ' + state for state in ('Shutdown', 'Booting')}
+            not_installed = error.returncode == 2 and message == (
+                'An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=2):\n'
+                'No such file or directory')
+            d.require(error.cmd in (expected + ['app'], expected + ['data']) and (transitional or not_installed),
                       'Runner container lookup failed: ' + message)
+            self.report.setdefault('container_unavailable', []).append({
+                'observed': time.time(), 'message': message[:4096], 'transitional_state': transitional})
+            return
+        self.runner_pid = discover_runner(self.runner_executable, self.startup_until)
+        if self.runner_pid:
+            self.report.update(runner_pid=self.runner_pid, runner_executable=str(self.runner_executable),
+                               runner_data_container=str(self.runner_data), runner_first_observed_wall_time=time.time())
+            self.write()
 
     def tick(self, allow_sampling=True):
         if allow_sampling:
@@ -345,7 +395,7 @@ def execute(command, lane, stage):
 def export_all(checkpoint=None, until=None):
     """Evidence reserve operation: a single 35s deadline, before owned cleanup."""
     until = until or time.time() + 35
-    output = dict(d.identity(), status='running', files=[], errors=[], started=time.time())
+    output = dict(d.identity(), status='running', files=[], containers=[], errors=[], started=time.time())
     path = d.DIAGNOSTIC / (f'{checkpoint}-export.json' if checkpoint else 'export.json')
     d.write(path, output)
     try:
@@ -355,9 +405,24 @@ def export_all(checkpoint=None, until=None):
             output.update(status='complete', finished=time.time(), scope='No UI marker/trace export required')
             d.write(path, output)
             return 0
+        from diagnostic_results import validate_launch
+        launched = []
+        for stage, _ in d.LANES[metadata['lane']]:
+            launch_path = d.DIAGNOSTIC / stage / 'launch.json'
+            if launch_path.exists():
+                launch = json.loads(launch_path.read_text())
+                validate_launch(launch, stage, d.identity(), d.budget()['deadline'])
+                launched.append(stage)
+        output['launched_stages'] = launched
+        d.require(launched, 'No selected method launched; containers/markers unavailable')
         for kind, bundle in metadata['bundles'].items():
             try:
-                data = container(bundle, 'data', until)
+                data, meta = exported_container(bundle, until)
+                receipt = d.DIAGNOSTIC / f'{kind}-container-metadata.plist'
+                shutil.copyfile(meta, receipt)
+                output['containers'].append({'kind': kind, 'bundle_id': bundle['bundle_id'],
+                                             'path': str(data), 'metadata': str(receipt),
+                                             'method': 'exact-owned-device MCM metadata'})
                 sources = ((data / 'Documents/ci-diagnostic', ('*.jsonl', '*.error.json'), MAX_MARKER_BYTES)
                            if kind == 'runner' else (data / 'Library/Caches/DailyWhiskersCIDiagnostics', ('reminder-*.json',), MAX_TRACE_BYTES))
                 folder, patterns, limit = sources
@@ -367,7 +432,7 @@ def export_all(checkpoint=None, until=None):
                 d.require(len(files) <= 32, 'Unexpected diagnostic export file count')
                 for source in files:
                     d.require(time.time() < until and source.stat().st_size <= limit, 'Diagnostic export bound exceeded')
-                    d.require(source.resolve().parent == folder.resolve(), 'Unexpected export symlink')
+                    d.require(folder.resolve() == folder and source.resolve() == source, 'Unexpected export symlink')
                     shutil.copyfile(source, destination / source.name)
                     output['files'].append({'kind': kind, 'source': str(source), 'path': str(destination / source.name),
                                             'bytes': source.stat().st_size, 'copied_wall_time': time.time()})

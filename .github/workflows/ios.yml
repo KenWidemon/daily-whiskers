@@ -20,7 +20,7 @@ concurrency:
 jobs:
   diagnostic:
     name: DIAGNOSTIC ONLY (${{ matrix.lane }})
-    if: github.ref == 'refs/heads/codex/ci-diagnostic-20261111' && github.run_attempt == 1
+    if: github.ref == 'refs/heads/codex/ci-managed-launch-20261111' && github.run_attempt == 1
     runs-on: xcode-27
     timeout-minutes: 60
     strategy:
@@ -69,15 +69,13 @@ jobs:
       - name: Build selected diagnostic target once
         id: build
         run: python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build
-      - name: Boot exact owned simulator and verify readiness
-        id: boot
-        run: python3 ci/run-stage.py boot python3 ci/diagnostic.py boot
+      # xcodebuild launches only the prepared UUID; no separate boot/readiness gate.
       - name: First selected method with bounded host observation
         id: first
         env:
           DIAGNOSTIC_STAGE: ${{ matrix.first }}
         run: python3 ci/run-stage.py "$DIAGNOSTIC_STAGE" python3 ci/diagnostic.py test --stage "$DIAGNOSTIC_STAGE"
-      - name: Second selected method only after first success
+      - name: Second selected method only after first success and verified result
         if: ${{ success() && matrix.second != '' && steps.first.outcome == 'success' }}
         env:
           DIAGNOSTIC_STAGE: ${{ matrix.second }}

@@ -7,7 +7,7 @@ Development tests do not retroactively validate the frozen V1 binary.
 
 ## Disposable selected-test diagnostic
 
-The `codex/ci-diagnostic-20261111` branch temporarily uses the registered
+The `codex/ci-managed-launch-20261111` branch temporarily uses the registered
 `ios.yml` workflow for one manually dispatched, exact-SHA diagnostic. Do not
 merge that workflow into an acceptance branch. Its three checks are explicitly
 **DIAGNOSTIC ONLY**, cannot satisfy **CI Gate**, and cannot replace the required
@@ -15,20 +15,36 @@ merge that workflow into an acceptance branch. Its three checks are explicitly
 startup/reminder lane runs Account Tools before the original permission sequence;
 the Cards lane runs largest-text landscape before adaptive window sizes. Each
 method has its own invocation/result bundle, with no test retries. Failure or
-incomplete runner evidence stops later methods in that lane, not other lanes.
+incomplete runner/result evidence stops later methods in that lane, not other lanes.
 
 Each lane keeps the original 2,700-second execution deadline, 60-minute outer
 ceiling and evidence reserve. Strict Xcode/runtime/dependency pins and owned-only
 cleanup remain mandatory. After checkout/source verification and one budget
 initialization, the order is prepare → preflight → resolve → build-for-testing →
-one explicit boot/readback → selected methods. Preflight checks the uncached
-directory and own-process sampling before resolution; build uses the prepared
-owned simulator identity without requiring a booted device. Boot help, readiness
-and readback share at most 300 seconds within the original execution deadline.
+selected test-without-building methods. This differs from production's combined
+`xcodebuild test` invocation. Preflight checks the uncached directory and
+own-process sampling before resolution. Xcodebuild launches the exact prepared,
+newly owned UUID, with no explicit `simctl boot`, `bootstatus`, short post-boot
+inventory prerequisite, or invented readiness record. After each selected method,
+actual xcresult UUID, model, architecture, OS/build, exact method and single passing
+execution must verify within the original shared budget. A dependent second method
+also requires the first stage and its source/run/attempt-bound result checkpoint
+to pass. Missing, failed, skipped, repeated, unlaunched, foreign or late evidence
+fails closed; source and checkout must match the supplied SHA and run attempt 1.
 Cache restore/save are disabled: this is **diagnostic
 uncached**, not a certified cold comparison. UI compilation adds
 `CI_DIAGNOSTIC_TESTING` alongside `CI_SMOKE_TESTING`; normal quiescence, original
 assertions/teardown, screenshots, videos and 720-second method allowances remain.
+
+Three independent lanes, each capped at **60 minutes**, cost at most **180 macOS
+runner-minutes**. Removing the explicit boot step adds no budget: preparation,
+resolve, build, launch/test, observation and result checkpoints still share one
+**2700-second** deadline. The 900-second outer reserve covers checkout 180 seconds,
+export 60, cleanup 60, collection 120, raw upload 300 and summary 60 (780 seconds),
+plus at most 65 seconds of watchdog shutdown/reaping on failure (845 total),
+leaving at least 55 seconds of nominal runner overhead. Raw upload remains five
+minutes and retention 30 days. Queueing, suspension, cancellation or runner loss
+can still prevent complete evidence; these caps are not a completion guarantee.
 
 Bounded runner markers distinguish attachment/accessibility work and app
 termination. The host observes only the exact owned runner and xcodebuild PIDs:
@@ -41,13 +57,16 @@ seconds. Marker/export/host times are retained; late or missing data cannot prov
 a contemporaneous stall or establish I/O contention as the cause.
 Runner discovery permits at most 60 observations spaced five seconds apart,
 within one 300-second startup window from the test-only launch, capped by the
-original execution deadline. Missing runner/test-start evidence then stops that
+original execution deadline. During xcodebuild-managed startup, only known
+Shutdown/Booting container-lookup responses are tolerated as observations, never
+as readiness success; other errors and timeouts still fail. Missing runner/test-start evidence then stops that
 lane as inconclusive. After the method starts, its original 720-second allowance
 remains. Verified containers are cached within the invocation, which allows at
 most 96 host helper calls. Unchanged monitor state is not rewritten continuously.
 If no runner exists at the 45-second sample, retain an explicitly partial
 xcodebuild-only sample. That warning does not block the next selected method if
-the runner later appears, exact markers validate and the first method passes.
+the runner later appears, exact markers and result identity validate, and the first
+method passes.
 Actual sampling/identity failures or startup-window expiration still stop the lane.
 
 Reminder tracing covers a bounded initial-enable observation, not the full
@@ -55,6 +74,11 @@ method. Its app/test session, contiguous event sequence and exported watermark
 must cover the first native tap and original wait. Missing, truncated, overflowed
 or stale evidence makes that question inconclusive, even if XCTest passes.
 Evidence is exported before the next invocation and before simulator cleanup.
+Export reads the prepared owned device's verified device/MCM bundle-container
+metadata, so normal xcodebuild shutdown requires no reboot. Foreign or ambiguous
+containers fail closed. Unlaunched methods remain unavailable rather than implying
+complete markers or traces, and raw failure data is retained. Owned-only cleanup
+and verified absence are still mandatory.
 Raw logs, traces, samples, lifecycle records and entire result bundles, including
 unfinished `Staging` contents, retain a configured 30-day artifact lifetime.
 Use `python3 -m unittest discover -s ci -p 'test_diagnostic.py' -v` for offline

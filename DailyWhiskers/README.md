@@ -614,6 +614,10 @@ tests, and resources require app validation. Pushes/manual runs always validate
 the app. Classification uses the PR base/head merge-base; validation checks out
 GitHub's proposed merge commit.
 
+The separate disposable selected-test workflow is diagnostic-only and cannot
+satisfy CI Gate. Its managed-launch sequence, unchanged limits and evidence rules
+are defined in the [testing guide](../docs/testing.md#disposable-selected-test-diagnostic).
+
 ### Documentation and policy checks
 
 Every run checks Markdown formatting, repository-relative links and Markdown
