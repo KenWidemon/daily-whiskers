@@ -58,8 +58,14 @@ a contemporaneous stall or establish I/O contention as the cause.
 Runner discovery permits at most 60 observations spaced five seconds apart,
 within one 300-second startup window from the test-only launch, capped by the
 original execution deadline. During xcodebuild-managed startup, only known
-Shutdown/Booting container-lookup responses are tolerated as observations, never
-as readiness success; other errors and timeouts still fail. Missing runner/test-start evidence then stops that
+Shutdown/Booting or not-yet-installed container responses, and exact owned runner
+container timeouts with empty output and verified helper cleanup, are unavailable
+observations, never readiness success. Other errors and timeouts still fail.
+Each observer helper has an owned process group, a 2 MiB output cap, its unchanged
+three-second container or two-second process-read limit, and at most two seconds
+for kill/reap/group-absence verification reserved inside the original deadline.
+Cleanup uncertainty, cancellation, permission errors and malformed output fail
+closed. Missing runner/test-start evidence then stops that
 lane as inconclusive. After the method starts, its original 720-second allowance
 remains. Verified containers are cached within the invocation, which allows at
 most 96 host helper calls. Unchanged monitor state is not rewritten continuously.

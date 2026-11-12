@@ -194,9 +194,9 @@ class DiagnosticTests(unittest.TestCase):
         self.assertRaises(ValueError, self.validate_rows, marker_rows(), '')
 
     def test_only_exact_owned_runner_is_discovered(self):
-        with patch.object(d, 'run_output', return_value='10 /other/Runner\n11 /owned/Runner'):
+        with patch.object(monitor, 'host_output', return_value='10 /other/Runner\n11 /owned/Runner'):
             self.assertEqual(monitor.discover_runner(Path('/owned/Runner'), 123), 11)
-        with patch.object(d, 'run_output', return_value='11 /owned/Runner\n12 /owned/Runner'):
+        with patch.object(monitor, 'host_output', return_value='11 /owned/Runner\n12 /owned/Runner'):
             self.assertRaises(ValueError, monitor.discover_runner, Path('/owned/Runner'), 123)
 
     def test_monitor_helper_budget_and_unchanged_write_suppression(self):

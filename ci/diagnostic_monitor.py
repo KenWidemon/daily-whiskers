@@ -4,6 +4,7 @@ import os
 import plistlib
 from pathlib import Path
 import re
+import selectors
 import shutil
 import signal
 import subprocess
@@ -18,11 +19,86 @@ MAX_HELPER_CALLS = 96  # Per invocation; at most two invocations in a lane.
 _helper_calls = 0
 
 
-def host_output(args, **kwargs):
+class HelperCleanupError(ValueError):
+    """Fatal cleanup uncertainty with the exact owned helper identity and phase."""
+
+
+class ReapedHelperTimeout(subprocess.TimeoutExpired):
+    """Timeout whose exact helper group was killed, reaped and verified absent."""
+
+
+def host_output(args, seconds=10, *, until=None):
     global _helper_calls
     d.require(_helper_calls < MAX_HELPER_CALLS, 'Host helper-call budget exhausted')
     _helper_calls += 1
-    return d.run_output(args, **kwargs)
+    until = d.deadline() if until is None else until
+    # Reserve cleanup inside the original deadline, never extend startup.
+    limit = min(seconds, until - time.time() - 2)
+    d.require(limit > 0, 'Host helper/cleanup budget exhausted')
+    stop = time.monotonic() + limit
+    process = None
+    output = bytearray()
+    timed_out = False
+    # Do not deliver cancellation between spawning a new group and recording
+    # its ownership. Pending signals run only inside the cleanup scope.
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+    try:
+        try:
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       start_new_session=True)
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        with selectors.DefaultSelector() as selector:
+            selector.register(process.stdout, selectors.EVENT_READ)
+            while selector.get_map() or process.poll() is None:
+                remaining = stop - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                for key, _ in selector.select(timeout=min(.05, remaining)):
+                    chunk = os.read(key.fileobj.fileno(), 65536)
+                    d.require(len(output) + len(chunk) <= 2 * 1024 * 1024,
+                              'Host helper output exceeds fixed bound')
+                    output.extend(chunk)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+    finally:
+        # Also runs on SIGTERM/SystemExit. Never communicate() after timeout:
+        # a descendant holding the output pipe cannot make cleanup unbounded.
+        if process is not None:
+            cleanup_stop = time.monotonic() + max(0, min(2, until - time.time()))
+            phase = 'kill_group'
+            try:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                phase = 'reap'
+                process.wait(timeout=max(.001, cleanup_stop - time.monotonic()))
+                phase = 'verify_group_absent'
+                while True:
+                    try:
+                        os.killpg(process.pid, 0)
+                    except ProcessLookupError:
+                        break
+                    d.require(time.monotonic() < cleanup_stop, 'Host helper group cleanup uncertain')
+                    time.sleep(.01)
+                phase = 'close_output'
+                process.stdout.close()
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                raise HelperCleanupError(json.dumps({
+                    'command': args, 'pid': process.pid, 'phase': phase,
+                    'returncode': process.returncode, 'cleanup_confirmed': False,
+                    'error': f'{type(error).__name__}: {error}'})) from error
+    text = output.decode('utf-8', errors='strict').strip()
+    if timed_out:
+        error = ReapedHelperTimeout(args, limit, output=text)
+        error.cleanup = {'pid': process.pid, 'group_absent': True, 'reaped': True,
+                         'returncode': process.returncode, 'maximum_cleanup_seconds': 2}
+        raise error
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, args, output=text)
+    return text
 
 
 def container(bundle, kind, until):
@@ -264,6 +340,16 @@ class Monitor:
                 self.runner_executable = installed / bundle['executable']
             if self.runner_data is None:
                 self.runner_data = container(bundle, 'data', self.startup_until)
+        except ReapedHelperTimeout as error:
+            expected = ['xcrun', 'simctl', 'get_app_container', d.owned()['simulator_id'], bundle['bundle_id']]
+            d.require(error.cmd in (expected + ['app'], expected + ['data'])
+                      and not error.output and time.time() < self.startup_until,
+                      'Runner container timeout is foreign, has output, or exceeded startup deadline')
+            self.report.setdefault('container_unavailable', []).append({
+                'observed': time.time(), 'command': error.cmd, 'reason': 'helper_timeout',
+                'timeout_seconds': error.timeout, 'cleanup': error.cleanup})
+            self.write()
+            return
         except subprocess.CalledProcessError as error:
             # Only complete known responses from this exact owned-container
             # lookup are transient. Tool failures, mixed errors and ps failures
