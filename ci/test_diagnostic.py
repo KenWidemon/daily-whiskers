@@ -393,9 +393,9 @@ class ManagedLaunchTests(unittest.TestCase):
 
     def launch(self, stage='cards-largest'):
         value = dict(self.current, stage=stage, pid=42, deadline=2800, command=d.test_command('cards', stage),
-                     started=140, started_monotonic_ns=100, evidence_mode='post-run-only')
+                     started=140, started_monotonic_ns=100, monotonic_clock_domain=postrun.MARKER_CLOCK_DOMAIN, evidence_mode='post-run-only')
         d.write(self.directory / stage / 'exit.json', dict(self.current, stage=stage, launch=value,
-                exit_code=0, finished=190, finished_monotonic_ns=1000))
+                exit_code=0, finished=190, finished_monotonic_ns=1000, monotonic_clock_domain=postrun.MARKER_CLOCK_DOMAIN))
         d.write(self.directory / stage / 'launch.json', value)
         bundle = self.build / f'Diagnostic-{stage}.xcresult'
         bundle.mkdir(exist_ok=True)
@@ -432,13 +432,14 @@ class ManagedLaunchTests(unittest.TestCase):
             (self.build / 'toolchain.txt').write_text('\n'.join([
                 'Developer directory: ' + simulator.DEVELOPER_DIR, 'Architecture: arm64',
                 'Xcode 27.2', 'Build version 27B52', 'Simulator SDK: 27.2', 'Apple Swift version fixture']))
-            d.write(self.directory / 'preflight.json', current | {'status': 'success', 'cache_restore': 'disabled', 'cache_save': 'disabled'})
+            d.write(self.directory / 'preflight.json', current | {'status': 'success', 'cache_restore': 'disabled', 'cache_save': 'disabled',
+                'evidence_mode': 'post-run-only', 'monotonic_clock_domain': postrun.MARKER_CLOCK_DOMAIN})
             d.write(self.directory / 'export.json', current | {'status': 'complete', 'errors': []})
             d.write(self.directory / 'built-metadata.json', current)
             launch = current | {'stage': 'visual', 'pid': 42, 'deadline': 2800, 'command': d.test_command('visual', 'visual'),
-                                'started': 140, 'started_monotonic_ns': 100, 'evidence_mode': 'post-run-only'}
+                                'started': 140, 'started_monotonic_ns': 100, 'monotonic_clock_domain': postrun.MARKER_CLOCK_DOMAIN, 'evidence_mode': 'post-run-only'}
             d.write(self.directory / 'visual/exit.json', current | {'stage': 'visual', 'launch': launch,
-                    'exit_code': 0, 'finished': 190, 'finished_monotonic_ns': 1000})
+                    'exit_code': 0, 'finished': 190, 'finished_monotonic_ns': 1000, 'monotonic_clock_domain': postrun.MARKER_CLOCK_DOMAIN})
             d.write(self.directory / 'visual/launch.json', launch)
             bundle = self.build / 'Diagnostic-visual.xcresult'
             bundle.mkdir()

@@ -339,6 +339,9 @@ def collect():
                   and cleanup.get('readback_verified') is True, 'Missing cleanup readback')
         d.require(output['preflight']['status'] == 'success' and output['preflight']['cache_restore'] == 'disabled'
                   and output['preflight']['cache_save'] == 'disabled', 'Missing diagnostic preflight')
+        from diagnostic_postrun import MARKER_CLOCK_DOMAIN
+        d.require(output['preflight'].get('monotonic_clock_domain') == MARKER_CLOCK_DOMAIN
+                  and output['preflight'].get('evidence_mode') == 'post-run-only', 'Missing post-run clock preflight')
         for component in ('preflight', 'export', 'metadata'):
             d.require(all(output[component].get(k) == v for k, v in current.items()), 'Cross-run ' + component)
         d.require(output['export']['status'] == 'complete' and not output['export']['errors'], 'Incomplete final export')

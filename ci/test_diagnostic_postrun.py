@@ -36,9 +36,9 @@ class PostrunTests(unittest.TestCase):
         self.current = d.identity()
         self.launch = dict(self.current, stage='cards-largest', pid=42, deadline=2800,
                            command=d.test_command('cards', 'cards-largest'), started=9,
-                           started_monotonic_ns=90, evidence_mode='post-run-only')
+                           started_monotonic_ns=90, monotonic_clock_domain=p.MARKER_CLOCK_DOMAIN, evidence_mode='post-run-only')
         self.exited = dict(self.current, stage='cards-largest', launch=self.launch,
-                           exit_code=0, finished=11, finished_monotonic_ns=110)
+                           exit_code=0, finished=11, finished_monotonic_ns=110, monotonic_clock_domain=p.MARKER_CLOCK_DOMAIN)
         self.metadata = dict(self.current, bundles={kind: {'bundle_id': kind + '.bundle',
             'executable': 'Runner' if kind == 'runner' else 'App', 'binaries': {'binary': 'hash'},
             'built_path': str(self.root / kind)} for kind in ('app', 'runner')})
@@ -154,7 +154,8 @@ class PostrunTests(unittest.TestCase):
         process = Mock(pid=42)
         process.wait.return_value = 65
         command = d.test_command('cards', 'cards-largest')
-        with patch.object(p.subprocess, 'Popen', return_value=process) as launch, \
+        with patch.object(p, 'marker_uptime_ns', return_value=100), \
+             patch.object(p.subprocess, 'Popen', return_value=process) as launch, \
              patch.object(p, 'export_all') as export, patch.object(p, 'installed_bundles') as installed:
             self.assertEqual(p.execute(command, 'cards', 'cards-largest'), 65)
             launch.assert_called_once_with(command)
@@ -166,6 +167,7 @@ class PostrunTests(unittest.TestCase):
     def test_preflight_does_not_require_sample_or_process_tools(self):
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                 'GITHUB_REF': 'refs/heads/codex/ci-managed-launch-20261111'}), \
+             patch.object(p, 'marker_uptime_ns', return_value=100), \
              patch.object(d, 'run_output', side_effect=AssertionError('Unexpected subprocess')):
             d.preflight()
         record = json.loads((self.diag / 'preflight.json').read_text())
@@ -234,6 +236,50 @@ class PostrunTests(unittest.TestCase):
                 record = json.loads((self.directory / 'verified-result.json').read_text())
                 self.assertFalse(record['product_test_passed'])
                 self.assertEqual(record['status'], 'failure')
+
+    def test_shared_clock_never_uses_python_process_relative_epoch(self):
+        absolute = 22_600_000_000_000
+        with patch.object(p.sys, 'platform', 'darwin'), \
+             patch.object(p.time, 'CLOCK_UPTIME_RAW', 8, create=True), \
+             patch.object(p.time, 'clock_gettime_ns', return_value=absolute, create=True) as raw, \
+             patch.object(p.time, 'monotonic_ns', side_effect=AssertionError('Process-relative clock forbidden')):
+            self.assertEqual(p.marker_uptime_ns(), absolute)
+            raw.assert_called_once_with(8)
+            for invalid in (0, -1, True, 1.0):
+                raw.return_value = invalid
+                self.assertRaises(ValueError, p.marker_uptime_ns)
+
+    def test_unavailable_clock_fails_closed_before_build_or_test(self):
+        with patch.object(p.sys, 'platform', 'linux'):
+            self.assertRaises(ValueError, p.marker_uptime_ns)
+        with patch.object(p.time, 'clock_gettime_ns', None):
+            self.assertRaises(ValueError, p.marker_uptime_ns)
+        with patch.object(p.time, 'clock_gettime_ns', side_effect=OSError('unsupported clock')):
+            self.assertRaises(OSError, p.marker_uptime_ns)
+        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                'GITHUB_REF': 'refs/heads/codex/ci-managed-launch-20261111'}), \
+             patch.object(p, 'marker_uptime_ns', side_effect=ValueError('unavailable')), \
+             patch.object(d, 'run_output') as command:
+            self.assertRaises(ValueError, d.preflight)
+            command.assert_not_called()
+            self.assertFalse((self.diag / 'preflight.json').exists())
+
+    def test_legacy_or_mismatched_clock_receipts_cannot_be_requalified(self):
+        for value in (None, 'python.monotonic_ns', 'darwin.CLOCK_MONOTONIC_RAW'):
+            self.assertRaises(ValueError, p.validate_invocation,
+                              self.launch | {'monotonic_clock_domain': value}, self.exited, 'cards-largest')
+            self.assertRaises(ValueError, p.validate_invocation,
+                              self.launch, self.exited | {'monotonic_clock_domain': value}, 'cards-largest')
+
+    @unittest.skipUnless(p.sys.platform == 'darwin', 'Darwin-specific shared clock probe')
+    def test_shared_darwin_clock_is_comparable_in_a_fresh_interpreter(self):
+        before = p.marker_uptime_ns()
+        script = 'import sys;sys.path.insert(0,sys.argv[1]);import diagnostic_postrun as p;print(p.marker_uptime_ns())'
+        child = int(p.subprocess.check_output([p.sys.executable, '-c', script, str(Path(__file__).resolve().parent)],
+                                             text=True, timeout=5))
+        after = p.marker_uptime_ns()
+        self.assertLessEqual(before, child)
+        self.assertLessEqual(child, after)
 
 
 if __name__ == '__main__':

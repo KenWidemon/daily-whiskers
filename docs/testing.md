@@ -54,6 +54,11 @@ budget, or 60-minute outer cap. It cannot complete the former live-stall objecti
 
 The owned watchdog group runs ordinary xcodebuild once per selected method. Its
 launch and exit records bound the wall and monotonic clocks for every marker.
+Cross-process evidence explicitly uses Darwin `CLOCK_UPTIME_RAW`, the same uptime
+domain as Swift `DispatchTime`, with availability checked before building and the
+domain recorded in preflight/launch/exit receipts. Older Python's process-relative
+`time.monotonic_ns()` is not a substitute. The watchdog's same-process duration
+clock remains unchanged. Missing or mismatched evidence clock domains fail closed.
 Post-run PID/session identity is derived from the exact owned device's MCM data
 container metadata and exported marker filename/fields, not a claimed live runner
 observation. Installed app, runner and test executable hashes must match the built

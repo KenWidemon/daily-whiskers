@@ -8,6 +8,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 import time
 
 import diagnostic as d
@@ -168,22 +169,40 @@ def installed_bundles(metadata, until):
     return {kind: items[0] for kind, items in matches.items()}
 
 
+MARKER_CLOCK_DOMAIN = 'darwin.CLOCK_UPTIME_RAW'
+
+
+def marker_uptime_ns():
+    """Swift DispatchTime uptime domain, unlike older Python's process epoch.
+
+    Only evidence timestamps use this clock. The same-process watchdog duration
+    clock is unchanged. Never silently fall back to time.monotonic_ns().
+    """
+    d.require(sys.platform == 'darwin' and hasattr(time, 'CLOCK_UPTIME_RAW')
+              and callable(getattr(time, 'clock_gettime_ns', None)), 'Shared Darwin uptime clock unavailable')
+    stamp = time.clock_gettime_ns(time.CLOCK_UPTIME_RAW)
+    d.require(type(stamp) is int and stamp > 0, 'Invalid shared Darwin uptime clock')
+    return stamp
+
+
 def execute(command, lane, stage):
     metadata = json.loads((d.DIAGNOSTIC / 'built-metadata.json').read_text())
     d.require(all(metadata.get(k) == v for k, v in d.identity().items()), 'Stale built metadata')
     until = d.deadline()
     directory = d.DIAGNOSTIC / stage
     directory.mkdir(parents=True, exist_ok=True)
-    started, monotonic = time.time(), time.monotonic_ns()
+    started, monotonic = time.time(), marker_uptime_ns()
     process = subprocess.Popen(command)  # Inherits run-stage's owned watchdog group.
     launch = dict(d.identity(), stage=stage, pid=process.pid, parent_pid=os.getpid(),
                   process_group=os.getpgrp(), command=command, started=started,
-                  started_monotonic_ns=monotonic, deadline=until, evidence_mode='post-run-only')
+                  started_monotonic_ns=monotonic, monotonic_clock_domain=MARKER_CLOCK_DOMAIN,
+                  deadline=until, evidence_mode='post-run-only')
     d.write(directory / 'launch.json', launch)
     # No polling, simctl lookup, ps discovery, sampling, or shorter startup cutoff.
     code = process.wait()
     d.write(directory / 'exit.json', dict(d.identity(), stage=stage, launch=launch,
-            exit_code=code, finished=time.time(), finished_monotonic_ns=time.monotonic_ns()))
+            exit_code=code, finished=time.time(), finished_monotonic_ns=marker_uptime_ns(),
+            monotonic_clock_domain=MARKER_CLOCK_DOMAIN))
     return code
 
 
@@ -194,6 +213,8 @@ def finite_clock(value):
 def validate_invocation(launch, exit_record, stage):
     from diagnostic_results import validate_launch
     validate_launch(launch, stage, d.identity(), d.budget()['deadline'])
+    d.require(launch.get('monotonic_clock_domain') == exit_record.get('monotonic_clock_domain') == MARKER_CLOCK_DOMAIN,
+              'Missing/foreign cross-process clock domain')
     d.require(launch.get('evidence_mode') == 'post-run-only' and exit_record.get('launch') == launch
               and exit_record.get('stage') == stage
               and all(exit_record.get(k) == v for k, v in d.identity().items()), 'Foreign post-run invocation')

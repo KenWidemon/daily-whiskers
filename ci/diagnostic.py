@@ -170,7 +170,10 @@ def preflight():
     deadline()
     owned()
     require(not (BUILD / 'SourcePackages').exists(), 'Uncached diagnostic starts with unexpected dependency directory')
+    from diagnostic_postrun import MARKER_CLOCK_DOMAIN, marker_uptime_ns
+    stamp = marker_uptime_ns()
     write(DIAGNOSTIC / 'preflight.json', dict(current, status='success',
+          monotonic_clock_domain=MARKER_CLOCK_DOMAIN, host_uptime_probe_ns=stamp,
           evidence_mode='post-run-only', live_diagnostics='not requested', startup_cutoff_seconds=None,
           cache='diagnostic uncached', cache_restore='disabled', cache_save='disabled',
           cold_control_certified=False))
