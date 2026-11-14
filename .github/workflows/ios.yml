@@ -20,22 +20,19 @@ concurrency:
 jobs:
   diagnostic:
     name: DIAGNOSTIC ONLY (${{ matrix.lane }})
-    if: github.ref == 'refs/heads/codex/ci-managed-launch-20261111' && github.run_attempt == 1
+    if: github.ref == 'refs/heads/codex/ci-launch-discriminator-20261114' && github.run_attempt == 1
     runs-on: xcode-27
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          - lane: visual
-            first: visual
-            second: ''
           - lane: startup-reminder
             first: startup
-            second: reminder
+            second: ''
           - lane: cards
             first: cards-largest
-            second: cards-adaptive
+            second: ''
     env:
       CI_DIAGNOSTIC_LANE: ${{ matrix.lane }}
       CI_PART: ${{ matrix.lane }}
@@ -70,7 +67,7 @@ jobs:
         id: build
         run: python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build
       # xcodebuild launches only the prepared UUID; no separate boot/readiness gate.
-      - name: First selected method with post-run evidence verification
+      - name: One selected method with one-shot host observation and post-run verification
         id: first
         env:
           DIAGNOSTIC_STAGE: ${{ matrix.first }}

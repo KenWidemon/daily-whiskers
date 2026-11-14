@@ -157,17 +157,18 @@ class PostrunTests(unittest.TestCase):
         command = d.test_command('cards', 'cards-largest')
         with patch.object(p, 'marker_uptime_ns', return_value=100), \
              patch.object(p.subprocess, 'Popen', return_value=process) as launch, \
+             patch('launch_observation.forward', return_value=(65, {})) as forwarding, \
              patch.object(p, 'export_all') as export, patch.object(p, 'installed_bundles') as installed:
             self.assertEqual(p.execute(command, 'cards', 'cards-largest'), 65)
-            launch.assert_called_once_with(command)
-            process.wait.assert_called_once_with()
+            launch.assert_called_once_with(command, stdout=p.subprocess.PIPE, stderr=p.subprocess.STDOUT)
+            forwarding.assert_called_once()
             export.assert_not_called()
             installed.assert_not_called()
         self.assertEqual(json.loads((self.directory / 'exit.json').read_text())['exit_code'], 65)
 
     def test_preflight_does_not_require_sample_or_process_tools(self):
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                'GITHUB_REF': 'refs/heads/codex/ci-managed-launch-20261111'}), \
+                'GITHUB_REF': 'refs/heads/codex/ci-launch-discriminator-20261114'}), \
              patch.object(p, 'marker_uptime_ns', return_value=100), \
              patch.object(d, 'run_output', side_effect=AssertionError('Unexpected subprocess')):
             d.preflight()
@@ -258,7 +259,7 @@ class PostrunTests(unittest.TestCase):
         with patch.object(p.time, 'clock_gettime_ns', side_effect=OSError('unsupported clock')):
             self.assertRaises(OSError, p.marker_uptime_ns)
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                'GITHUB_REF': 'refs/heads/codex/ci-managed-launch-20261111'}), \
+                'GITHUB_REF': 'refs/heads/codex/ci-launch-discriminator-20261114'}), \
              patch.object(p, 'marker_uptime_ns', side_effect=ValueError('unavailable')), \
              patch.object(d, 'run_output') as command:
             self.assertRaises(ValueError, d.preflight)
@@ -283,6 +284,13 @@ class PostrunTests(unittest.TestCase):
         self.assertLessEqual(child, after)
 
     def relocated_fixture(self):
+        # Historical two-method relocation validation remains exercised synthetically;
+        # this diagnostic workflow deliberately selects only one method per lane.
+        lanes = dict(d.LANES)
+        lanes["cards"] = list(d.LANES["cards"]) + [("cards-adaptive", "DailyWhiskersUITests/SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes")]
+        patcher = patch.object(d, "LANES", lanes)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.fixture()
         first = p.verify_evidence('cards-largest', collect=True)
         d.write(self.directory / 'postrun.json', first)

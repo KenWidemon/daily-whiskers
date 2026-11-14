@@ -284,7 +284,7 @@ def collect():
     output = dict(schema='selected-diagnostic-v1', identity=current, acceptance=False,
                   scope='Selected diagnostic only; cannot satisfy 27-test acceptance or CI Gate',
                   launch_strategy='xcodebuild-managed', evidence_mode='post-run-only',
-                  live_diagnostics='not requested; no live stall evidence or startup cutoff',
+                  live_diagnostics='one-shot host sample; pre-expiry requires Session correlation',
                   cache='diagnostic uncached; not a certified cold control', stages={}, tests={}, errors={},
                   diagnostic_evidence_complete=False, selected_tests_passed=False)
     def capture(key, function):
@@ -318,6 +318,8 @@ def collect():
                 return json.loads(raw)
             value = capture(f'{stage}.{operation}', read_result)
             result['summary' if operation == 'summary' else 'tree'] = value
+        result['host_observation'] = capture(stage + '.host_observation', lambda stage=stage: read(d.DIAGNOSTIC / stage / 'host-observation.json'))
+        output['errors'][stage + '.host_timing'] = {'type': 'UnqualifiedObservation', 'message': 'Host sample requires independent Session correlation: entire sample interval before actual launch request + 60 seconds. No causal conclusion from a pass.'}
         result['launch'] = capture(stage + '.launch', lambda stage=stage: read(d.DIAGNOSTIC / stage / 'launch.json'))
         result['checkpoint'] = capture(stage + '.checkpoint', lambda stage=stage: read(d.DIAGNOSTIC / stage / 'verified-result.json'))
         if lane != 'visual':
@@ -395,7 +397,7 @@ def render(output):
     for key, error in output.get('errors', {}).items():
         lines.append(f"- Inconclusive {key}: {error.get('message', 'unavailable')}")
     lines += ['Missing/partial/late/overflowed traces cannot prove absence or causality. '
-              'Live diagnostics were not requested: no live stall evidence or 300-second startup cutoff. Raw videos/screenshots and unfinished '
+              'One-shot host sample is unqualified until Session timing proves pre-expiry; no startup cutoff. Raw videos/screenshots and unfinished '
               'xcresult Staging are retained. I/O contention is a hypothesis, not an established cause.']
     if os.environ.get('ARTIFACT_URL'):
         lines.append(f"[Raw diagnostic evidence]({os.environ['ARTIFACT_URL']}) (30-day retention).")

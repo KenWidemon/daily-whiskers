@@ -1,4 +1,4 @@
-"""Post-run owned-container evidence. No live polling, process discovery or sampling."""
+"""Post-run app evidence plus explicitly separate one-shot host observation."""
 import hashlib
 import json
 import math
@@ -192,16 +192,17 @@ def execute(command, lane, stage):
     directory = d.DIAGNOSTIC / stage
     directory.mkdir(parents=True, exist_ok=True)
     started, monotonic = time.time(), marker_uptime_ns()
-    process = subprocess.Popen(command)  # Inherits run-stage's owned watchdog group.
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)  # Inherits run-stage's owned watchdog group.
     launch = dict(d.identity(), stage=stage, pid=process.pid, parent_pid=os.getpid(),
                   process_group=os.getpgrp(), command=command, started=started,
                   started_monotonic_ns=monotonic, monotonic_clock_domain=MARKER_CLOCK_DOMAIN,
                   deadline=until, evidence_mode='post-run-only')
     d.write(directory / 'launch.json', launch)
-    # No polling, simctl lookup, ps discovery, sampling, or shorter startup cutoff.
-    code = process.wait()
+    # One-shot host observation is separate from post-run app-marker validation.
+    from launch_observation import forward
+    code, host_capture = forward(process, launch, directory)
     d.write(directory / 'exit.json', dict(d.identity(), stage=stage, launch=launch,
-            exit_code=code, finished=time.time(), finished_monotonic_ns=marker_uptime_ns(),
+            exit_code=code, host_capture=host_capture, finished=time.time(), finished_monotonic_ns=marker_uptime_ns(),
             monotonic_clock_domain=MARKER_CLOCK_DOMAIN))
     return code
 

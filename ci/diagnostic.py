@@ -20,11 +20,9 @@ import simulator
 LANES = {
     'visual': [('visual', 'DailyWhiskersTests/DailyCardShareVisualTests/testAdaptiveViewportRetainsArtworkScaleAndNaturalScrollingHeight')],
     'startup-reminder': [
-        ('startup', 'DailyWhiskersUITests/RegressionSmokeTests/testAccountToolsOpenAndDismiss'),
-        ('reminder', 'DailyWhiskersUITests/ReminderUITests/testPermissionRevocationRegrantAndExplicitDisable')],
+        ('startup', 'DailyWhiskersUITests/RegressionSmokeTests/testAccountToolsOpenAndDismiss')],
     'cards': [
-        ('cards-largest', 'DailyWhiskersUITests/SavedCardsTests/testLargestTextLandscapeSavedCardActionsAndVibe'),
-        ('cards-adaptive', 'DailyWhiskersUITests/SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes')],
+        ('cards-largest', 'DailyWhiskersUITests/SavedCardsTests/testLargestTextLandscapeSavedCardActionsAndVibe')],
 }
 BUILD = Path('build')
 DIAGNOSTIC = BUILD / 'diagnostic'
@@ -165,7 +163,7 @@ def metadata(lane):
 def preflight():
     current = identity()
     require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
-            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-managed-launch-20261111'
+            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-launch-discriminator-20261114'
             and os.environ.get('GITHUB_RUN_ATTEMPT') == '1', 'Only one initial disposable-branch dispatch is permitted')
     deadline()
     owned()
@@ -174,7 +172,7 @@ def preflight():
     stamp = marker_uptime_ns()
     write(DIAGNOSTIC / 'preflight.json', dict(current, status='success',
           monotonic_clock_domain=MARKER_CLOCK_DOMAIN, host_uptime_probe_ns=stamp,
-          evidence_mode='post-run-only', live_diagnostics='not requested', startup_cutoff_seconds=None,
+          evidence_mode='post-run-only', live_diagnostics='one-shot owned xcodebuild sample; pre-expiry validity unverified', startup_cutoff_seconds=None,
           cache='diagnostic uncached', cache_restore='disabled', cache_save='disabled',
           cold_control_certified=False))
 
