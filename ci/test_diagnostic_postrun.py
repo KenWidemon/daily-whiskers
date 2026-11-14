@@ -168,7 +168,7 @@ class PostrunTests(unittest.TestCase):
 
     def test_preflight_does_not_require_sample_or_process_tools(self):
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                'GITHUB_REF': 'refs/heads/codex/ci-launch-discriminator-20261114'}), \
+                'GITHUB_REF': 'refs/heads/codex/ci-cards-focused-20261114'}), \
              patch.object(p, 'marker_uptime_ns', return_value=100), \
              patch.object(d, 'run_output', side_effect=AssertionError('Unexpected subprocess')):
             d.preflight()
@@ -259,10 +259,10 @@ class PostrunTests(unittest.TestCase):
         with patch.object(p.time, 'clock_gettime_ns', side_effect=OSError('unsupported clock')):
             self.assertRaises(OSError, p.marker_uptime_ns)
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                'GITHUB_REF': 'refs/heads/codex/ci-launch-discriminator-20261114'}), \
+                'GITHUB_REF': 'refs/heads/codex/ci-cards-focused-20261114'}), \
              patch.object(p, 'marker_uptime_ns', side_effect=ValueError('unavailable')), \
              patch.object(d, 'run_output') as command:
-            self.assertRaises(ValueError, d.preflight)
+            self.assertRaisesRegex(ValueError, "unavailable", d.preflight)
             command.assert_not_called()
             self.assertFalse((self.diag / 'preflight.json').exists())
 

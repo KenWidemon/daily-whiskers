@@ -163,7 +163,7 @@ def metadata(lane):
 def preflight():
     current = identity()
     require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
-            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-launch-discriminator-20261114'
+            and os.environ.get('GITHUB_REF') == 'refs/heads/codex/ci-cards-focused-20261114'
             and os.environ.get('GITHUB_RUN_ATTEMPT') == '1', 'Only one initial disposable-branch dispatch is permitted')
     deadline()
     owned()
