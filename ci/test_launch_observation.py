@@ -36,29 +36,29 @@ class CaptureTests(unittest.TestCase):
         self.path=Path(self.temp.name);self.process=Mock(pid=42)
         self.launch={'pid':42,'command':['xcodebuild','test-without-building'],'deadline':time.time()+30}
     def read(self):return json.loads((self.path/'host-observation.json').read_text())
-    def run_sample(self,command,**kwargs):
+    def run_sample(self,command,*args,**kwargs):
         (self.path/'host-xcodebuild.sample.txt').write_text('Process: xcodebuild [42]\nCall graph:\n')
-        return Mock(returncode=0)
+        return 0
     def execute(self,**kwargs):o.observe(self.process,self.launch,self.path,LINE.decode(),**kwargs)
     def test_success_is_unqualified_not_pre_expiry(self):
-        with patch.object(o,'snapshot',return_value='owned'),patch.object(o.subprocess,'run',side_effect=self.run_sample):self.execute()
+        with patch.object(o,'snapshot',return_value='owned'),patch.object(o,'run_sampler',side_effect=self.run_sample):self.execute()
         r=self.read();self.assertEqual(r['status'],'captured-unqualified');self.assertIn('unverified',r['pre_expiry'])
         self.assertEqual(r['sample_command'][1:4],['42','1','10'])
     def test_late_shared_deadline_does_not_sample(self):
         self.launch['deadline']=time.time()-1
-        with patch.object(o.subprocess,'run') as run:self.execute();run.assert_not_called()
+        with patch.object(o,'run_sampler') as run:self.execute();run.assert_not_called()
         self.assertEqual(self.read()['status'],'inconclusive')
     def test_wrong_pid_does_not_sample(self):
         self.launch['pid']=99
-        with patch.object(o.subprocess,'run') as run:self.execute();run.assert_not_called()
+        with patch.object(o,'run_sampler') as run:self.execute();run.assert_not_called()
         self.assertEqual(self.read()['status'],'inconclusive')
     def test_child_exited_or_snapshot_mismatch(self):
         for error in [ValueError('zombie'),subprocess.CalledProcessError(1,'ps')]:
-            with patch.object(o,'snapshot',side_effect=error),patch.object(o.subprocess,'run') as run:self.execute();run.assert_not_called()
+            with patch.object(o,'snapshot',side_effect=error),patch.object(o,'run_sampler') as run:self.execute();run.assert_not_called()
             self.assertEqual(self.read()['status'],'inconclusive')
     def test_sample_timeout_nonzero_and_foreign_output(self):
-        for effect in [subprocess.TimeoutExpired('sample',5),lambda *a,**k:Mock(returncode=1),lambda *a,**k:Mock(returncode=0)]:
-            with patch.object(o,'snapshot',return_value='owned'),patch.object(o.subprocess,'run',side_effect=effect):self.execute()
+        for effect in [subprocess.TimeoutExpired('sample',5),lambda *a,**k:1,lambda *a,**k:0]:
+            with patch.object(o,'snapshot',return_value='owned'),patch.object(o,'run_sampler',side_effect=effect):self.execute()
             self.assertEqual(self.read()['status'],'inconclusive')
     def test_snapshot_binds_pid_parent_executable_and_zombie(self):
         for text in [f'42 {os.getpid()} S /usr/bin/xcodebuild',f'43 {os.getpid()} S xcodebuild',f'42 1 S xcodebuild',f'42 {os.getpid()} Z xcodebuild',f'42 {os.getpid()} S other']:
@@ -91,6 +91,8 @@ class CaptureTests(unittest.TestCase):
         child=int((self.path/'synthetic-sampler.pid').read_text())
         state=subprocess.run(['/bin/ps','-p',str(child),'-o','stat='],text=True,capture_output=True).stdout.strip()
         self.assertTrue(not state or state.startswith('Z'),state)
+        self.assertTrue(report['worker_termination']['reaped'])
+        self.assertEqual(report['worker_termination']['signal_result'],'sent')
         self.assertEqual((self.path/'stdout.raw').read_bytes(),LINE+LINE+b'end\n')
         self.assertEqual(self.read()['status'],'inconclusive')
     def test_read_error_fallback_preserves_running_child_result(self):

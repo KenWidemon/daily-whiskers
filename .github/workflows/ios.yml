@@ -1,7 +1,5 @@
-name: DIAGNOSTIC ONLY - selected iOS probes
-
-# Disposable branch only. This reuses registered workflow ID 350999284.
-# It must never be merged or used as full acceptance / CI Gate.
+name: DIAGNOSTIC ONLY - synthetic harness preflight
+# Disposable, never app acceptance. Reuses registered ios.yml workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -9,108 +7,44 @@ on:
         description: Exact reviewed disposable commit SHA
         required: true
         type: string
-
 permissions:
   contents: read
-
 concurrency:
-  group: ios-disposable-diagnostic-${{ github.ref }}
+  group: harness-preflight-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
-  diagnostic:
-    name: DIAGNOSTIC ONLY (${{ matrix.lane }})
-    if: github.ref == 'refs/heads/codex/ci-launch-discriminator-20261114' && github.run_attempt == 1
+  harness:
+    if: github.ref == 'refs/heads/codex/ci-harness-preflight-20261114' && github.run_attempt == 1
     runs-on: xcode-27
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - lane: startup-reminder
-            first: startup
-            second: ''
-          - lane: cards
-            first: cards-largest
-            second: ''
+    timeout-minutes: 10
     env:
-      CI_DIAGNOSTIC_LANE: ${{ matrix.lane }}
-      CI_PART: ${{ matrix.lane }}
-      CI_SHARD_ID: ${{ matrix.lane }}
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-      SOURCE_SHA: ${{ github.sha }}
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        timeout-minutes: 3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        timeout-minutes: 2
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Record exact disposable checkout
+      - name: Verify exact source
         run: |
+          mkdir -p preflight-identity
+          git rev-parse HEAD > preflight-identity/checkout.txt
+          printf '%s\n' "$EXPECTED_SOURCE_SHA" > preflight-identity/expected.txt
           test "$GITHUB_SHA" = "$EXPECTED_SOURCE_SHA"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-          echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-      - name: Reserve original shared execution budget
-        run: python3 ci/run-stage.py init-budget 2700
-      - name: Verify strict pins and prepare owned simulator
-        id: prepare
-        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
-      - name: Verify diagnostic identity and uncached setup
-        id: preflight
-        run: python3 ci/run-stage.py diagnostic-preflight python3 ci/diagnostic.py preflight
-      # No cache restore/save: diagnostic uncached, never a certified cold control.
-      - name: Resolve locked dependencies
-        id: resolve
-        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
-      - name: Build selected diagnostic target once
-        id: build
-        run: python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build
-      # xcodebuild launches only the prepared UUID; no separate boot/readiness gate.
-      - name: One selected method with one-shot host observation and post-run verification
-        id: first
-        env:
-          DIAGNOSTIC_STAGE: ${{ matrix.first }}
-        run: python3 ci/run-stage.py "$DIAGNOSTIC_STAGE" python3 ci/diagnostic.py test --stage "$DIAGNOSTIC_STAGE"
-      - name: Second selected method only after first success and verified result
-        if: ${{ success() && matrix.second != '' && steps.first.outcome == 'success' }}
-        env:
-          DIAGNOSTIC_STAGE: ${{ matrix.second }}
-        run: python3 ci/run-stage.py "$DIAGNOSTIC_STAGE" python3 ci/diagnostic.py test --stage "$DIAGNOSTIC_STAGE"
-      - name: Export bounded trace and marker evidence before cleanup
-        if: always()
-        timeout-minutes: 1
-        run: python3 ci/diagnostic.py export
-      - name: Clean up verified owned simulator
-        if: always()
-        timeout-minutes: 1
-        run: python3 ci/simulator.py cleanup
-      - name: Collect selected diagnostic evidence
+      - name: Synthetic regressions and fresh interpreter receipts
+        timeout-minutes: 6
+        run: python3 -B ci/harness_preflight.py preflight-evidence
+      - name: Retain evidence including failures
         if: always()
         timeout-minutes: 2
-        run: python3 ci/diagnostic_results.py collect
-      - name: Upload all raw diagnostic evidence including unfinished bundles
-        id: artifacts
-        if: always()
-        timeout-minutes: 5
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: ios-DIAGNOSTIC-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+          name: harness-only-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            build/Diagnostic-*.xcresult
-            build/*.log
-            build/*-status.json
-            build/job-budget.json
-            build/toolchain.txt
-            build/simulator*.json
-            build/diagnostic
+            preflight-identity
+            preflight-evidence
           include-hidden-files: true
-          compression-level: 0
           retention-days: 30
           if-no-files-found: error
-      - name: Publish diagnostic-only summary
-        if: always()
-        timeout-minutes: 1
-        env:
-          ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-        run: python3 ci/diagnostic_results.py render

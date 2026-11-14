@@ -58,6 +58,49 @@ def snapshot(pid, until):
     return value.strip()
 
 
+def run_sampler(command, output, until, path):
+    """Retain primary failure, signal uncertainty and bounded reap independently."""
+    record={'schema':'sampler-lifecycle-v1','command':command,'status':'planned',
+            'parent_pid':os.getpid(),'group':os.getpgrp(),'started':time.time(),
+            'started_monotonic_ns':time.monotonic_ns(),'deadline_monotonic':until}
+    write(path,record)
+    child=None
+    primary=None
+    try:
+        child=subprocess.Popen(command,stdout=output,stderr=subprocess.STDOUT)
+        record.update(status='spawned',pid=child.pid,spawn_returned=time.time())
+        write(path,record)
+        record['exit_code']=child.wait(timeout=max(0.001,until-time.monotonic()))
+        record['reaped']=True
+        record['status']='returned'
+    except (OSError,subprocess.SubprocessError) as error:
+        primary=error
+        record['primary_error']=f'{type(error).__name__}: {error}'
+    finally:
+        if child is not None and not record.get('reaped'):
+            record['cleanup_requested']=time.time()
+            try:
+                child.kill()
+                record['signal_result']='sent'
+            except OSError as error:
+                record['signal_result']='unverified'
+                record['signal_error']=f'{type(error).__name__}: {error}'
+            try:
+                record['exit_code']=child.wait(timeout=0.25)
+                record['reaped']=True
+            except (OSError,subprocess.SubprocessError) as error:
+                record['reaped']=False
+                record['reap_error']=f'{type(error).__name__}: {error}'
+                record['error']='Sampler reap unverified; observer-group watchdog remains active'
+        record.update(finished=time.time(),finished_monotonic_ns=time.monotonic_ns())
+        try:write(path,record)
+        except OSError as error:
+            print('sampler final receipt persistence failed: '+repr(error),file=sys.stderr,flush=True)
+            if primary is None:primary=error
+    if primary is not None:raise primary
+    return record['exit_code']
+
+
 def observe(process, launch, directory, line, received=None, now=time.monotonic):
     start = now()
     remaining = min(5.0, launch['deadline']-time.time())
@@ -74,14 +117,13 @@ def observe(process, launch, directory, line, received=None, now=time.monotonic)
         until = start + remaining
         receipt['identity_before'] = snapshot(process.pid,until)
         sample = directory/'host-xcodebuild.sample.txt'
-        # The direct child is not reaped until this thread joins, preventing PID reuse.
+        # The direct child is not reaped until the observer is reaped, preventing PID reuse.
         command = ['/usr/bin/sample', str(process.pid), '1', '10', '-file', str(sample)]
         receipt['sample_command'] = command
         with (directory/'sample-command.log').open('wb') as output:
-            result = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT,
-                                    timeout=max(0.001,until-now()))
-        receipt['sample_exit'] = result.returncode
-        if result.returncode != 0 or now() > until or not sample.is_file() or not 0 < sample.stat().st_size <= 32*1024*1024:
+            code = run_sampler(command, output, until, directory/'sampler-lifecycle.json')
+        receipt['sample_exit'] = code
+        if code != 0 or now() > until or not sample.is_file() or not 0 < sample.stat().st_size <= 32*1024*1024:
             raise ValueError('Failed, late, missing or oversized sample')
         raw = sample.read_bytes()
         # sample embeds its target identity; bind to the launch child, not just filename.
@@ -97,14 +139,43 @@ def observe(process, launch, directory, line, received=None, now=time.monotonic)
 
 
 def stop_worker(worker):
-    """Kill only the explicitly created observer group, including its sample child."""
-    if worker is None:
-        return
+    """Record signal/reap observations, without claiming an inferred exit cause."""
+    if worker is None:return None
+    report={'pid':worker.pid,'group':worker.pid,'cleanup_requested':time.time(),
+            'cleanup_requested_monotonic_ns':time.monotonic_ns(),'signal':'SIGKILL'}
     try:
-        os.killpg(worker.pid, signal.SIGKILL)
+        os.killpg(worker.pid,signal.SIGKILL)
+        report['signal_result']='sent'
     except ProcessLookupError:
-        pass
-    worker.wait(timeout=0.75)
+        report['signal_result']='group-absent'
+    except OSError as error:
+        report['signal_result']='unverified'
+        report['signal_error']=f'{type(error).__name__}: {error}'
+    try:
+        report['worker_exit_code']=worker.wait(timeout=0.75)
+        report['reaped']=True
+    except subprocess.TimeoutExpired:
+        report['reaped']=False
+        report['error']='Worker did not reap within reserved 0.75 seconds'
+    report.update(finished=time.time(),finished_monotonic_ns=time.monotonic_ns())
+    return report
+
+
+def handle_interruption(worker, signum, directory):
+    """Best-effort durable termination evidence; never swallow original signal."""
+    record={'schema':'observer-interruption-v1','signal':signum,'started':time.time(),
+            'started_monotonic_ns':time.monotonic_ns()}
+    try:
+        try:record['termination']=stop_worker(worker)
+        except (OSError,subprocess.SubprocessError) as error:
+            record['cleanup_error']=f'{type(error).__name__}: {error}'
+        record.update(finished=time.time(),finished_monotonic_ns=time.monotonic_ns())
+        try:write(directory/'observer-interruption.json',record)
+        except OSError as error:
+            print('interruption receipt persistence failed: '+repr(error),file=sys.stderr,flush=True)
+    finally:
+        signal.signal(signum,signal.SIG_DFL)
+        os.kill(os.getpid(),signum)
 
 
 def forward(process, launch, directory):
@@ -119,23 +190,21 @@ def forward(process, launch, directory):
     total = 0
     broken = False
     previous = {}
+    worker_log = None
+    worker_termination = None
     def error(operation, exc):
         if len(errors) < 16:
             errors.append({'operation': operation, 'error': f'{type(exc).__name__}: {exc}'[:512]})
     def interrupted(signum, frame):
-        # The observer has a separate known group so a stuck sampler can be killed
-        # independently. Forward the outer watchdog's signal before preserving it.
-        try:
-            stop_worker(worker)
-        finally:
-            signal.signal(signum, signal.SIG_DFL)
-            os.kill(os.getpid(), signum)
+        handle_interruption(worker,signum,directory)
     def expire_worker():
-        nonlocal worker, observation
+        nonlocal worker, observation, worker_termination
         if worker is not None and time.monotonic() >= worker_until:
             try:
-                stop_worker(worker)
-                observation = 'finished-or-terminated-within-bound'
+                worker_termination = stop_worker(worker)
+                observation = 'reaped' if worker_termination['reaped'] and worker_termination['signal_result'] != 'unverified' else 'cleanup-unverified'
+                try: write(directory/'observer-termination.json',worker_termination)
+                except OSError as exc:error('termination-receipt',exc)
             except (OSError, subprocess.SubprocessError) as exc:
                 observation = 'cleanup-unverified'
                 error('observer-cleanup', exc)
@@ -191,10 +260,16 @@ def forward(process, launch, directory):
                         worker_until=time.monotonic()+min(4.0,max(0.0,launch['deadline']-time.time()))
                         try:
                             payload=json.dumps({'launch':launch,'directory':str(directory),'line':line,'received':received})
-                            worker=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'--capture',payload],
-                                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,
+                            worker_identity={'status':'spawn-requested','started':time.time(),'started_monotonic_ns':time.monotonic_ns(),
+                                'trigger_receipt':received,'target_launch':launch,'deadline_monotonic':worker_until,'kill_reserve_seconds':0.75}
+                            write(directory/'observer-parent.json',worker_identity)
+                            worker_log=(directory/'observer-stderr.log').open('wb')
+                            worker=subprocess.Popen([sys.executable,'-B',str(Path(__file__).with_name('launch_capture_bootstrap.py').resolve()),'--capture',payload],
+                                stdout=worker_log,stderr=subprocess.STDOUT,start_new_session=True,
                                 env=dict(os.environ,OBSERVATION_OWNER_PID=str(os.getpid())))
-                            worker_identity={'pid':worker.pid,'group':worker.pid,'started':time.time(),'deadline_monotonic':worker_until,'kill_reserve_seconds':0.75}
+                            worker_identity.update(status='spawned',pid=worker.pid,group=worker.pid,spawn_returned=time.time(),spawn_returned_monotonic_ns=time.monotonic_ns())
+                            try: write(directory/'observer-parent.json',worker_identity)
+                            except OSError as exc:error('spawn-receipt',exc)
                             observation='worker-started'
                         except OSError as exc:
                             error('worker-start',exc)
@@ -206,9 +281,12 @@ def forward(process, launch, directory):
                 if worker is not None: time.sleep(0.025)
     finally:
         try:
-            stop_worker(worker)
+            if worker is not None: worker_termination=stop_worker(worker)
         except (OSError,subprocess.SubprocessError) as exc:
             error('observer-final-cleanup',exc)
+        if worker_log is not None:
+            try: worker_log.close()
+            except OSError as exc:error('worker-log-close',exc)
         if raw is not None:
             try: raw.close()
             except OSError as exc:error('raw-close',exc)
@@ -219,7 +297,18 @@ def forward(process, launch, directory):
     except OSError as exc:error('stream-close',exc)
     report=dict(schema=SCHEMA,bytes=total,sha256=digest.hexdigest(),long_lines=trigger.long_lines,
         downstream_broken=broken,first_trigger_only=True,errors=errors,observer=observation,
-        selected_child_exit=code,worker_identity=worker_identity,perturbation='Additional pipe forwarding and one scoped host sample')
+        selected_child_exit=code,worker_identity=worker_identity,worker_termination=worker_termination,perturbation='Additional pipe forwarding and one scoped host sample')
+    try:
+        stderr=directory/'observer-stderr.log'
+        if stderr.exists():
+            report['worker_stderr']={'path':str(stderr),'bytes':stderr.stat().st_size}
+            with stderr.open('rb') as evidence: report['worker_stderr']['excerpt']=evidence.read(4096).decode('utf-8','replace')
+        bootstrap=directory/'observer-bootstrap.json'
+        report['bootstrap']=json.loads(bootstrap.read_text()) if bootstrap.exists() else {'status':'not-observed'}
+        final=directory/'host-observation.json'
+        value=json.loads(final.read_text()) if final.exists() else {}
+        report['worker_final_receipt']='present' if 'finished' in value else 'missing-or-incomplete'
+    except (OSError,ValueError) as exc:error('worker-evidence-read',exc)
     try: write(directory/'stdout-receipt.json',report)
     except OSError as exc:error('receipt-write',exc)
     if trigger.fired and not (directory/'host-observation.json').exists():
@@ -232,11 +321,6 @@ def forward(process, launch, directory):
 
 
 if __name__=='__main__':
-    from types import SimpleNamespace
+    from launch_capture_bootstrap import main
     if len(sys.argv)!=3 or sys.argv[1]!='--capture':raise SystemExit(2)
-    payload=json.loads(sys.argv[2])
-    # Independent worker watchdog also fires if the parent is blocked on output.
-    # This process created its own group; the sampler inherits that exact group.
-    signal.signal(signal.SIGALRM, lambda *_: os.killpg(os.getpgrp(), signal.SIGKILL))
-    signal.setitimer(signal.ITIMER_REAL, max(0.001, min(4.0, payload['launch']['deadline']-time.time())))
-    observe(SimpleNamespace(pid=payload['launch']['pid']),payload['launch'],Path(payload['directory']),payload['line'],payload['received'])
+    raise SystemExit(main(json.loads(sys.argv[2])))
