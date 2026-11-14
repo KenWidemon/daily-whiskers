@@ -1,5 +1,7 @@
-name: DIAGNOSTIC ONLY - owned synthetic process sampler smoke
-# Disposable, never app acceptance. Reuses registered ios.yml workflow.
+name: DIAGNOSTIC ONLY - focused Cards-largest probe
+
+# Disposable branch only. This reuses registered workflow ID 350999284.
+# It must never be merged or used as full acceptance / CI Gate.
 on:
   workflow_dispatch:
     inputs:
@@ -7,44 +9,93 @@ on:
         description: Exact reviewed disposable commit SHA
         required: true
         type: string
+
 permissions:
   contents: read
+
 concurrency:
-  group: sampler-smoke-${{ github.ref }}
+  group: ios-disposable-diagnostic-${{ github.ref }}
   cancel-in-progress: false
+
 jobs:
-  harness:
-    if: github.ref == 'refs/heads/codex/ci-sampler-smoke-20261114' && github.run_attempt == 1
+  diagnostic:
+    name: DIAGNOSTIC ONLY (cards)
+    if: github.ref == 'refs/heads/codex/ci-cards-focused-20261114' && github.run_attempt == 1
     runs-on: xcode-27
-    timeout-minutes: 5
+    timeout-minutes: 60
     env:
+      CI_DIAGNOSTIC_LANE: cards
+      CI_PART: cards
+      CI_SHARD_ID: cards
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      SOURCE_SHA: ${{ github.sha }}
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
-      PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        timeout-minutes: 2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Verify exact source
+      - name: Record exact disposable checkout
         run: |
-          mkdir -p preflight-identity
-          git rev-parse HEAD > preflight-identity/checkout.txt
-          printf '%s\n' "$EXPECTED_SOURCE_SHA" > preflight-identity/expected.txt
           test "$GITHUB_SHA" = "$EXPECTED_SOURCE_SHA"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-      - name: One real sample of owned synthetic process
+          echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Reserve original shared execution budget
+        run: python3 ci/run-stage.py init-budget 2700
+      - name: Verify strict pins and prepare owned simulator
+        id: prepare
+        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
+      - name: Verify diagnostic identity and uncached setup
+        id: preflight
+        run: python3 ci/run-stage.py diagnostic-preflight python3 ci/diagnostic.py preflight
+      # No cache restore/save: diagnostic uncached, never a certified cold control.
+      - name: Resolve locked dependencies
+        id: resolve
+        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
+      - name: Build selected diagnostic target once
+        id: build
+        run: python3 ci/run-stage.py diagnostic-build python3 ci/diagnostic.py build
+      # xcodebuild launches only the prepared UUID; no separate boot/readiness gate.
+      - name: One selected method with one-shot host observation and post-run verification
+        id: first
+        env:
+          DIAGNOSTIC_STAGE: cards-largest
+        run: python3 ci/run-stage.py "$DIAGNOSTIC_STAGE" python3 ci/diagnostic.py test --stage "$DIAGNOSTIC_STAGE"
+      - name: Export bounded trace and marker evidence before cleanup
+        if: always()
         timeout-minutes: 1
-        run: python3 -B ci/sampler_smoke.py preflight-evidence
-      - name: Retain evidence including failures
+        run: python3 ci/diagnostic.py export
+      - name: Clean up verified owned simulator
+        if: always()
+        timeout-minutes: 1
+        run: python3 ci/simulator.py cleanup
+      - name: Collect selected diagnostic evidence
         if: always()
         timeout-minutes: 2
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        run: python3 ci/diagnostic_results.py collect
+      - name: Upload all raw diagnostic evidence including unfinished bundles
+        id: artifacts
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sampler-smoke-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ios-DIAGNOSTIC-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}-cards
           path: |
-            preflight-identity
-            preflight-evidence
+            build/Diagnostic-*.xcresult
+            build/*.log
+            build/*-status.json
+            build/job-budget.json
+            build/toolchain.txt
+            build/simulator*.json
+            build/diagnostic
           include-hidden-files: true
+          compression-level: 0
           retention-days: 30
           if-no-files-found: error
+      - name: Publish diagnostic-only summary
+        if: always()
+        timeout-minutes: 1
+        env:
+          ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
+        run: python3 ci/diagnostic_results.py render

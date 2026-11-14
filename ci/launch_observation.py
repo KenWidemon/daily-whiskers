@@ -161,6 +161,62 @@ def stop_worker(worker):
     return report
 
 
+def finish_worker(worker, launch, directory):
+    """One completion check, not polling. Never signal a previously reaped PID.
+
+    Only final current receipts proving the sole sampler was reaped justify
+    waiting without signalling. Malformed/incomplete evidence takes the existing
+    bounded kill/reap path while the group leader remains owned and unreaped.
+    """
+    started=time.time();mono=time.monotonic_ns()
+    def uncertain(reason):
+        return {'pid':worker.pid,'group':worker.pid,'worker_exit_code':worker.returncode,
+                'reaped':worker.returncode is not None,'signal_result':'unverified',
+                'error':reason,'finished':time.time(),'finished_monotonic_ns':time.monotonic_ns()}
+    if worker.returncode is not None:
+        return uncertain('Worker already reaped without completion proof; no stale group signal')
+    try:
+        bootstrap=json.loads((directory/'observer-bootstrap.json').read_text())
+        observation=json.loads((directory/'host-observation.json').read_text())
+        sampler=json.loads((directory/'sampler-lifecycle.json').read_text())
+        command=['/usr/bin/sample',str(launch['pid']),'1','10','-file',str(directory/'host-xcodebuild.sample.txt')]
+        if not (bootstrap['schema']=='observer-bootstrap-v1' and bootstrap['status']=='returned'): raise ValueError("Invalid current completion proof")
+        if not (bootstrap['pid']==worker.pid and bootstrap['group']==worker.pid and bootstrap['parent_pid']==os.getpid()): raise ValueError("Invalid current completion proof")
+        if not (bootstrap['identity']==launch and bootstrap['errors']==[]): raise ValueError("Invalid current completion proof")
+        if not (observation['schema']==SCHEMA and observation['status']=='captured-unqualified' and not observation.get('error')): raise ValueError("Invalid current completion proof")
+        if not (observation['pid']==launch['pid'] and observation['command']==launch['command']): raise ValueError("Invalid current completion proof")
+        if not (observation['identity']=={k:v for k,v in launch.items() if k!='command'}): raise ValueError("Invalid current completion proof")
+        if not (observation['sample_command']==command and observation['sample_exit']==0): raise ValueError("Invalid current completion proof")
+        if not (sampler['schema']=='sampler-lifecycle-v1' and sampler['status']=='returned'): raise ValueError("Invalid current completion proof")
+        if not (sampler['parent_pid']==sampler['group']==worker.pid and type(sampler['pid']) is int and sampler['pid']>0): raise ValueError("Invalid current completion proof")
+        if not (sampler['command']==command and sampler['exit_code']==0 and sampler['reaped'] is True): raise ValueError("Invalid current completion proof")
+        if not (not any(k in sampler for k in ('primary_error','error','signal_error','reap_error','signal_result','cleanup_requested'))): raise ValueError("Invalid current completion proof")
+        if not (launch['started']<=bootstrap['started']<=bootstrap['imported']<=observation['started']<=sampler['started']<=sampler['finished']<=observation['finished']<=bootstrap['finished']<=time.time()): raise ValueError("Invalid current completion proof")
+        if not (observation['elapsed_seconds']<=5 and bootstrap['finished']-bootstrap['started']<=4): raise ValueError("Invalid current completion proof")
+        raw=(directory/'host-xcodebuild.sample.txt').read_bytes()
+        if not (0<len(raw)<=32*1024*1024 and len(raw)==observation['bytes'] and hashlib.sha256(raw).hexdigest()==observation['sha256']): raise ValueError("Invalid current completion proof")
+    except (OSError,ValueError,KeyError,TypeError,AssertionError) as error:
+        report=stop_worker(worker)
+        report['completion_proof']='invalid-or-missing'
+        report['completion_error']=f'{type(error).__name__}: {error}'
+        return report
+    try:
+        code=worker.wait(timeout=0)
+    except subprocess.TimeoutExpired:
+        report=stop_worker(worker);report['completion_proof']='worker-still-running';return report
+    except OSError as error:
+        # wait errors have uncertain reaping semantics. Do not signal a possibly
+        # reused group ID. The bootstrap alarm remains the independent watchdog.
+        return uncertain('Worker wait outcome uncertain: '+repr(error))
+    if code!=0:
+        return uncertain('Worker nonzero despite final receipts; no stale group signal')
+    return {'pid':worker.pid,'group':worker.pid,'worker_exit_code':code,'reaped':True,
+            'signal_result':'not-needed','completion_proof':'current-final-worker-and-reaped-sampler',
+            'sampler_pid':sampler['pid'],'sample_sha256':observation['sha256'],
+            'cleanup_requested':started,'cleanup_requested_monotonic_ns':mono,
+            'finished':time.time(),'finished_monotonic_ns':time.monotonic_ns()}
+
+
 def handle_interruption(worker, signum, directory):
     """Best-effort durable termination evidence; never swallow original signal."""
     record={'schema':'observer-interruption-v1','signal':signum,'started':time.time(),
@@ -201,8 +257,8 @@ def forward(process, launch, directory):
         nonlocal worker, observation, worker_termination
         if worker is not None and time.monotonic() >= worker_until:
             try:
-                worker_termination = stop_worker(worker)
-                observation = 'reaped' if worker_termination['reaped'] and worker_termination['signal_result'] != 'unverified' else 'cleanup-unverified'
+                worker_termination = finish_worker(worker,launch,directory)
+                observation = 'reaped' if worker_termination['reaped'] and worker_termination['signal_result'] != 'unverified' and worker_termination.get('completion_proof') == 'current-final-worker-and-reaped-sampler' else 'cleanup-unverified'
                 try: write(directory/'observer-termination.json',worker_termination)
                 except OSError as exc:error('termination-receipt',exc)
             except (OSError, subprocess.SubprocessError) as exc:
@@ -281,7 +337,7 @@ def forward(process, launch, directory):
                 if worker is not None: time.sleep(0.025)
     finally:
         try:
-            if worker is not None: worker_termination=stop_worker(worker)
+            if worker is not None: worker_termination=finish_worker(worker,launch,directory)
         except (OSError,subprocess.SubprocessError) as exc:
             error('observer-final-cleanup',exc)
         if worker_log is not None:
