@@ -1,4 +1,4 @@
-name: DIAGNOSTIC ONLY - synthetic harness preflight
+name: DIAGNOSTIC ONLY - owned synthetic process sampler smoke
 # Disposable, never app acceptance. Reuses registered ios.yml workflow.
 on:
   workflow_dispatch:
@@ -10,13 +10,13 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: harness-preflight-${{ github.ref }}
+  group: sampler-smoke-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   harness:
-    if: github.ref == 'refs/heads/codex/ci-harness-preflight-20261114' && github.run_attempt == 1
+    if: github.ref == 'refs/heads/codex/ci-sampler-smoke-20261114' && github.run_attempt == 1
     runs-on: xcode-27
-    timeout-minutes: 10
+    timeout-minutes: 5
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       PYTHONDONTWRITEBYTECODE: '1'
@@ -33,15 +33,15 @@ jobs:
           printf '%s\n' "$EXPECTED_SOURCE_SHA" > preflight-identity/expected.txt
           test "$GITHUB_SHA" = "$EXPECTED_SOURCE_SHA"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-      - name: Synthetic regressions and fresh interpreter receipts
-        timeout-minutes: 6
-        run: python3 -B ci/harness_preflight.py preflight-evidence
+      - name: One real sample of owned synthetic process
+        timeout-minutes: 1
+        run: python3 -B ci/sampler_smoke.py preflight-evidence
       - name: Retain evidence including failures
         if: always()
         timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: harness-only-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: sampler-smoke-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             preflight-identity
             preflight-evidence
