@@ -10,6 +10,45 @@ from simulator import BUILD, NAME, VERSION
 
 SUITES = {"unit": "TestResults.xcresult", "ui": "SmokeResults.xcresult"}
 STAGES = ("prepare", "resolve", "unit", "ui", "release")
+DIAGNOSTIC_LIMIT = 4096
+
+
+def record_error(output, component, error, operation=None):
+    stderr = getattr(error, 'stderr', '') or ''
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode('utf-8', errors='replace')
+    details = {'type': type(error).__name__, 'message': str(error)[:DIAGNOSTIC_LIMIT]}
+    if operation:
+        details.update(operation=operation, returncode=getattr(error, 'returncode', None),
+                       stderr=stderr[:DIAGNOSTIC_LIMIT], stderr_truncated=len(stderr) > DIAGNOSTIC_LIMIT)
+    output.setdefault('evidence_errors', {})[component] = details
+    return details
+
+
+def capture(output, component, read, operation=None):
+    try:
+        return read()
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError) as error:
+        record_error(output, component, error, operation)
+        return None
+
+
+def read_object(path):
+    value = json.loads(path.read_text())
+    if not isinstance(value, dict):
+        raise ValueError(f'{path.name}: expected a JSON object')
+    return value
+
+
+def read_xcresult(directory, bundle, operation, destination):
+    raw = subprocess.check_output(['xcrun', 'xcresulttool', 'get', 'test-results', operation,
+                                   '--path', str(directory / bundle)], text=True, stderr=subprocess.PIPE,
+                                  timeout=45)
+    (directory / destination).write_text(raw)
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError(f'xcresulttool {operation}: expected a JSON object')
+    return value
 
 
 def test_counts(summary):
@@ -35,46 +74,60 @@ def test_counts(summary):
 
 
 def collect(directory, part=None):
-    from ui_shards import annotate, stages_for
+    from ui_shards import annotate, observe, stages_for, validate_record, inventory, identity
     stages = stages_for(part) if part else STAGES
     suites = ({"unit": SUITES["unit"]} if part == "unit-release" else
               {"ui": f"SmokeResults-{part}.xcresult"}) if part else SUITES
-    records = {}
+    output = {'stages': {}, 'verified': False}
+    records = output['stages']
     for stage in stages:
         path = directory / f"{stage}-status.json"
-        records[stage] = json.loads(path.read_text()) if path.exists() else {"status": "not run"}
+        record = capture(output, f'stage.{stage}', lambda path=path: read_object(path))
+        records[stage] = record if record is not None else {'status': 'not run' if not path.exists() else 'unavailable'}
+    # Capture independent provenance before any xcresult reader or pass validation.
+    if part:
+        annotate(output, directory, part)
     for stage, bundle in suites.items():
         record = records[stage]
         if not (directory / bundle).exists():
             record["results_error"] = "No result bundle; counts unavailable"
+            record_error(output, f'{stage}.summary', FileNotFoundError(record['results_error']))
             continue
-        try:
-            raw = subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "summary",
-                                           "--path", str(directory / bundle)], text=True, stderr=subprocess.PIPE,
-                                          timeout=45)
-            (directory / f"{stage}-results.json").write_text(raw)
-            record["tests"] = test_counts(json.loads(raw))
-        except (OSError, subprocess.SubprocessError, ValueError) as error:
-            record["results_error"] = f"Unreadable result bundle ({type(error).__name__}); counts unavailable"
-    valid = all(records[s]["status"] == "success" for s in stages) and all(
+        summary = capture(output, f'{stage}.summary',
+                          lambda: read_xcresult(directory, bundle, 'summary', f'{stage}-results.json'),
+                          operation='xcresulttool get test-results summary')
+        if summary is not None:
+            # Device reporting is independent of valid counts. These are observed
+            # fields from the summary, never copied from the requested simulator.
+            if 'devicesAndConfigurations' in summary:
+                record['reported_devices'] = summary['devicesAndConfigurations']
+            counts = capture(output, f'{stage}.summary', lambda: test_counts(summary),
+                             operation='xcresulttool get test-results summary')
+            if counts is not None:
+                record['tests'] = counts
+        diagnostic = output.get('evidence_errors', {}).get(f'{stage}.summary')
+        if diagnostic:
+            record['results_diagnostic'] = diagnostic
+            record['results_error'] = f"Unreadable result bundle ({diagnostic['type']}); counts unavailable"
+    valid = all(records[s].get("status") == "success" for s in stages) and all(
         records[s].get("tests", {}).get("valid_pass", False) for s in suites)
-    output = {"stages": records, "verified": valid}
     if part:
-        try:
-            tree = None
-            if part != "unit-release":
-                raw = subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "tests",
-                                               "--path", str(directory / suites["ui"])], text=True, stderr=subprocess.PIPE,
-                                              timeout=45)
-                (directory / "ui-test-tree.json").write_text(raw)
-                tree = json.loads(raw)
-            annotate(output, directory, part, tree)
-        except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as error:
-            output["evidence_error"] = str(error)
-            valid = False
-        output["verified"] = valid
+        tree = None
+        if part != 'unit-release':
+            if (directory / suites['ui']).exists():
+                tree = capture(output, 'ui.tree',
+                               lambda: read_xcresult(directory, suites['ui'], 'tests', 'ui-test-tree.json'),
+                               operation='xcresulttool get test-results tests')
+            else:
+                record_error(output, 'ui.tree', FileNotFoundError('No result bundle; observed UI identities unavailable'))
+        observe(output, part, tree)
+        capture(output, 'validation', lambda: validate_record(output, part, inventory(), identity()))
+    errors = output.get('evidence_errors', {})
+    if errors:
+        output['evidence_error'] = '; '.join(f"{name}: {details['message']}" for name, details in errors.items())
+    output['verified'] = valid and not errors
     (directory / "results.json").write_text(json.dumps(output, indent=2))
-    return valid
+    return output['verified']
 
 
 def safe(value):
@@ -101,7 +154,7 @@ def render(directory):
              "", "| Stage | Outcome | Seconds |", "| --- | --- | --- |"]
     for stage in data["stages"] or STAGES:
         record = data["stages"].get(stage, {"status": "unavailable"})
-        status = record["status"]
+        status = record.get("status", "unavailable")
         if status == "running":
             status = "interrupted / cancelled / infrastructure termination; no completed result"
         lines.append(f"| {stage} | {safe(status)} | {safe(record.get('duration_seconds', 'unavailable'))} |")
@@ -157,8 +210,16 @@ def render(directory):
     lines.append("Simulator cleanup: " + safe(" / ".join(str(cleanup_record.get(k, 'unavailable')) for k in
                  ('status', 'operation', 'readback_verified', 'error'))))
     for stage in SUITES:
-        for device in data["stages"].get(stage, {}).get("tests", {}).get("devices", []):
-            details = device.get("device", {})
+        if stage not in data['stages']:
+            continue
+        record = data['stages'][stage]
+        devices = record.get('reported_devices', record.get('tests', {}).get('devices', []))
+        devices = [device for device in devices if isinstance(device, dict) and isinstance(device.get('device'), dict)
+                   and device['device']] if isinstance(devices, list) else []
+        if not devices:
+            lines.append(f'Observed {stage} destination: unavailable; no readable device evidence.')
+        for device in devices:
+            details = device['device']
             lines.append(f"Observed {stage} destination: " + safe(" / ".join(str(details.get(k, "unknown")) for k in
                          ("deviceName", "osVersion", "osBuildNumber", "architecture", "deviceId"))))
     artifact = os.getenv("ARTIFACT_URL")

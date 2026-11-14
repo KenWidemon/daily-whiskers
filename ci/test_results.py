@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from results import collect, gate_summary, render, test_counts
+from results import collect, gate_summary, render, test_counts, record_error, DIAGNOSTIC_LIMIT
 
 spec = importlib.util.spec_from_file_location('run_stage', Path(__file__).with_name('run-stage.py'))
 runner = importlib.util.module_from_spec(spec)
@@ -23,6 +23,17 @@ def fixture(passed=73, failed=0, skipped=0, result='Passed', expected_failures=0
 
 
 class ResultTests(unittest.TestCase):
+    def test_xcresult_error_details_keep_operation_code_and_bounded_stderr(self):
+        output = {}
+        error = subprocess.CalledProcessError(64, 'xcresulttool tests', stderr=b'no testing session\n' + b'x' * 8192)
+        record_error(output, 'ui.tree', error, 'xcresulttool get test-results tests')
+        diagnostic = output['evidence_errors']['ui.tree']
+        self.assertEqual(diagnostic['operation'], 'xcresulttool get test-results tests')
+        self.assertEqual(diagnostic['returncode'], 64)
+        self.assertTrue(diagnostic['stderr'].startswith('no testing session'))
+        self.assertEqual(len(diagnostic['stderr']), DIAGNOSTIC_LIMIT)
+        self.assertTrue(diagnostic['stderr_truncated'])
+
     def test_swift_testing_parameters_are_not_double_counted(self):
         counts = test_counts(fixture())
         self.assertEqual(counts['totalTestCount'], 73)

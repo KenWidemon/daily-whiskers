@@ -97,28 +97,44 @@ def device_environment(tests):
     return environment
 
 
-def annotate(output, directory, part, tree=None):
-    data = inventory()
-    output.update(part=part, identity=identity(), inventory_sha256=digest(data),
-                  required_tests=[] if part == 'unit-release' else expected_tests(data, part))
-    suite = 'unit' if part == 'unit-release' else 'ui'
-    output['environment'] = {'toolchain': (directory / 'toolchain.txt').read_text().strip(),
-                             'device': device_environment(output['stages'][suite]['tests'])}
-    verify_toolchain(output['environment']['toolchain'])
-    output['budget'] = json.loads((directory / 'job-budget.json').read_text())
-    output['cache'] = json.loads((directory / 'cache-status.json').read_text())
-    verify_cache_record(output['cache'], output['identity'], part, output['budget'])
-    output['simulator'] = json.loads((directory / 'simulator.json').read_text())
-    simulator_id = verify_evidence(output['simulator'], output['stages']['cleanup'], output['identity'], part)
-    require(output['stages'][suite]['tests']['devices'][0]['device'].get('deviceId') == simulator_id,
-            'Observed test device differs from prepared simulator')
-    if part != 'unit-release':
-        output['observed_tests'] = test_identifiers(tree)
-        require(output['observed_tests'] == output['required_tests'], 'Missing/unknown UI tests')
-        tests = output['stages']['ui']['tests']
-        require(tests['totalTestCount'] == tests['executions'] == len(output['observed_tests']), 'UI count/identity mismatch')
+def annotate(output, directory, part):
+    """Preserve independent context without claiming it has passed validation."""
+    from results import capture, read_object
+    output.update(part=part, identity={key: os.environ.get(key, '') for key in IDENTITY_KEYS}, environment={})
+    data = capture(output, 'inventory', lambda: read_object(ROOT / 'ci/ui-inventory.json'))
+    if data is not None:
+        output['inventory_sha256'] = digest(data)
+        required = capture(output, 'required_tests', lambda: [] if part == 'unit-release' else expected_tests(data, part))
+        if required is not None:
+            output['required_tests'] = required
+    toolchain = capture(output, 'toolchain', lambda: (directory / 'toolchain.txt').read_text().strip())
+    if toolchain is not None:
+        output['environment']['toolchain'] = toolchain
+    for name, filename in (('budget', 'job-budget.json'), ('cache', 'cache-status.json'), ('simulator', 'simulator.json')):
+        record = capture(output, name, lambda filename=filename: read_object(directory / filename))
+        if record is not None:
+            output[name] = record
 
-    verify_stages(output['stages'], part, output['identity'], output['budget']['deadline'])
+
+def observe(output, part, tree):
+    """Capture available observations independently; never fill them from pins."""
+    from results import capture
+    suite = 'unit' if part == 'unit-release' else 'ui'
+
+    def observed_device():
+        devices = output['stages'][suite]['reported_devices']
+        require(isinstance(devices, list) and len(devices) == 1, 'Observed device unavailable or ambiguous')
+        device = devices[0]['device']
+        require(isinstance(device, dict) and device, 'Observed device unavailable')
+        return {key: device[key] for key in DEVICE_KEYS if key in device}
+
+    device = capture(output, 'device', observed_device)
+    if device is not None:
+        output['environment']['device'] = device
+    if part != 'unit-release' and tree is not None:
+        observed = capture(output, 'ui.tree', lambda: test_identifiers(tree))
+        if observed is not None:
+            output['observed_tests'] = observed
 
 
 def verify_stages(stages, part, current, deadline):
@@ -131,14 +147,21 @@ def verify_stages(stages, part, current, deadline):
         require(all(stage.get(key) == value for key, value in expected.items()),
                 'Cross-source/checkout/run/attempt/job/shard stage evidence')
         require(stage.get('status') == 'success' and type(stage.get('exit_code')) is int
-                and stage['exit_code'] == 0, 'Unsuccessful/incomplete command')
+                and stage['exit_code'] == 0, f"Unsuccessful/incomplete command: {name} status={stage.get('status')}, "
+                f"wrapper exit={stage.get('exit_code')}, command exit={stage.get('command_exit_code')}")
         if name != 'cleanup':
             require(stage.get('deadline') == deadline, 'Execution stages disagree with the shared budget deadline')
 
 
 def verify_record(record, part, data, current):
+    require(record.get('verified') is True, f"Failed/incomplete {part} evidence: {record.get('evidence_error', 'no passing manifest')}")
+    require(not record.get('evidence_errors'), f'{part} evidence contains unresolved collection errors')
+    validate_record(record, part, data, current)
+
+
+def validate_record(record, part, data, current):
     from results import test_counts
-    require(record.get('part') == part and record.get('verified') is True, 'Incomplete or wrong evidence part')
+    require(record.get('part') == part, 'Wrong evidence part')
     require(record.get('identity') == current, 'Cross-source/checkout/run/attempt evidence')
     require(record.get('inventory_sha256') == digest(data), 'Stale inventory evidence')
     stages = record['stages']
@@ -156,6 +179,7 @@ def verify_record(record, part, data, current):
     require(record.get('required_tests') == required, 'Wrong required inventory')
     if part != 'unit-release':
         observed = record.get('observed_tests', [])
+        require(observed == required, 'Missing/unknown UI tests')
         require(observed == required and counts['totalTestCount'] == counts['executions'] == len(required),
                 'Incomplete/duplicate/unknown executed inventory')
 
@@ -167,7 +191,10 @@ def aggregate(directory):
     records = [json.loads(path.read_text()) for path in paths]
     require(Counter(record.get('part') for record in records) == Counter(PARTS), 'Missing/duplicate/unknown part')
     for record in records:
-        verify_record(record, record['part'], data, current)
+        try:
+            verify_record(record, record['part'], data, current)
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
+            raise ValueError(f"{record['part']} evidence rejected: {error}") from error
     require(all(record['environment'] == records[0]['environment'] for record in records), 'Incompatible environments')
     print(f'Complete same-run evidence: unit, unsigned Release, and {sum(len(expected_tests(data, s)) for s in SHARDS)} UI tests across {len(SHARDS)} shards.')
     return records
