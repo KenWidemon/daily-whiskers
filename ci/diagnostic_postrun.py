@@ -191,19 +191,38 @@ def execute(command, lane, stage):
     until = d.deadline()
     directory = d.DIAGNOSTIC / stage
     directory.mkdir(parents=True, exist_ok=True)
-    started, monotonic = time.time(), marker_uptime_ns()
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)  # Inherits run-stage's owned watchdog group.
+    from launch_observation import PreparedObserver, forward
+    context=dict(d.identity(),stage=stage,command=command,deadline=until)
+    try:
+        prepared=PreparedObserver(context,directory)
+    except Exception as error:
+        d.write(directory/'not-launched.json',dict(context,status='NOT LAUNCHED',reason='Observer readiness failed',error=repr(error)))
+        raise
+    try:
+        started, monotonic = time.time(), marker_uptime_ns()
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,close_fds=True)
+    except BaseException as error:
+        prepared.close('selected-child-launch-failed')
+        d.write(directory/'not-launched.json',dict(context,status='NOT LAUNCHED',reason='Selected child creation failed',error=repr(error)))
+        raise
     launch = dict(d.identity(), stage=stage, pid=process.pid, parent_pid=os.getpid(),
                   process_group=os.getpgrp(), command=command, started=started,
                   started_monotonic_ns=monotonic, monotonic_clock_domain=MARKER_CLOCK_DOMAIN,
                   deadline=until, evidence_mode='post-run-only')
-    d.write(directory / 'launch.json', launch)
-    # One-shot host observation is separate from post-run app-marker validation.
-    from launch_observation import forward
-    code, host_capture = forward(process, launch, directory)
-    d.write(directory / 'exit.json', dict(d.identity(), stage=stage, launch=launch,
-            exit_code=code, host_capture=host_capture, finished=time.time(), finished_monotonic_ns=marker_uptime_ns(),
-            monotonic_clock_domain=MARKER_CLOCK_DOMAIN))
+    # Once a child exists, diagnostic persistence must not replace its outcome.
+    launch_error=None
+    try:d.write(directory / 'launch.json', launch)
+    except OSError as error:launch_error=repr(error)
+    code, host_capture = forward(process, launch, directory,prepared)
+    if launch_error:host_capture['errors'].append({'operation':'launch-receipt','error':launch_error})
+    try:d.write(directory / 'launch.json', launch)
+    except OSError as error:host_capture['errors'].append({'operation':'launch-receipt-final','error':repr(error)})
+    try:
+        d.write(directory / 'exit.json', dict(d.identity(), stage=stage, launch=launch,
+                exit_code=code, host_capture=host_capture, finished=time.time(), finished_monotonic_ns=marker_uptime_ns(),
+                monotonic_clock_domain=MARKER_CLOCK_DOMAIN))
+    except OSError as error:
+        print('Selected child exit '+str(code)+'; exit receipt persistence failed: '+repr(error),file=sys.stderr,flush=True)
     return code
 
 

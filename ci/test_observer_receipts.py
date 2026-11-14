@@ -120,11 +120,11 @@ class Receipts(unittest.TestCase):
         kill.assert_called_once_with(os.getpid(),signal.SIGTERM)
     def test_parent_retains_stderr_nonzero_and_child_stdout_exit(self):
         selected=subprocess.Popen([sys.executable,'-c','import os;os.write(1,'+repr(LINE+b'tail\n')+');raise SystemExit(65)'],stdout=subprocess.PIPE)
-        original=subprocess.Popen
-        def fake_worker(*args,**kwargs):
-            return original([sys.executable,'-c','import sys;print("observer startup error",file=sys.stderr);raise SystemExit(27)'],**kwargs)
-        with patch.object(o.subprocess,'Popen',side_effect=fake_worker),patch.object(o.os,'write',side_effect=lambda fd,b:len(b)):
-            code,record=o.forward(selected,self.launch,self.root)
+        log=(self.root/'observer-stderr.log').open('wb')
+        worker=subprocess.Popen([sys.executable,'-c','import sys;print("observer startup error",file=sys.stderr);raise SystemExit(27)'],stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        prepared=Mock(worker=worker,record={'idle_deadline_monotonic_ns':o.monotonic_ns()+30_000_000_000},channel=Mock(),log=log)
+        with patch.object(o.os,'write',side_effect=lambda fd,b:len(b)):
+            code,record=o.forward(selected,self.launch,self.root,prepared)
         self.assertEqual(code,65);self.assertEqual((self.root/'stdout.raw').read_bytes(),LINE+b'tail\n')
         self.assertEqual(record['worker_termination']['worker_exit_code'],27)
         self.assertIn('observer startup error',record['worker_stderr']['excerpt'])
@@ -133,7 +133,7 @@ class Receipts(unittest.TestCase):
         selected=subprocess.Popen([sys.executable,'-c','import os;os.write(1,'+repr(LINE)+');raise SystemExit(65)'],stdout=subprocess.PIPE)
         original=o.write
         def fail(path,value):
-            if path.name=='observer-parent.json':raise OSError('parent receipt denied')
+            if path.name=='observer-preparation.json':raise OSError('parent receipt denied')
             return original(path,value)
         with patch.object(o,'write',side_effect=fail),patch.object(o.subprocess,'Popen') as spawn,patch.object(o.os,'write',side_effect=lambda fd,b:len(b)):
             code,record=o.forward(selected,self.launch,self.root)

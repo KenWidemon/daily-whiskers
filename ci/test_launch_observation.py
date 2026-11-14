@@ -83,8 +83,10 @@ class CaptureTests(unittest.TestCase):
             worker=original([sys.executable,'-c',script],start_new_session=True)
             workers.append(worker);return worker
         start=time.monotonic()
-        with patch.object(o.subprocess,'Popen',side_effect=stuck),patch.object(o.os,'write',side_effect=lambda fd,b:len(b)):
-            code,report=o.forward(process,self.launch,self.path)
+        worker=stuck()
+        prepared=Mock(worker=worker,record={'idle_deadline_monotonic_ns':o.monotonic_ns()+30_000_000_000},channel=Mock(),log=None)
+        with patch.object(o.os,'write',side_effect=lambda fd,b:len(b)):
+            code,report=o.forward(process,self.launch,self.path,prepared)
         self.assertEqual(code,65);self.assertEqual(len(workers),1)
         self.assertLess(time.monotonic()-start,5)
         self.assertIsNotNone(workers[0].returncode)

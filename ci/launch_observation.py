@@ -10,8 +10,23 @@ import re
 import subprocess
 import selectors
 import signal
+import socket
+import secrets
 import sys
 import time
+
+CLOCK_DOMAIN='darwin.CLOCK_UPTIME_RAW'
+
+
+def monotonic_ns():
+    if sys.platform!='darwin' or not hasattr(time,'CLOCK_UPTIME_RAW'):
+        raise RuntimeError('Shared Darwin uptime clock unavailable')
+    return time.clock_gettime_ns(time.CLOCK_UPTIME_RAW)
+
+
+def monotonic():
+    return monotonic_ns()/1e9
+
 
 SCHEMA = 'owned-launch-observation-v1'
 LIMIT = 4096
@@ -47,11 +62,104 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2))
 
 
+FRAME_LIMIT = 16384
+
+
+def source_identity():
+    return {name:hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+            for name in ('launch_observation.py','launch_capture_bootstrap.py')}
+
+
+def receive_frame(channel, until):
+    """One bounded frame. Partial messages consume the same absolute deadline."""
+    data=b''
+    while b'\n' not in data:
+        channel.settimeout(max(0.001,until-monotonic()))
+        if monotonic()>=until:raise TimeoutError('IPC deadline exhausted')
+        part=channel.recv(min(4096,FRAME_LIMIT+1-len(data)))
+        if not part:raise EOFError('Parent/worker endpoint closed')
+        if not data:until=min(until,monotonic()+4)
+        data+=part
+        if len(data)>FRAME_LIMIT:raise ValueError('Oversized IPC frame')
+    line,extra=data.split(b'\n',1)
+    if extra:raise ValueError('Duplicate/trailing IPC frame')
+    value=json.loads(line)
+    if type(value) is not dict:raise ValueError('IPC object required')
+    return value
+
+
+def send_once(channel, value):
+    raw=json.dumps(value,separators=(',',':')).encode()+b'\n'
+    if len(raw)>FRAME_LIMIT:raise ValueError('Oversized IPC frame')
+    channel.setblocking(False)
+    if channel.send(raw)!=len(raw):raise OSError('Partial IPC send; observation abandoned')
+
+
+class PreparedObserver:
+    """Own exactly one unreaped worker and one private parent endpoint."""
+    def __init__(self, context, directory):
+        self.directory=directory;self.context=context;self.worker=None;self.channel=None;self.log=None
+        self.record={'schema':'observer-preparation-v1','clock_domain':CLOCK_DOMAIN,'nonce':secrets.token_hex(32),
+            'context':context,'directory':str(directory),'source':source_identity(),'parent_pid':os.getpid(),
+            'started':time.time(),'started_monotonic_ns':monotonic_ns(),'status':'attempted'}
+        remaining_ns=max(0,int((context['deadline']-time.time())*1e9))
+        self.record['idle_deadline_monotonic_ns']=self.record['started_monotonic_ns']+remaining_ns
+        self.record['startup_deadline_monotonic_ns']=min(self.record['started_monotonic_ns']+4_000_000_000,
+            self.record['idle_deadline_monotonic_ns'])
+        child=None
+        previous={}
+        def interrupted(signum,frame):
+            handle_interruption(self.worker,signum,directory)
+        try:
+            for sig in (signal.SIGTERM,signal.SIGINT):previous[sig]=signal.signal(sig,interrupted)
+            write(directory/'observer-preparation.json',self.record)
+            self.channel,child=socket.socketpair()
+            self.log=(directory/'observer-stderr.log').open('wb')
+            self.worker=subprocess.Popen([sys.executable,'-B',str(Path(__file__).with_name('launch_capture_bootstrap.py').resolve()),
+                '--ready',str(child.fileno()),json.dumps(self.record)],pass_fds=(child.fileno(),),close_fds=True,
+                stdout=self.log,stderr=subprocess.STDOUT,start_new_session=True,
+                env=dict(os.environ,OBSERVATION_OWNER_PID=str(os.getpid())))
+            child.close();child=None
+            ack=receive_frame(self.channel,self.record['startup_deadline_monotonic_ns']/1e9)
+            ready=json.loads((directory/'observer-ready.json').read_text())
+            if not (ack==ready and ready['status']=='ready' and ready['preparation']==self.record
+                    and ready['pid']==self.worker.pid and ready['parent_pid']==os.getpid()
+                    and ready['group']==self.worker.pid and ready['ready_monotonic_ns']<=self.record['startup_deadline_monotonic_ns']
+                    and monotonic_ns()<=self.record['startup_deadline_monotonic_ns']):
+                raise ValueError('Missing/current durable ready acknowledgement')
+            self.ready=ready
+        except BaseException:
+            self.close('readiness-failed')
+            raise
+        finally:
+            if child is not None:child.close()
+            for sig,handler in previous.items():signal.signal(sig,handler)
+
+    def trigger(self, launch, line, received, until):
+        # No persistence, spawn, wait or blocking socket operation on stdout drain.
+        send_once(self.channel,{'kind':'trigger','preparation':self.record,'worker_pid':self.worker.pid,
+            'launch':launch,'line':line,'received':received,'deadline_monotonic_ns':until})
+
+    def close(self, reason):
+        result=None
+        try:
+            if self.worker is not None:
+                if self.worker.returncode is None:result=stop_worker(self.worker)
+                else:result={'reaped':True,'worker_exit_code':self.worker.returncode,'signal_result':'unverified','error':'Previously reaped worker; no stale signal'}
+                self.worker=None
+        finally:
+            if self.channel is not None:self.channel.close();self.channel=None
+            if self.log is not None:self.log.close();self.log=None
+        try:write(self.directory/'observer-abandonment.json',{'reason':reason,'termination':result,'finished':time.time()})
+        except OSError as error:print('observer abandonment receipt failed: '+repr(error),file=sys.stderr,flush=True)
+        return result
+
+
 def snapshot(pid, until):
     # Exact child PID, never a process-name query or discovery scan.
     value = subprocess.check_output(['/bin/ps', '-p', str(pid), '-o', 'pid=,ppid=,stat=,comm='],
                                     text=True, stderr=subprocess.PIPE,
-                                    timeout=max(0.001, until-time.monotonic()))
+                                    timeout=max(0.001, until-monotonic()))
     fields = value.strip().split(None, 3)
     if len(fields) != 4 or int(fields[0]) != pid or int(fields[1]) != int(os.environ.get('OBSERVATION_OWNER_PID', os.getpid())) or 'Z' in fields[2] or Path(fields[3]).name != 'xcodebuild':
         raise ValueError('Owned live xcodebuild identity unavailable or mismatched')
@@ -60,9 +168,9 @@ def snapshot(pid, until):
 
 def run_sampler(command, output, until, path):
     """Retain primary failure, signal uncertainty and bounded reap independently."""
-    record={'schema':'sampler-lifecycle-v1','command':command,'status':'planned',
+    record={'schema':'sampler-lifecycle-v1','clock_domain':CLOCK_DOMAIN,'command':command,'status':'planned',
             'parent_pid':os.getpid(),'group':os.getpgrp(),'started':time.time(),
-            'started_monotonic_ns':time.monotonic_ns(),'deadline_monotonic':until}
+            'started_monotonic_ns':monotonic_ns(),'deadline_monotonic':until}
     write(path,record)
     child=None
     primary=None
@@ -70,7 +178,7 @@ def run_sampler(command, output, until, path):
         child=subprocess.Popen(command,stdout=output,stderr=subprocess.STDOUT)
         record.update(status='spawned',pid=child.pid,spawn_returned=time.time())
         write(path,record)
-        record['exit_code']=child.wait(timeout=max(0.001,until-time.monotonic()))
+        record['exit_code']=child.wait(timeout=max(0.001,until-monotonic()))
         record['reaped']=True
         record['status']='returned'
     except (OSError,subprocess.SubprocessError) as error:
@@ -92,7 +200,7 @@ def run_sampler(command, output, until, path):
                 record['reaped']=False
                 record['reap_error']=f'{type(error).__name__}: {error}'
                 record['error']='Sampler reap unverified; observer-group watchdog remains active'
-        record.update(finished=time.time(),finished_monotonic_ns=time.monotonic_ns())
+        record.update(finished=time.time(),finished_monotonic_ns=monotonic_ns())
         try:write(path,record)
         except OSError as error:
             print('sampler final receipt persistence failed: '+repr(error),file=sys.stderr,flush=True)
@@ -101,12 +209,12 @@ def run_sampler(command, output, until, path):
     return record['exit_code']
 
 
-def observe(process, launch, directory, line, received=None, now=time.monotonic):
+def observe(process, launch, directory, line, received=None, now=monotonic):
     start = now()
     remaining = min(5.0, launch['deadline']-time.time())
-    receipt = dict(schema=SCHEMA, identity={k:v for k,v in launch.items() if k not in ('command',)},
+    receipt = dict(schema=SCHEMA, clock_domain=CLOCK_DOMAIN, identity={k:v for k,v in launch.items() if k not in ('command',)},
                    pid=process.pid, command=launch['command'], trigger=line, trigger_receipt=received,
-                   started=time.time(), started_monotonic_ns=time.monotonic_ns(),
+                   started=time.time(), started_monotonic_ns=monotonic_ns(),
                    maximum_seconds=5, duration_seconds=1, interval_milliseconds=10,
                    pre_expiry='unverified: requires raw Session request timing', status='inconclusive')
     path = directory/'host-observation.json'
@@ -114,7 +222,7 @@ def observe(process, launch, directory, line, received=None, now=time.monotonic)
     try:
         if process.pid != launch['pid'] or Path(launch['command'][0]).name != 'xcodebuild' or remaining <= 0:
             raise ValueError('Wrong child or exhausted shared deadline')
-        until = start + remaining
+        until = min(start + remaining, launch.get('observer_deadline_monotonic_ns',int((start+remaining)*1e9))/1e9)
         receipt['identity_before'] = snapshot(process.pid,until)
         sample = directory/'host-xcodebuild.sample.txt'
         # The direct child is not reaped until the observer is reaped, preventing PID reuse.
@@ -132,7 +240,7 @@ def observe(process, launch, directory, line, received=None, now=time.monotonic)
         receipt.update(status='captured-unqualified', stack_content='unreviewed: inspect actual stack frames before interpreting', bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
     except (OSError,ValueError,subprocess.SubprocessError) as error:
         receipt['error'] = f'{type(error).__name__}: {error}'[:4096]
-    receipt.update(finished=time.time(), finished_monotonic_ns=time.monotonic_ns(), elapsed_seconds=now()-start)
+    receipt.update(finished=time.time(), finished_monotonic_ns=monotonic_ns(), elapsed_seconds=now()-start)
     if receipt['elapsed_seconds'] > 5:
         receipt.update(status='inconclusive',error='Observation exceeded five-second bound')
     write(path,receipt)
@@ -141,8 +249,8 @@ def observe(process, launch, directory, line, received=None, now=time.monotonic)
 def stop_worker(worker):
     """Record signal/reap observations, without claiming an inferred exit cause."""
     if worker is None:return None
-    report={'pid':worker.pid,'group':worker.pid,'cleanup_requested':time.time(),
-            'cleanup_requested_monotonic_ns':time.monotonic_ns(),'signal':'SIGKILL'}
+    report={'clock_domain':CLOCK_DOMAIN,'pid':worker.pid,'group':worker.pid,'cleanup_requested':time.time(),
+            'cleanup_requested_monotonic_ns':monotonic_ns(),'signal':'SIGKILL'}
     try:
         os.killpg(worker.pid,signal.SIGKILL)
         report['signal_result']='sent'
@@ -154,10 +262,11 @@ def stop_worker(worker):
     try:
         report['worker_exit_code']=worker.wait(timeout=0.75)
         report['reaped']=True
-    except subprocess.TimeoutExpired:
+    except (OSError,subprocess.SubprocessError) as error:
+        report['reap_error']=repr(error)
         report['reaped']=False
         report['error']='Worker did not reap within reserved 0.75 seconds'
-    report.update(finished=time.time(),finished_monotonic_ns=time.monotonic_ns())
+    report.update(finished=time.time(),finished_monotonic_ns=monotonic_ns())
     return report
 
 
@@ -168,11 +277,11 @@ def finish_worker(worker, launch, directory):
     waiting without signalling. Malformed/incomplete evidence takes the existing
     bounded kill/reap path while the group leader remains owned and unreaped.
     """
-    started=time.time();mono=time.monotonic_ns()
+    started=time.time();mono=monotonic_ns()
     def uncertain(reason):
         return {'pid':worker.pid,'group':worker.pid,'worker_exit_code':worker.returncode,
                 'reaped':worker.returncode is not None,'signal_result':'unverified',
-                'error':reason,'finished':time.time(),'finished_monotonic_ns':time.monotonic_ns()}
+                'error':reason,'finished':time.time(),'finished_monotonic_ns':monotonic_ns()}
     if worker.returncode is not None:
         return uncertain('Worker already reaped without completion proof; no stale group signal')
     try:
@@ -191,8 +300,18 @@ def finish_worker(worker, launch, directory):
         if not (sampler['parent_pid']==sampler['group']==worker.pid and type(sampler['pid']) is int and sampler['pid']>0): raise ValueError("Invalid current completion proof")
         if not (sampler['command']==command and sampler['exit_code']==0 and sampler['reaped'] is True): raise ValueError("Invalid current completion proof")
         if not (not any(k in sampler for k in ('primary_error','error','signal_error','reap_error','signal_result','cleanup_requested'))): raise ValueError("Invalid current completion proof")
-        if not (launch['started']<=bootstrap['started']<=bootstrap['imported']<=observation['started']<=sampler['started']<=sampler['finished']<=observation['finished']<=bootstrap['finished']<=time.time()): raise ValueError("Invalid current completion proof")
-        if not (observation['elapsed_seconds']<=5 and bootstrap['finished']-bootstrap['started']<=4): raise ValueError("Invalid current completion proof")
+        if 'observer_preparation' in launch:
+            prep=launch['observer_preparation'];ready=json.loads((directory/'observer-ready.json').read_text())
+            if not (ready==bootstrap['ready'] and ready['preparation']==prep and ready['pid']==worker.pid
+                    and ready['clock_domain']==bootstrap['clock_domain']==observation['clock_domain']==sampler['clock_domain']==prep['clock_domain']==CLOCK_DOMAIN
+                    and prep['source']==source_identity() and prep['parent_pid']==os.getpid()
+                    and bootstrap['nonce']==prep['nonce'] and bootstrap['trigger_deadline_monotonic_ns']==launch['observer_deadline_monotonic_ns']
+                    and prep['started']<=bootstrap['started']<=bootstrap['imported']<=ready['ready_wall']<=launch['started']
+                    and launch['started']<=observation['started']<=sampler['started']<=sampler['finished']<=observation['finished']<=bootstrap['finished']<=time.time()
+                    and bootstrap['finished_monotonic_ns']<=launch['observer_deadline_monotonic_ns']):
+                raise ValueError('Invalid prestarted completion ordering/identity')
+        elif not (launch['started']<=bootstrap['started']<=bootstrap['imported']<=observation['started']<=sampler['started']<=sampler['finished']<=observation['finished']<=bootstrap['finished']<=time.time()): raise ValueError("Invalid current completion proof")
+        if not (observation['elapsed_seconds']<=5 and (('observer_preparation' in launch) or bootstrap['finished']-bootstrap['started']<=4)): raise ValueError("Invalid current completion proof")
         raw=(directory/'host-xcodebuild.sample.txt').read_bytes()
         if not (0<len(raw)<=32*1024*1024 and len(raw)==observation['bytes'] and hashlib.sha256(raw).hexdigest()==observation['sha256']): raise ValueError("Invalid current completion proof")
     except (OSError,ValueError,KeyError,TypeError,AssertionError) as error:
@@ -214,18 +333,18 @@ def finish_worker(worker, launch, directory):
             'signal_result':'not-needed','completion_proof':'current-final-worker-and-reaped-sampler',
             'sampler_pid':sampler['pid'],'sample_sha256':observation['sha256'],
             'cleanup_requested':started,'cleanup_requested_monotonic_ns':mono,
-            'finished':time.time(),'finished_monotonic_ns':time.monotonic_ns()}
+            'finished':time.time(),'finished_monotonic_ns':monotonic_ns()}
 
 
 def handle_interruption(worker, signum, directory):
     """Best-effort durable termination evidence; never swallow original signal."""
     record={'schema':'observer-interruption-v1','signal':signum,'started':time.time(),
-            'started_monotonic_ns':time.monotonic_ns()}
+            'started_monotonic_ns':monotonic_ns()}
     try:
         try:record['termination']=stop_worker(worker)
         except (OSError,subprocess.SubprocessError) as error:
             record['cleanup_error']=f'{type(error).__name__}: {error}'
-        record.update(finished=time.time(),finished_monotonic_ns=time.monotonic_ns())
+        record.update(finished=time.time(),finished_monotonic_ns=monotonic_ns())
         try:write(directory/'observer-interruption.json',record)
         except OSError as error:
             print('interruption receipt persistence failed: '+repr(error),file=sys.stderr,flush=True)
@@ -234,10 +353,10 @@ def handle_interruption(worker, signum, directory):
         os.kill(os.getpid(),signum)
 
 
-def forward(process, launch, directory):
+def forward(process, launch, directory, prepared=None):
     trigger = Trigger()
-    worker = None
-    worker_until = None
+    worker = prepared.worker if prepared is not None else None
+    worker_until = prepared.record['idle_deadline_monotonic_ns']/1e9 if prepared is not None else None
     errors = []
     observation = 'not-triggered'
     worker_identity = None
@@ -255,9 +374,9 @@ def forward(process, launch, directory):
         handle_interruption(worker,signum,directory)
     def expire_worker():
         nonlocal worker, observation, worker_termination
-        if worker is not None and time.monotonic() >= worker_until:
+        if worker is not None and monotonic() >= worker_until:
             try:
-                worker_termination = finish_worker(worker,launch,directory)
+                worker_termination = finish_worker(worker,launch,directory) if trigger.fired else stop_worker(worker)
                 observation = 'reaped' if worker_termination['reaped'] and worker_termination['signal_result'] != 'unverified' and worker_termination.get('completion_proof') == 'current-final-worker-and-reaped-sampler' else 'cleanup-unverified'
                 try: write(directory/'observer-termination.json',worker_termination)
                 except OSError as exc:error('termination-receipt',exc)
@@ -265,6 +384,7 @@ def forward(process, launch, directory):
                 observation = 'cleanup-unverified'
                 error('observer-cleanup', exc)
             worker = None
+            if prepared is not None:prepared.worker=None
     try:
         for sig in (signal.SIGTERM,signal.SIGINT):
             previous[sig]=signal.signal(sig,interrupted)
@@ -312,24 +432,30 @@ def forward(process, launch, directory):
                             error('downstream',exc);broken=True
                     line=trigger.feed(chunk)
                     if line is not None:
-                        received={'wall_time':time.time(),'monotonic_ns':time.monotonic_ns()}
-                        worker_until=time.monotonic()+min(4.0,max(0.0,launch['deadline']-time.time()))
+                        received={'clock_domain':CLOCK_DOMAIN,'wall_time':time.time(),'monotonic_ns':monotonic_ns()}
+                        until_ns=min(received['monotonic_ns']+4_000_000_000,prepared.record['idle_deadline_monotonic_ns'] if prepared is not None else received['monotonic_ns'])
+                        worker_until=until_ns/1e9
                         try:
-                            payload=json.dumps({'launch':launch,'directory':str(directory),'line':line,'received':received})
-                            worker_identity={'status':'spawn-requested','started':time.time(),'started_monotonic_ns':time.monotonic_ns(),
-                                'trigger_receipt':received,'target_launch':launch,'deadline_monotonic':worker_until,'kill_reserve_seconds':0.75}
-                            write(directory/'observer-parent.json',worker_identity)
-                            worker_log=(directory/'observer-stderr.log').open('wb')
-                            worker=subprocess.Popen([sys.executable,'-B',str(Path(__file__).with_name('launch_capture_bootstrap.py').resolve()),'--capture',payload],
-                                stdout=worker_log,stderr=subprocess.STDOUT,start_new_session=True,
-                                env=dict(os.environ,OBSERVATION_OWNER_PID=str(os.getpid())))
-                            worker_identity.update(status='spawned',pid=worker.pid,group=worker.pid,spawn_returned=time.time(),spawn_returned_monotonic_ns=time.monotonic_ns())
-                            try: write(directory/'observer-parent.json',worker_identity)
-                            except OSError as exc:error('spawn-receipt',exc)
-                            observation='worker-started'
-                        except OSError as exc:
-                            error('worker-start',exc)
-                            observation='inconclusive'
+                            if prepared is None or worker is None or prepared.worker is not worker:
+                                raise ValueError('Prepared observer unavailable or expired; no trigger sent')
+                            launch['observer_deadline_monotonic_ns']=until_ns
+                            launch['observer_preparation']=prepared.record
+                            # launch receipt remains source of truth including observer binding.
+                            prepared.trigger(launch,line,received,until_ns)
+                            worker_identity={'status':'trigger-sent','pid':worker.pid,'trigger_receipt':received,
+                                'deadline_monotonic_ns':until_ns,'preparation':prepared.record}
+                            observation='worker-triggered'
+                        except (OSError,ValueError) as exc:
+                            error('worker-trigger',exc);observation='inconclusive'
+                            # Abandon partial/EAGAIN send immediately. EOF forces worker
+                            # cleanup independently; no second send or reset deadline.
+                            if prepared is not None and prepared.channel is not None:
+                                try:prepared.channel.close()
+                                except OSError as close_error:error('trigger-channel-close',close_error)
+                                finally:prepared.channel=None
+                            worker_until=monotonic()
+            if worker is not None and not trigger.fired:
+                worker_until=monotonic()
             # Keep the xcode child unreaped until all sampling has stopped. A dead
             # unreaped child cannot have its PID reassigned to an unrelated process.
             while worker is not None:
@@ -337,9 +463,17 @@ def forward(process, launch, directory):
                 if worker is not None: time.sleep(0.025)
     finally:
         try:
-            if worker is not None: worker_termination=finish_worker(worker,launch,directory)
+            if worker is not None: worker_termination=finish_worker(worker,launch,directory) if trigger.fired else stop_worker(worker)
+            if prepared is not None:prepared.worker=None
         except (OSError,subprocess.SubprocessError) as exc:
             error('observer-final-cleanup',exc)
+        if prepared is not None:
+            for name in ('channel','log'):
+                resource=getattr(prepared,name)
+                if resource is not None:
+                    try:resource.close()
+                    except OSError as exc:error('prepared-'+name+'-close',exc)
+                    finally:setattr(prepared,name,None)
         if worker_log is not None:
             try: worker_log.close()
             except OSError as exc:error('worker-log-close',exc)

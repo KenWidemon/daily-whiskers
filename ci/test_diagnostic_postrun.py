@@ -157,14 +157,62 @@ class PostrunTests(unittest.TestCase):
         command = d.test_command('cards', 'cards-largest')
         with patch.object(p, 'marker_uptime_ns', return_value=100), \
              patch.object(p.subprocess, 'Popen', return_value=process) as launch, \
+             patch('launch_observation.PreparedObserver') as preparing, \
              patch('launch_observation.forward', return_value=(65, {})) as forwarding, \
              patch.object(p, 'export_all') as export, patch.object(p, 'installed_bundles') as installed:
             self.assertEqual(p.execute(command, 'cards', 'cards-largest'), 65)
-            launch.assert_called_once_with(command, stdout=p.subprocess.PIPE, stderr=p.subprocess.STDOUT)
+            launch.assert_called_once_with(command, stdout=p.subprocess.PIPE, stderr=p.subprocess.STDOUT,close_fds=True)
+            preparing.assert_called_once()
             forwarding.assert_called_once()
             export.assert_not_called()
             installed.assert_not_called()
         self.assertEqual(json.loads((self.directory / 'exit.json').read_text())['exit_code'], 65)
+
+    def test_readiness_failure_explicitly_not_launched(self):
+        prior_exit=(self.directory/'exit.json').read_bytes()
+        with patch('launch_observation.PreparedObserver',side_effect=TimeoutError('ready timeout')),patch.object(p.subprocess,'Popen') as child:
+            self.assertRaises(TimeoutError,p.execute,['xcodebuild'],'cards','cards-largest')
+        child.assert_not_called()
+        record=json.loads((self.directory/'not-launched.json').read_text())
+        self.assertEqual(record['status'],'NOT LAUNCHED')
+        self.assertNotIn('exit_code',record)
+        self.assertEqual((self.directory/'exit.json').read_bytes(),prior_exit)
+
+    def test_selected_launch_failure_cleans_prepared_worker(self):
+        with patch('launch_observation.PreparedObserver') as preparing,patch.object(p,'marker_uptime_ns',return_value=100),patch.object(p.subprocess,'Popen',side_effect=OSError('launch denied')):
+            self.assertRaises(OSError,p.execute,['xcodebuild'],'cards','cards-largest')
+        preparing.return_value.close.assert_called_once_with('selected-child-launch-failed')
+        record=json.loads((self.directory/'not-launched.json').read_text())
+        self.assertEqual(record['status'],'NOT LAUNCHED');self.assertNotIn('exit_code',record)
+
+    def test_actual_execute_close_errors_keep_exit_receipt(self):
+        import sys,time
+        import launch_observation as observer
+        original=p.subprocess.Popen
+        raw=b'actual execute close fixture\x00\xff'
+        children=[]
+        def selected(command,**kwargs):
+            child=original([sys.executable,'-B','-c','import os;os.write(1,'+repr(raw)+');raise SystemExit(65)'],**kwargs)
+            children.append(child);return child
+        channel=Mock();channel.close.side_effect=OSError('channel close injected')
+        log=Mock();log.close.side_effect=OSError('log close injected')
+        prepared=Mock(worker=None,channel=channel,log=log,record={'idle_deadline_monotonic_ns':observer.monotonic_ns()+20_000_000_000})
+        with patch('launch_observation.PreparedObserver',return_value=prepared),patch.object(p,'marker_uptime_ns',return_value=100),patch.object(p.subprocess,'Popen',side_effect=selected),patch.object(observer.os,'write',side_effect=lambda fd,data:len(data)):
+            self.assertEqual(p.execute(['xcodebuild'],'cards','cards-largest'),65)
+        self.assertEqual(children[0].returncode,65)
+        self.assertEqual((self.directory/'stdout.raw').read_bytes(),raw)
+        receipt=json.loads((self.directory/'exit.json').read_text())
+        self.assertEqual(receipt['exit_code'],65)
+        self.assertEqual(receipt['host_capture']['selected_child_exit'],65)
+        self.assertEqual({e['operation'] for e in receipt['host_capture']['errors']},{'prepared-channel-close','prepared-log-close'})
+
+    def test_exit_receipt_failure_preserves_actual_selected_exit(self):
+        original=d.write
+        def failed(path,record):
+            if path.name=='exit.json':raise OSError('exit persistence injected')
+            return original(path,record)
+        with patch('launch_observation.PreparedObserver'),patch.object(p,'marker_uptime_ns',return_value=100),patch.object(p.subprocess,'Popen',return_value=Mock(pid=42)),patch('launch_observation.forward',return_value=(65,{'errors':[]})),patch.object(d,'write',side_effect=failed),patch.object(p.sys,'stderr'):
+            self.assertEqual(p.execute(['xcodebuild'],'cards','cards-largest'),65)
 
     def test_preflight_does_not_require_sample_or_process_tools(self):
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
