@@ -135,11 +135,11 @@ class Host(unittest.TestCase):
                 calls.append(name)
                 b.require(self.settled,'Unsettled')
                 b.require(self.budget.remaining(True)>kwargs.get('reserve',75),'Absolute deadline exhausted')
-                if name=='local-snapshot-container':
+                if name=='snapshot-container':
                     assert kwargs['reserve']==s.EXPORT_RESERVE
                 if problem=='deadline':raise b.Invalid('Absolute deadline exhausted')
                 if name=='local-ownership':return encode({'devices':{b.RUNTIME:[] if problem=='ownership' else [owned]}})
-                if name=='local-snapshot-container':
+                if name=='snapshot-container':
                     if problem=='container':raise b.Invalid('Missing container')
                     if problem=='cancel':raise InterruptedError('Supervisor signal')
                     if problem=='file':(p/(RUN+'.json')).unlink()
@@ -176,8 +176,8 @@ class Host(unittest.TestCase):
         return receipt,calls,out
     def test_success_export_before_delete_and_collect(self):
         r,calls,out=self.scenario();self.assertTrue(r['export']['classification']['valid']);self.assertTrue(r['cleanup']['verified'])
-        self.assertLess(calls.index('session'),calls.index('local-snapshot-container'))
-        self.assertLess(calls.index('local-snapshot-container'),calls.index('local-cleanup-delete'))
+        self.assertLess(calls.index('session'),calls.index('snapshot-container'))
+        self.assertLess(calls.index('snapshot-container'),calls.index('local-cleanup-delete'))
         self.assertLess(calls.index('local-cleanup-delete'),calls.index('ordinary'))
         self.assertEqual(r['export']['sha256'],b.sha((out/'snapshot-prefix.raw.json').read_bytes()))
     def test_missing_export_does_not_block_cleanup(self):
@@ -192,14 +192,14 @@ class Host(unittest.TestCase):
         r,calls,_=self.scenario('reserve')
         self.assertFalse(r['export']['exported'])
         self.assertIn('Absolute deadline exhausted',r['export']['error'])
-        self.assertNotIn('local-snapshot-container',calls)
+        self.assertNotIn('snapshot-container',calls)
         self.assertIn('local-cleanup-delete',calls)
         self.assertTrue(r['cleanup']['verified'])
     def test_stdout_absence_does_not_block_export(self):
         r,_,_=self.scenario('stdout');self.assertTrue(r['export']['exported']);self.assertFalse(r['collector']['capture_valid'])
     def test_unsettled_ownership_deadline_forbid_export_delete(self):
         for problem in ('unsettled','ownership','deadline'):
-            r,calls,_=self.scenario(problem);self.assertFalse(r['cleanup']['verified']);self.assertNotIn('local-snapshot-container',calls);self.assertNotIn('local-cleanup-delete',calls)
+            r,calls,_=self.scenario(problem);self.assertFalse(r['cleanup']['verified']);self.assertNotIn('snapshot-container',calls);self.assertNotIn('local-cleanup-delete',calls)
 
 
 class SessionCollector(unittest.TestCase):

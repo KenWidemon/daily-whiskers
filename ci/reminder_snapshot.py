@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local-only bounded prefix witness. Not invoked by the hosted workflow.
+"""Bounded prefix witness for the isolated manual diagnostic.
 
 Proposed command (interface must be locally verified before execution):
   xcrun simctl get_app_container <verified-owned-UDID> com.example.kenwidemon.dailywhiskers data
@@ -128,6 +128,86 @@ def read_exact(container, run, budget):
         os.close(fd)
 
 
+def export_owned_prefix(c, collector, uid, name, before, current):
+    """One export after group settlement and exact ownership; no cleanup here."""
+    export = {'exported':False}
+    b.require(c.settled, 'Unsettled owned group; no snapshot')
+    b.require(before is not None and b.owns(uid,name,before,current), 'Snapshot ownership uncertain')
+    prior_reserve = getattr(collector, 'final_reserve', 75)
+    try:
+        b.require(c.budget.remaining(True) > EXPORT_RESERVE, 'Snapshot export reserve exhausted')
+        collector.final_reserve = EXPORT_RESERVE
+        identity = collector.launch_identity()
+        export['identity'] = identity
+        argv = ['xcrun','simctl','get_app_container',uid,BUNDLE,'data']
+        export['container_command'] = argv
+        container = c.run('snapshot-container',argv,45,final=True,reserve=EXPORT_RESERVE).decode('utf-8').rstrip('\n')
+        b.require('\n' not in container and '\r' not in container, 'Ambiguous container output')
+        export['container'] = container
+        raw = read_exact(container, identity['run'], c.budget)
+        target = collector.output/'snapshot-prefix.raw.json'
+        b.require(c.budget.remaining(True) > EXPORT_RESERVE, 'Snapshot pre-artifact deadline')
+        with target.open('xb') as handle:
+            handle.write(raw)
+        export.update(exported=True, bytes=len(raw), sha256=b.sha(raw), relative_path='Library/Application Support/ReminderEnableProbe/'+identity['run']+'.json')
+        export['classification'] = classify(raw,identity)
+    except (Exception, KeyboardInterrupt) as exc:
+        export['error'] = type(exc).__name__+': '+str(exc)
+    finally:
+        collector.final_reserve = prior_reserve
+    try:
+        b.save(collector.output/'snapshot-export-receipt.json',export)
+    except OSError as exc:
+        export['receipt_error'] = str(exc)
+    return export
+
+
+def interpret(export, legacy, raw_test_exit):
+    """Qualified combined reading, never replacing raw legacy or test outcomes."""
+    file = export.get('classification', {})
+    records = file.get('records', []) if file.get('valid') else []
+    logged = legacy.get('records', [])
+    key = lambda r: tuple(r.get(k) for k in ('run','pid','seq','stage','id','command','requested'))
+    log_keys = {key(r) for r in logged}
+    positive = [r for r in records if r['stage'] == 'bindingSetter' or r['command'] == 'enable']
+    unseen = [r for r in positive if key(r) not in log_keys]
+    differences = []
+    for r in positive:
+        same = [x for x in logged if key(x) == key(r)]
+        if same:
+            fields = [k for k in FIELDS-{'tick'} if same[0].get(k) != r[k]]
+            tick = same[0].get('tick')
+            if type(tick) not in (int,float) or not math.isfinite(tick) or abs(tick-r['tick']) > 0.000000501:
+                fields.append('tick exceeds six-decimal Logger rounding')
+            if len(same) != 1: fields.append('duplicate Logger event identity')
+            if fields: differences.append({'seq':r['seq'],'fields':sorted(fields)})
+    complete = any(r['stage'] == 'sendComplete' and r['command'] == 'enable' for r in positive)
+    if not file.get('valid'):
+        comparison = 'invalid-or-unavailable-prefix'
+    elif not positive:
+        comparison = 'baseline-only-prefix; inconclusive'
+    elif unseen:
+        comparison = 'file-positive-log-unseen; independently retained positive evidence'
+    elif differences:
+        comparison = 'file-positive/logger-field-difference; inspect both retained sources'
+    else:
+        comparison = 'matching-positive-prefix'
+    cases = legacy.get('actual_cases', [])
+    passed = raw_test_exit == 0 and legacy.get('capture_valid') and len(cases) == 1 and cases[0].get('nodeIdentifier') == b.CASE and cases[0].get('result') == 'Passed'
+    return {'kind':'prefix-only', 'comparison':comparison,
+            'prefix_extent':'enable-completion-observed' if complete else 'partial-or-baseline',
+            'logger_capture_valid':bool(legacy.get('capture_valid')), 'field_differences':differences,
+            'file_positive_events':positive, 'file_positive_events_unseen_in_logger':unseen,
+            'raw_test_exit':raw_test_exit, 'test_nonreproduction':passed,
+            'test_interpretation':'Passing selected case under instrumentation: nonreproduction, not a fix.' if passed
+                else 'Preserve raw test exit and case results; capture is a separate classification.',
+            'negative_marker_inference_qualified':False,
+            'legacy_verdict_path':'collector-verdict.json',
+            'limitations':LIMITATIONS + ['File-positive/log-unseen does not identify a log-loss mechanism.',
+                'Matching positives, later Logger messages and same-channel canaries do not prove completeness.',
+                'A stale valid prefix after failed replacement can report zero errors.']}
+
+
 def finalize_local(c, collector, uid, name, before, raw_test_exit, source_valid=False):
     """Single-use local finalizer. Export failures cannot prevent safe cleanup.
 
@@ -142,32 +222,8 @@ def finalize_local(c, collector, uid, name, before, raw_test_exit, source_valid=
         b.require(c.settled, 'Unsettled owned group; no snapshot or cleanup')
         current = b.flat(json.loads(c.run('local-ownership', ['xcrun','simctl','list','devices','-j'],45,final=True)))
         b.require(before is not None and b.owns(uid,name,before,current), 'Local ownership uncertain')
-        prior_reserve = getattr(collector, 'final_reserve', 75)
-        try:
-            b.require(c.budget.remaining(True) > EXPORT_RESERVE, 'Snapshot export reserve exhausted')
-            collector.final_reserve = EXPORT_RESERVE
-            identity = collector.launch_identity()
-            export['identity'] = identity
-            argv = ['xcrun','simctl','get_app_container',uid,BUNDLE,'data']
-            export['container_command'] = argv
-            container = c.run('local-snapshot-container',argv,45,final=True,reserve=EXPORT_RESERVE).decode('utf-8').rstrip('\n')
-            b.require('\n' not in container and '\r' not in container, 'Ambiguous container output')
-            export['container'] = container
-            raw = read_exact(container, identity['run'], c.budget)
-            target = collector.output/'snapshot-prefix.raw.json'
-            b.require(c.budget.remaining(True) > EXPORT_RESERVE, 'Snapshot pre-artifact deadline')
-            with target.open('xb') as handle:
-                handle.write(raw)
-            export.update(exported=True, bytes=len(raw), sha256=b.sha(raw), relative_path='Library/Application Support/ReminderEnableProbe/'+identity['run']+'.json')
-            export['classification'] = classify(raw,identity)
-        except (Exception, KeyboardInterrupt) as exc:
-            export['error'] = type(exc).__name__+': '+str(exc)
-        finally:
-            collector.final_reserve = prior_reserve
-        try:
-            b.save(collector.output/'snapshot-export-receipt.json',export)
-        except OSError as exc:
-            export['receipt_error'] = str(exc)
+        export = export_owned_prefix(c,collector,uid,name,before,current)
+        receipt['export'] = export
         # The command wrapper checks settlement/deadline again for each action.
         b.require(c.settled, 'Unsettled snapshot group; no simulator cleanup')
         if current[uid]['state'] != 'Shutdown':

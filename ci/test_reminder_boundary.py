@@ -14,15 +14,14 @@ import time
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('boundary',Path(__file__).with_name('reminder_boundary.py'))
-b = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(b)
+import reminder_boundary as b
 REPO = Path(__file__).resolve().parents[1]
 
 class Contract(unittest.TestCase):
     def env(self):
         return {'GITHUB_REPOSITORY':b.REPOSITORY,'GITHUB_EVENT_NAME':'workflow_dispatch',
                 'GITHUB_REF':b.REF,'GITHUB_RUN_ATTEMPT':'1','RUNNER_ARCH':'ARM64',
+                'CACHE_EPOCH':'v2','APPROVED_CONTRACT_SHA256':'c'*64,
                 'GITHUB_SHA':'a'*40,'APPROVED_SHA':'a'*40,'GITHUB_RUN_ID':'123','GITHUB_JOB':'reminder-boundary'}
     @classmethod
     def setUpClass(cls):
@@ -287,9 +286,11 @@ class MarkerContracts(unittest.TestCase):
 
 class ExecutionFailureContracts(unittest.TestCase):
     """All external phases are stubs, not app/simulator/network commands."""
-    def scenario(self, fail=None, uncertain=False, raw_exit=0, collector_error=False):
+    def scenario(self, fail=None, uncertain=False, raw_exit=0, collector_error=False, problem=None):
         import io
         import zipfile
+        import reminder_snapshot as snapshot
+        from test_reminder_snapshot import fixture, encode, SESSION, IDENTITY, RUN
         archive_buffer=io.BytesIO()
         with zipfile.ZipFile(archive_buffer,'w') as z:
             z.writestr(zipfile.ZipInfo('xcodegen/bin/xcodegen',(2026,1,1,0,0,0)),b'synthetic')
@@ -299,11 +300,31 @@ class ExecutionFailureContracts(unittest.TestCase):
             (repo/b.LOCK).parent.mkdir(parents=True);(repo/b.LOCK).write_text('{"pins":[]}')
             (repo/'ci').mkdir();(repo/'ci/firebase-test-config.plist').write_text('fake-only')
             (repo/'DailyWhiskers/Resources').mkdir(parents=True)
+            files=[b.LOCK,'ci/firebase-test-config.plist',b.CONTRACT]
+            contract={'schema':1,'validated_source':b.VALIDATED_SOURCE,'ref':b.REF,'selector':b.SELECTOR,
+                'limits':b.LIMITS,'files':{f:b.sha((repo/f).read_bytes()) for f in files if f!=b.CONTRACT}}
+            b.save(repo/b.CONTRACT,contract)
+            contract_sha=b.sha((repo/b.CONTRACT).read_bytes())
             root=top/'reminder-boundary';root.mkdir()
-            (root/'budget.json').write_text(json.dumps({'sha':'a'*40,'run_id':'123','attempt':'1','started_monotonic':time.monotonic()}))
-            env=Contract().env();env.update(GITHUB_WORKSPACE=str(repo),RUNNER_TEMP=str(top))
-            devices={};called=[];instances=[]
+            (root/'budget.json').write_text(json.dumps({'sha':'a'*40,'run_id':'123','attempt':'1',
+                'contract_sha256':contract_sha,'started_monotonic':time.monotonic()}))
+            env=Contract().env();env.update(GITHUB_WORKSPACE=str(repo),RUNNER_TEMP=str(top),APPROVED_CONTRACT_SHA256=contract_sha)
             uid='11111111-2222-4333-8444-555555555555'
+            old='99999999-2222-4333-8444-555555555555'
+            baseline={old:{'udid':old,'name':'Existing device','deviceTypeIdentifier':b.TYPE,
+                'runtime':b.RUNTIME,'isAvailable':True,'state':'Shutdown'}}
+            self.baseline=copy.deepcopy(baseline)
+            devices=copy.deepcopy(baseline);called=[];instances=[]
+            container=top/'container';folder=container/'Library/Application Support/ReminderEnableProbe';folder.mkdir(parents=True)
+            file=folder/(RUN+'.json');doc=fixture()
+            if problem=='stale':
+                doc['events']=doc['events'][:1];doc.update(eventCount=1,lastSequence=1,replacementAttempts=1,measuredWrites=0,writeNanoseconds=0)
+            if problem=='wrong-id':doc['pid']=88
+            file.write_bytes(encode(doc))
+            if problem=='absent':file.unlink()
+            if problem=='oversized':file.write_bytes(b' '*65537)
+            if problem=='malformed':file.write_bytes(b'{')
+            if problem=='symlink':file.unlink();file.symlink_to(top/'outside')
             class FakeCommands:
                 def __init__(self,evidence,cwd,env,budget):
                     self.evidence,self.cwd,self.budget=evidence,cwd,budget
@@ -311,14 +332,19 @@ class ExecutionFailureContracts(unittest.TestCase):
                 def settle(self,deadline):
                     if uncertain: self.settled=False;raise b.Invalid('synthetic unresolved group')
                     self.settled=True
-                def run(self,name,argv,cap=60,final=False,check=True):
+                def run(self,name,argv,cap=60,final=False,check=True,reserve=75):
                     b.require(self.settled,'Prior synthetic group unresolved')
-                    self.budget.allowance(cap,final)
+                    seconds=self.budget.allowance(cap,final,reserve)
                     called.append(name)
-                    phase={'name':name,'argv':argv,'raw_exit':0,'owned_pgid':90000+len(called)}
+                    phase={'name':name,'argv':argv,'raw_exit':0,'owned_pgid':90000+len(called),
+                        'timeout_seconds':seconds,'execution_deadline':self.budget.started+2700,
+                        'finalization_deadline':self.budget.started+3300}
                     self.phases.append(phase)
+                    b.save(self.evidence/'phases.json',self.phases)
                     if name=='create-simulator':
                         devices[uid]={'udid':uid,'name':argv[3],'deviceTypeIdentifier':b.TYPE,'runtime':b.RUNTIME,'isAvailable':True,'state':'Shutdown'}
+                        if problem=='ambiguous-create':devices['other']=dict(devices[uid],udid='other')
+                        if problem in ('uncertain-create','ambiguous-create'):raise b.Invalid('uncertain create')
                     if name==fail:
                         phase['raw_exit']=None
                         if uncertain:self.settled=False
@@ -326,12 +352,17 @@ class ExecutionFailureContracts(unittest.TestCase):
                     if name=='source-head':return b'a'*40+b'\n'
                     if name=='source-status':return b''
                     if name=='source-tree':return b'tree\n'
-                    if name=='source-files':return (b.LOCK+'\0ci/firebase-test-config.plist\0').encode()
+                    if name=='source-files':return ('\0'.join(files)+'\0').encode()
+                    if name=='source-parent':return b.VALIDATED_SOURCE.encode()
                     if name=='probe-patch':return b'probe'
                     if name=='toolchain-xcode':return b'Xcode 27.2\nBuild version 27B52\n'
                     if name=='toolchain-sdk':return b'27.2\n'
                     if name=='toolchain-arch':return b'arm64\n'
                     if name=='toolchain-runtimes':return json.dumps({'runtimes':[{'identifier':b.RUNTIME,'isAvailable':True,'version':'27.0','buildversion':'24A434'}]}).encode()
+                    if name=='verify-container-interface':
+                        help=b"Usage: simctl get_app_container <device> <app bundle identifier> [<container>]\n data The application's data container\n"
+                        (self.evidence/(name+'.stderr')).write_bytes(help)
+                        return b''
                     if name=='download-xcodegen':(root/'build/xcodegen.zip').write_bytes(archive_bytes)
                     if name=='xcodegen-version':return b'Version: 2.46.0\n'
                     if name=='resolve-once':(root/'build/SourcePackages/workspace-state.json').write_text('{"object":{"dependencies":[]}}')
@@ -340,34 +371,68 @@ class ExecutionFailureContracts(unittest.TestCase):
                     if name=='xcodebuild-test':
                         (self.evidence/'ReminderBoundary.xcresult').mkdir()
                         phase['raw_exit']=raw_exit
+                        if problem=='timeout':
+                            phase['raw_exit']=-15;phase['timed_out']=True
+                            raise subprocess.TimeoutExpired('synthetic test',720)
+                        if problem=='aborted':
+                            phase['raw_exit']=-15
+                            raise InterruptedError('synthetic signal')
+                        if problem=='preexisting-change':devices[old]['state']='Booted'
+                        if problem=='deadline':self.budget.clock=lambda:self.budget.started+3300
+                    if name=='snapshot-container':
+                        assert reserve==snapshot.EXPORT_RESERVE
+                        assert argv==['xcrun','simctl','get_app_container',uid,snapshot.BUNDLE,'data']
+                        if problem=='container':raise b.Invalid('container lookup failed')
+                        if problem=='export-unsettled':self.settled=False;raise b.Invalid('export group unresolved')
+                        return str(container).encode()+b'\n'
                     if name=='cleanup-shutdown':devices[uid]['state']='Shutdown'
-                    if name=='cleanup-delete':devices.pop(uid)
+                    if name=='cleanup-delete':
+                        if problem is None and fail is None and not collector_error:assert (self.evidence/'snapshot-prefix.raw.json').is_file()
+                        devices.pop(uid)
                     if name in ('devices-before','devices-created','devices-ready','cleanup-snapshot','cleanup-readback'):
                         return json.dumps({'devices':{b.RUNTIME:[dict(d) for d in devices.values()]}}).encode()
                     return b''
             class FakeCollector:
-                def __init__(self,*args):called.append('collector-created')
+                def __init__(self,c,bundle,output):
+                    self.c,self.output=c,output;self.final_reserve=75;called.append('collector-created')
+                def launch_identity(self):
+                    called.append('session-identity')
+                    assert self.final_reserve==snapshot.EXPORT_RESERVE
+                    if problem=='session-ambiguous':return b.session_identity(SESSION+SESSION)
+                    if problem=='session-malformed':return b.session_identity(SESSION.replace(RUN,'not-a-uuid'))
+                    if problem=='export-reserve':
+                        self.c.budget.clock=lambda:self.c.budget.started+3300-snapshot.EXPORT_RESERVE
+                        self.c.budget.allowance(60,True,self.final_reserve)
+                    b.save(self.output/'session-provenance.json',{'fixture':True,'identity':IDENTITY})
+                    (self.output/'Session.log').write_text(SESSION)
+                    return b.session_identity(SESSION)
                 def collect(self,*args):
-                    if collector_error:raise b.Invalid('synthetic collector failed')
-                    return {'capture_valid':True,'actual_cases':[{'nodeIdentifier':b.CASE}],'legacy_execution_count':1}
-            with patch.object(b,'Commands',FakeCommands),patch.object(b,'Collector',FakeCollector),patch.object(b,'PATCH_SHA',b.sha(b'probe')),patch.object(b,'XCODEGEN_SHA',b.sha(archive_bytes)):
+                    called.append('ordinary-collect')
+                    if collector_error or problem=='stdout':raise b.Invalid('synthetic collector / stdout failed')
+                    return {'capture_valid':True,'actual_cases':[{'nodeIdentifier':b.CASE,'result':'Passed' if raw_exit==0 else 'Failed'}],
+                        'legacy_execution_count':1,'records':doc['events']}
+            with patch.object(b,'Commands',FakeCommands),patch.object(b,'Collector',FakeCollector),patch.object(b,'PATCH_SHA',b.sha(b'probe')),patch.object(b,'XCODEGEN_SHA',b.sha(archive_bytes)),patch.object(subprocess,'Popen',side_effect=AssertionError('No runtime subprocess permitted in fixture')):
                 result=b.execute(env)
             status=json.loads((root/'evidence/status.json').read_text())
             cleanup=json.loads((root/'evidence/cleanup.json').read_text())
+            self.last={f.stem:json.loads(f.read_text()) for f in (root/'evidence').glob('*.json') if f.name!='snapshot-prefix.raw.json'}
+            self.last['commands']=instances[0].phases
+            self.last['raw_snapshot_exists']=(root/'evidence/snapshot-prefix.raw.json').exists()
+            self.last['budget_identities']=[id(i.budget) for i in instances]
             return result,status,cleanup,called,dict(devices),(root/'upload-eligible').exists()
     def test_stubbed_complete_route(self):
         result,status,cleanup,calls,devices,upload=self.scenario()
-        self.assertEqual(result,0);self.assertTrue(cleanup['verified']);self.assertEqual(devices,{})
+        self.assertEqual(result,0);self.assertTrue(cleanup['verified']);self.assertEqual(devices,self.baseline)
         self.assertEqual(calls.count('resolve-once'),1);self.assertEqual(calls.count('xcodebuild-test'),1)
         self.assertTrue(status['test_process_spawned']);self.assertEqual(status['actual_execution_count'],1)
         self.assertTrue(upload)
     def test_fail_each_setup_phase_stops_before_test(self):
-        for phase in ('source-head','source-status','probe-patch','source-tree','source-files','toolchain-xcode','toolchain-sdk','toolchain-arch','toolchain-runtimes','devices-before','download-xcodegen','unzip-xcodegen','xcodegen-version','generate-project','resolve-once','create-simulator','devices-created','boot-simulator','wait-bootstatus','devices-ready'):
+        for phase in ('source-head','source-status','probe-patch','source-tree','source-files','source-parent','verify-container-interface','toolchain-xcode','toolchain-sdk','toolchain-arch','toolchain-runtimes','devices-before','download-xcodegen','unzip-xcodegen','xcodegen-version','generate-project','resolve-once','create-simulator','devices-created','boot-simulator','wait-bootstatus','devices-ready'):
             with self.subTest(phase=phase):
                 result,status,cleanup,calls,devices,upload=self.scenario(fail=phase)
                 self.assertEqual(result,1);self.assertIn(phase,status['primary_error'])
                 self.assertNotIn('xcodebuild-test',calls);self.assertFalse(status['test_process_spawned']);self.assertEqual(status['test_invocations'],0)
-                self.assertEqual(devices,{})
+                self.assertEqual(devices,self.baseline)
     def test_native_failure_raw_exit_not_swallowed(self):
         result,status,cleanup,calls,devices,upload=self.scenario(raw_exit=65)
         self.assertEqual(result,1);self.assertEqual(status['raw_test_exit'],65)
@@ -376,7 +441,7 @@ class ExecutionFailureContracts(unittest.TestCase):
         result,status,cleanup,calls,devices,upload=self.scenario(fail='xcodebuild-test',uncertain=True)
         self.assertEqual(result,1);self.assertFalse(cleanup['verified']);self.assertFalse(upload)
         self.assertNotIn('cleanup-delete',calls);self.assertNotIn('collector-created',calls)
-        self.assertIsNone(status['raw_test_exit']);self.assertEqual(len(devices),1)
+        self.assertIsNone(status['raw_test_exit']);self.assertEqual(len(devices),2)
     def test_collector_failure_cannot_pass(self):
         result,status,cleanup,calls,devices,upload=self.scenario(collector_error=True)
         self.assertEqual(result,1);self.assertFalse(status['collector_valid']);self.assertTrue(cleanup['verified'])
@@ -386,6 +451,62 @@ class ExecutionFailureContracts(unittest.TestCase):
                 result,status,cleanup,calls,devices,upload=self.scenario(fail=phase)
                 self.assertEqual(result,1);self.assertFalse(cleanup['verified'])
                 self.assertLessEqual(calls.count('cleanup-delete'),1)
+
+    def test_hosted_export_failure_matrix_preserves_cleanup_raw_outcome_and_artifacts(self):
+        for problem in ('absent','wrong-id','oversized','symlink','malformed','container','session-ambiguous','session-malformed','stdout'):
+            with self.subTest(problem=problem):
+                result,status,cleanup,calls,devices,upload=self.scenario(raw_exit=65,problem=problem)
+                self.assertEqual(result,1);self.assertEqual(status['raw_test_exit'],65)
+                self.assertTrue(cleanup['verified']);self.assertEqual(devices,self.baseline);self.assertTrue(upload)
+                self.assertEqual(calls.count('xcodebuild-test'),1)
+                self.assertLessEqual(calls.count('snapshot-container'),1)
+                if problem=='stdout':self.assertTrue(self.last['snapshot-export-receipt']['classification']['valid'])
+                if problem in ('malformed','wrong-id'):self.assertTrue(self.last['raw_snapshot_exists'])
+                self.assertFalse(self.last['qualified-interpretation']['negative_marker_inference_qualified'])
+    def test_hosted_success_exports_before_owned_delete(self):
+        result,status,cleanup,calls,devices,upload=self.scenario()
+        self.assertEqual(result,0)
+        self.assertLess(calls.index('session-identity'),calls.index('snapshot-container'))
+        self.assertLess(calls.index('snapshot-container'),calls.index('cleanup-delete'))
+        self.assertLess(calls.index('cleanup-delete'),calls.index('ordinary-collect'))
+        self.assertEqual(len(set(self.last['budget_identities'])),1)
+        self.assertIn('snapshot-prefix.raw.json',self.last['evidence-manifest']['files'])
+        self.assertIn('approved-contract.raw.json',self.last['evidence-manifest']['files'])
+        self.assertIn('session-provenance.json',self.last['evidence-manifest']['files'])
+    def test_hosted_aborted_and_timeout_keep_primary_and_raw_exit(self):
+        for problem in ('aborted','timeout'):
+            result,status,cleanup,calls,devices,upload=self.scenario(problem=problem)
+            self.assertEqual(result,1);self.assertEqual(status['raw_test_exit'],-15)
+            self.assertTrue(status['primary_error']);self.assertTrue(cleanup['verified']);self.assertTrue(upload)
+            self.assertTrue(self.last['snapshot-export-receipt']['classification']['valid'])
+            self.assertEqual(calls.count('xcodebuild-test'),1)
+    def test_stale_valid_baseline_stays_inconclusive(self):
+        result,status,cleanup,calls,devices,upload=self.scenario(problem='stale')
+        self.assertEqual(result,0);self.assertTrue(status['snapshot_valid'])
+        self.assertIn('baseline-only',self.last['qualified-interpretation']['comparison'])
+        self.assertEqual(self.last['snapshot-export-receipt']['classification']['errors'],[])
+        self.assertFalse(self.last['qualified-interpretation']['negative_marker_inference_qualified'])
+    def test_hosted_creation_reconciliation_never_recreates_or_guesses(self):
+        for problem in ('uncertain-create','ambiguous-create'):
+            result,status,cleanup,calls,devices,upload=self.scenario(problem=problem)
+            self.assertEqual(result,1);self.assertEqual(calls.count('create-simulator'),1)
+            self.assertNotIn('xcodebuild-test',calls);self.assertNotIn('snapshot-container',calls)
+            if problem=='uncertain-create':self.assertTrue(cleanup['verified']);self.assertEqual(devices,self.baseline)
+            else:self.assertFalse(cleanup['verified']);self.assertNotIn('cleanup-delete',calls);self.assertEqual(len(devices),3)
+    def test_hosted_export_group_and_deadline_never_widen_cleanup(self):
+        for problem in ('export-unsettled','deadline'):
+            result,status,cleanup,calls,devices,upload=self.scenario(problem=problem)
+            self.assertEqual(result,1);self.assertFalse(cleanup['verified']);self.assertFalse(upload)
+            self.assertNotIn('cleanup-delete',calls)
+    def test_hosted_reserve_still_allows_owned_cleanup(self):
+        result,status,cleanup,calls,devices,upload=self.scenario(problem='export-reserve')
+        self.assertEqual(result,1);self.assertTrue(cleanup['verified']);self.assertTrue(upload)
+        self.assertNotIn('snapshot-container',calls);self.assertIn('cleanup-delete',calls)
+    def test_hosted_preexisting_change_cannot_be_green(self):
+        result,status,cleanup,calls,devices,upload=self.scenario(problem='preexisting-change')
+        self.assertEqual(result,1);self.assertFalse(cleanup['preexisting_stable']);self.assertTrue(upload)
+        self.assertEqual([p['argv'][-1] for p in self.last['commands'] if p['name'] in ('cleanup-shutdown','cleanup-delete')],
+                         ['11111111-2222-4333-8444-555555555555']*2)
 
 class AdditionalEvidenceContracts(unittest.TestCase):
     def test_additional_iteration_rejected_before_leaf_read(self):

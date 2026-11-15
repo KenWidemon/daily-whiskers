@@ -1,14 +1,19 @@
-name: Nonqualifying Reminder boundary diagnostic
+name: Nonqualifying Reminder prefix diagnostic
 
 on:
   workflow_dispatch:
     inputs:
       cache_epoch:
-        description: 'Compatibility input; ignored by this diagnostic (no cache)'
+        description: 'Compatibility input; must remain v2 (no cache)'
         type: string
         default: v2
       approved_sha:
         description: 'Separately approved exact frozen diagnostic commit (40 lowercase hex characters)'
+        type: string
+        required: true
+
+      approved_contract_sha256:
+        description: 'Separately reviewed ci/reminder_hosted_contract.json SHA-256 (64 lowercase hex characters)'
         type: string
         required: true
 
@@ -21,7 +26,10 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 60
     env:
+      PYTHONDONTWRITEBYTECODE: '1'
       APPROVED_SHA: ${{ inputs.approved_sha }}
+      APPROVED_CONTRACT_SHA256: ${{ inputs.approved_contract_sha256 }}
+      CACHE_EPOCH: ${{ inputs.cache_epoch }}
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - name: Assert dispatch identity and start nonresetting budget
@@ -33,19 +41,23 @@ jobs:
           e = os.environ
           expected = {'GITHUB_REPOSITORY': 'KenWidemon/daily-whiskers',
                       'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                      'GITHUB_REF': 'refs/heads/codex/pr143-reminder-boundary-20261115',
-                      'GITHUB_RUN_ATTEMPT': '1', 'RUNNER_ARCH': 'ARM64'}
+                      'GITHUB_REF': 'refs/heads/codex/pr143-denial-reporting-hosted-20261115',
+                      'GITHUB_RUN_ATTEMPT': '1', 'RUNNER_ARCH': 'ARM64', 'CACHE_EPOCH':'v2'}
           for key, value in expected.items():
               if e.get(key) != value:
                   raise SystemExit('Wrong ' + key)
           approved = e.get('APPROVED_SHA', '')
           if not re.fullmatch('[0-9a-f]{40}', approved) or approved != e.get('GITHUB_SHA'):
               raise SystemExit('Event/approved SHA mismatch')
+          contract = e.get('APPROVED_CONTRACT_SHA256','')
+          if not re.fullmatch('[0-9a-f]{64}', contract):
+              raise SystemExit('Missing/malformed approved contract hash')
           root = pathlib.Path(e['RUNNER_TEMP']) / 'reminder-boundary'
           root.mkdir(exist_ok=False)
           (root / 'budget.json').write_text(json.dumps({
               'started_monotonic': time.monotonic(), 'sha': approved,
-              'run_id': e['GITHUB_RUN_ID'], 'attempt': e['GITHUB_RUN_ATTEMPT']}))
+              'run_id': e['GITHUB_RUN_ID'], 'attempt': e['GITHUB_RUN_ATTEMPT'],
+              'contract_sha256': contract}))
           PY
       - name: Check out exact event commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,10 +80,301 @@ jobs:
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'reminder-boundary'
           receipt = json.loads((root / 'budget.json').read_text())
           remaining = receipt['started_monotonic'] + 3600 - time.monotonic()
-          allowed = (root / 'upload-eligible').is_file() and remaining >= 300
+          allowed = (marker_present := (root / 'upload-eligible').is_file()) and remaining >= 300
           with open(os.environ['GITHUB_OUTPUT'], 'a') as handle:
               handle.write('upload=' + str(allowed).lower() + '\n')
           if not allowed:
+              # Receipt projection only: runs after upload=false, never on the approved path.
+              # No raw strings, additional evidence, subprocesses, waits, retries or decisions.
+              try:
+                  import datetime, errno, math, re, stat
+                  BYTE_CAP, DEPTH_CAP, NODE_CAP, FIELD_CAP, OUTPUT_CAP = 65536, 8, 4096, 4096, 4096
+                  class ReceiptIssue(Exception):
+                      pass
+                  def check(value, code='malformed'):
+                      if not value:
+                          raise ReceiptIssue(code)
+                  def integer(value, low=-2147483648, high=2147483647):
+                      return type(value) is int and low <= value <= high
+                  def bounded(value, depth=0, count=None):
+                      count = [0] if count is None else count
+                      count[0] += 1
+                      check(depth <= DEPTH_CAP and count[0] <= NODE_CAP)
+                      if type(value) is dict:
+                          check(len(value) <= 128)
+                          for key, item in value.items():
+                              check(type(key) is str and len(key) <= 128)
+                              bounded(item, depth+1, count)
+                      elif type(value) is list:
+                          check(len(value) <= 256)
+                          for item in value:
+                              bounded(item, depth+1, count)
+                      elif type(value) is str:
+                          check(len(value) <= FIELD_CAP)
+                      elif type(value) in (int, float):
+                          check(math.isfinite(value) and abs(value) <= 2**64)
+                      else:
+                          check(value is None or type(value) is bool)
+                  def pairs(items):
+                      result = {}
+                      for key, value in items:
+                          check(key not in result)
+                          result[key] = value
+                      return result
+                  def parse(raw):
+                      # Bound container depth before json.loads allocates a nested structure.
+                      depth, quoted, escaped = 0, False, False
+                      for ch in raw:
+                          if quoted:
+                              if escaped:
+                                  escaped = False
+                              elif ch == 92:
+                                  escaped = True
+                              elif ch == 34:
+                                  quoted = False
+                          elif ch == 34:
+                              quoted = True
+                          elif ch in (91, 123):
+                              depth += 1
+                              check(depth <= DEPTH_CAP)
+                          elif ch in (93, 125):
+                              depth -= 1
+                      doc = json.loads(raw.decode('utf-8'), object_pairs_hook=pairs)
+                      bounded(doc)
+                      return doc
+                  def signature(s):
+                      return (s.st_dev, s.st_ino, s.st_mode, s.st_nlink, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+                  def read_receipt(relative):
+                      # Exact allowlisted files only. Anchor traversal at / and never follow links.
+                      parts = root.parts + tuple(relative.split('/'))
+                      check(root.is_absolute() and len(parts) <= 64 and '..' not in parts, 'unsafe')
+                      directory = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+                      fd = os.open('/', directory)
+                      try:
+                          for component in parts[1:-1]:
+                              before = os.stat(component, dir_fd=fd, follow_symlinks=False)
+                              check(stat.S_ISDIR(before.st_mode), 'unsafe')
+                              child = os.open(component, directory, dir_fd=fd)
+                              try:
+                                  after = os.fstat(child)
+                                  check((before.st_dev, before.st_ino) == (after.st_dev, after.st_ino), 'unsafe')
+                              except BaseException:
+                                  os.close(child)
+                                  raise
+                              os.close(fd)
+                              fd = child
+                          name = parts[-1]
+                          before = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                          check(stat.S_ISREG(before.st_mode) and before.st_nlink == 1, 'unsafe')
+                          check(before.st_size <= BYTE_CAP, 'oversized')
+                          try:
+                              file = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+                          except FileNotFoundError:
+                              raise ReceiptIssue('unsafe') from None
+                          try:
+                              check(signature(before) == signature(os.fstat(file)), 'unsafe')
+                              # One bounded regular-file read; a short read is unsafe, not a retry.
+                              raw = os.read(file, BYTE_CAP+1)
+                              after = os.fstat(file)
+                              try:
+                                  named = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                              except FileNotFoundError:
+                                  raise ReceiptIssue('unsafe') from None
+                              check(len(raw) <= BYTE_CAP, 'oversized')
+                              check(len(raw) == before.st_size and signature(before) == signature(after) == signature(named), 'unsafe')
+                          finally:
+                              os.close(file)
+                          return parse(raw)
+                      finally:
+                          os.close(fd)
+                  def category(value, artifact=False):
+                      if value is None:
+                          return 'NONE_RECORDED'
+                      check(type(value) is str)
+                      exact = {
+                          'Unresolved owned group; bundle may be mutating, no extraction/hash/upload eligibility': 'OWNED_GROUP_UNSETTLED',
+                          'Finalization hashing deadline': 'FINALIZATION_HASH_DEADLINE',
+                          'Artifact symlink': 'ARTIFACT_SYMLINK',
+                          'Artifact exceeds 2 GiB cap; no upload eligibility': 'ARTIFACT_SIZE_CAP',
+                          'Dependency lock changed': 'DEPENDENCY_LOCK_CHANGED',
+                          'Unsettled owned group; no simulator cleanup': 'OWNED_GROUP_UNSETTLED',
+                          'Unsettled export group; no simulator cleanup': 'OWNED_GROUP_UNSETTLED',
+                          'Owned group not settled; simulator cleanup forbidden': 'OWNED_GROUP_UNSETTLED',
+                          'No owned-child reap time': 'OWNED_CHILD_REAP_UNAVAILABLE',
+                          'Cleanup ownership uncertain': 'CLEANUP_OWNERSHIP_UNCERTAIN',
+                          'Uncertain create outcome; no guessed deletion': 'CREATE_OUTCOME_UNCERTAIN',
+                          'No verified owned device/result for prefix export': 'PREFIX_EXPORT_UNAVAILABLE',
+                          'Result unavailable or extraction not completed': 'CAPTURE_INCOMPLETE',
+                      }
+                      if artifact:
+                          code = exact.get(value)
+                          return code if code in ('OWNED_GROUP_UNSETTLED','FINALIZATION_HASH_DEADLINE','ARTIFACT_SYMLINK','ARTIFACT_SIZE_CAP') and value in tuple(exact)[:4] else 'UNCLASSIFIED_ARTIFACT_ERROR'
+                      if value in exact:
+                          return exact[value]
+                      prefix = value.split(':', 1)[0]
+                      kinds = {'TimeoutExpired':'TIMEOUT_RECORDED', 'InterruptedError':'INTERRUPTION_RECORDED',
+                               'Invalid':'VALIDATION_ERROR_RECORDED', 'OSError':'IO_ERROR_RECORDED',
+                               'FileNotFoundError':'IO_ERROR_RECORDED', 'PermissionError':'IO_ERROR_RECORDED',
+                               'JSONDecodeError':'JSON_ERROR_RECORDED', 'UnicodeDecodeError':'ENCODING_ERROR_RECORDED',
+                               'ValueError':'VALUE_ERROR_RECORDED', 'TypeError':'TYPE_ERROR_RECORDED',
+                               'KeyError':'KEY_ERROR_RECORDED'}
+                      return kinds.get(prefix, 'UNCLASSIFIED_ERROR') if ':' in value else 'UNCLASSIFIED_ERROR'
+                  def errors(value):
+                      check(type(value) is list and len(value) <= 16 and all(type(x) is str for x in value))
+                      return sorted({category(x) for x in value})
+                  def boolean(doc, key):
+                      check(key not in doc or type(doc[key]) is bool)
+                      return ('recorded-true' if doc[key] else 'recorded-false') if key in doc else 'unknown'
+                  def raw_exit(doc, key):
+                      check(key not in doc or doc[key] is None or integer(doc[key]))
+                      return doc.get(key)
+                  phase_names = set(('source-head source-status probe-patch source-tree source-files source-parent '
+                      'toolchain-xcode toolchain-sdk toolchain-arch toolchain-runtimes verify-container-interface '
+                      'devices-before download-xcodegen unzip-xcodegen xcodegen-version generate-project resolve-once '
+                      'create-simulator devices-created boot-simulator wait-bootstatus devices-ready xcodebuild-test '
+                      'cleanup-snapshot snapshot-container cleanup-shutdown cleanup-delete cleanup-readback').split())
+                  def phase_name(value):
+                      check(type(value) is str and (value in phase_names or re.fullmatch(r'(?:extract-[1-9][0-9]{0,3}|package-head-(?:0|[1-9][0-9]{0,3}))', value)))
+                      return value
+                  def budget_window():
+                      start = receipt.get('started_monotonic')
+                      check(type(start) in (int,float) and math.isfinite(start) and start >= 0, 'unknown')
+                      check(type(remaining) in (int,float) and math.isfinite(remaining), 'unknown')
+                      return start, start+3600-remaining
+                  def status_identity(doc):
+                      identity = doc.get('identity')
+                      if type(identity) is not dict:
+                          return False
+                      fields = (('sha','GITHUB_SHA',r'[0-9a-f]{40}'), ('sha','APPROVED_SHA',r'[0-9a-f]{40}'),
+                                ('run_id','GITHUB_RUN_ID',r'[1-9][0-9]*'), ('attempt','GITHUB_RUN_ATTEMPT',r'1'),
+                                ('contract_sha256','APPROVED_CONTRACT_SHA256',r'[0-9a-f]{64}'))
+                      return all(type(receipt.get(key)) is str and re.fullmatch(pattern,receipt[key]) and
+                                 type(identity.get(field)) is str and identity[field] == receipt[key]
+                                 for key,field,pattern in fields)
+                  def phase(doc):
+                      check(type(doc) is dict and 'name' in doc)
+                      for key in ('started_tick','finished_tick','timeout_seconds','execution_deadline','finalization_deadline'):
+                          check(key not in doc or (type(doc[key]) in (int,float) and math.isfinite(doc[key]) and doc[key] >= 0))
+                      for key in ('started_at','finished_at'):
+                          if key in doc:
+                              check(type(doc[key]) is str and datetime.datetime.fromisoformat(doc[key]).tzinfo is not None)
+                      result = {'name':phase_name(doc['name']), 'raw_exit':raw_exit(doc, 'raw_exit'),
+                                'timed_out':boolean(doc, 'timed_out'), 'group_settled':boolean(doc, 'group_settled')}
+                      start, gate_tick = budget_window()
+                      required = ('started_tick','execution_deadline','finalization_deadline')
+                      missing = any(key not in doc for key in required)
+                      mismatch = not missing and (doc['started_tick'] < start or doc['started_tick'] > gate_tick or
+                          doc['execution_deadline'] != start+2700 or doc['finalization_deadline'] != start+3300 or
+                          ('finished_tick' in doc and not doc['started_tick'] <= doc['finished_tick'] <= gate_tick))
+                      if missing or mismatch:
+                          return {'name':result['name'], 'state':'incomplete' if missing else 'conflicting',
+                                  'provenance':'unverified', 'raw_exit':None, 'process_spawn':'unknown',
+                                  'timed_out':'unknown', 'group_settled':'unknown'}
+                      check('owned_pgid' not in doc or integer(doc['owned_pgid'], 1))
+                      result['process_spawn'] = 'recorded-true' if 'owned_pgid' in doc else 'unknown'
+                      result['primary_error'] = category(doc.get('primary_error'))
+                      result['settlement_error'] = category(doc.get('settlement_error'))
+                      conflict = (doc.get('raw_exit') is not None and 'owned_pgid' not in doc) or (
+                          result['primary_error'] == 'TIMEOUT_RECORDED' and doc.get('timed_out') is False)
+                      result['state'] = 'conflicting' if conflict else ('recorded' if all(k in doc for k in ('raw_exit','group_settled','finished_tick','finished_at')) else 'incomplete')
+                      result['provenance'] = 'budget-window-only'
+                      result['raw_exit_recorded'] = 'raw_exit' in doc
+                      return result
+                  def project(doc, kind):
+                      if kind == 'phases':
+                          check(type(doc) is list and len(doc) <= 128)
+                          records = [phase(x) for x in doc]
+                          check(len({x['name'] for x in records}) == len(records))
+                          test = next((x for x in records if x['name'] == 'xcodebuild-test'), None)
+                          return {'state':'recorded' if records and all(x['state']=='recorded' for x in records) else 'incomplete',
+                                  'last_recorded_phase':records[-1] if records else None, 'test_process':test}
+                      check(type(doc) is dict)
+                      if kind == 'artifact':
+                          check('error' in doc and type(doc['error']) is str)
+                          return {'state':'recorded', 'error':category(doc['error'], artifact=True)}
+                      if kind == 'status':
+                          spawned = boolean(doc, 'test_process_spawned'); exit_code = raw_exit(doc, 'raw_test_exit')
+                          flags = {k:boolean(doc,k) for k in ('cleanup_verified','collector_valid','snapshot_valid')}
+                          primary = category(doc.get('primary_error')); cleanup_errors = errors(doc.get('cleanup_errors',[]))
+                          check('test_invocations' not in doc or integer(doc['test_invocations'],0,1))
+                          if 'finished_at' in doc:
+                              check(type(doc['finished_at']) is str)
+                              check(datetime.datetime.fromisoformat(doc['finished_at']).tzinfo is not None)
+                          complete = all(k in doc for k in ('finished_at','test_process_spawned','raw_test_exit','primary_error','cleanup_errors','test_invocations',*flags))
+                          if not complete:
+                              return {'state':'incomplete', 'final_fields':'unknown'}
+                          if not status_identity(doc):
+                              return {'state':'unknown', 'final_fields':'unknown', 'reason':'STATUS_PROVENANCE_UNVERIFIED'}
+                          conflict = (doc['test_invocations'] != int(doc['test_process_spawned']) or
+                                      (exit_code is not None and not doc['test_process_spawned']))
+                          return {'state':'conflicting' if conflict else 'recorded', 'process_spawn':spawned,
+                                  'raw_test_exit':exit_code, 'primary_error':primary, 'cleanup_errors':cleanup_errors, **flags}
+                      if kind == 'cleanup':
+                          verified = boolean(doc,'verified')
+                          for key in ('creation_attempted','owned_deleted','preexisting_stable'):
+                              boolean(doc,key)
+                          conflict = doc.get('verified') is True and ('error' in doc or doc.get('owned_deleted') is False or
+                              (doc.get('preexisting_stable') is False and doc.get('creation_attempted') is not False))
+                          return {'state':'conflicting' if conflict else ('recorded' if all(k in doc for k in ('verified','owned_deleted','preexisting_stable')) else 'incomplete'),
+                                  'verification':verified, 'error':category(doc.get('error'))}
+                      if kind == 'prefix':
+                          exported = boolean(doc,'exported'); classification = doc.get('classification',{})
+                          check(type(classification) is dict)
+                          validity = boolean(classification,'valid')
+                          check('kind' not in classification or classification['kind'] == 'prefix')
+                          check('negative_marker_inference_qualified' not in classification or classification['negative_marker_inference_qualified'] is False)
+                          classification_errors = errors(classification.get('errors',[]))
+                          conflict = classification.get('valid') is True and (doc.get('exported') is not True or bool(classification_errors))
+                          return {'state':'conflicting' if conflict else ('recorded' if 'exported' in doc and 'valid' in classification else 'incomplete'),
+                                  'exported':exported, 'validity':validity, 'error':category(doc.get('error')),
+                                  'receipt_error':category(doc.get('receipt_error'))}
+                      check(kind == 'collector')
+                      check('actual_cases' not in doc or (type(doc['actual_cases']) is list and all(type(x) is dict for x in doc['actual_cases'])))
+                      capture_errors = errors(doc.get('capture_errors',[]))
+                      conflict = doc.get('capture_valid') is True and bool(capture_errors)
+                      return {'state':'conflicting' if conflict else ('recorded' if 'capture_valid' in doc and 'actual_cases' in doc else 'incomplete'),
+                              'capture_valid':boolean(doc,'capture_valid'), 'errors':capture_errors}
+                  receipts = {}
+                  for label, path in (('phases','evidence/phases.json'), ('status','evidence/status.json'),
+                                      ('cleanup','evidence/cleanup.json'), ('prefix','evidence/snapshot-export-receipt.json'),
+                                      ('collector','evidence/collector-verdict.json'), ('artifact','artifact-blocker.json')):
+                      try:
+                          receipts[label] = project(read_receipt(path), label)
+                      except ReceiptIssue as exc:
+                          receipts[label] = {'state':str(exc) if str(exc) in ('malformed','unsafe','oversized') else 'unknown'}
+                      except FileNotFoundError:
+                          receipts[label] = {'state':'absent'}
+                      except OSError as exc:
+                          receipts[label] = {'state':'unsafe' if exc.errno in (errno.ELOOP, errno.ENOTDIR) else 'unknown'}
+                      except (ValueError, TypeError, RecursionError, OverflowError):
+                          receipts[label] = {'state':'malformed'}
+                  status_record = receipts['status']
+                  conflicts = []
+                  for key, label, field in (('cleanup_verified','cleanup','verification'), ('snapshot_valid','prefix','validity'),
+                                            ('collector_valid','collector','capture_valid')):
+                      left, right = status_record.get(key,'unknown'), receipts[label].get(field,'unknown')
+                      if left != 'unknown' and right != 'unknown' and left != right:
+                          conflicts.append(label)
+                  test = receipts['phases'].get('test_process')
+                  if test and status_record.get('state') == 'recorded':
+                      if (test.get('raw_exit_recorded') and test['raw_exit'] != status_record['raw_test_exit']) or (test['process_spawn']=='recorded-true' and status_record.get('process_spawn')=='recorded-false'):
+                          conflicts.append('test-process')
+                  reserve_met = remaining >= 300
+                  finite_remaining = type(remaining) in (int,float) and math.isfinite(remaining) and abs(remaining)<=2**64
+                  reasons = ([] if marker_present else ['MARKER_MISSING']) + ([] if reserve_met else ['RESERVE_INSUFFICIENT'])
+                  if not finite_remaining:
+                      reasons.append('BUDGET_VALUE_UNREPRESENTABLE')
+                  summary = {'schema':1, 'decision':False, 'marker_present_at_gate':marker_present,
+                             'remaining_seconds_at_gate':remaining if type(remaining) in (int,float) and math.isfinite(remaining) and abs(remaining)<=2**64 else None,
+                             'reserve_predicate_on_gate_remaining':reserve_met, 'reserve_comparison_evaluated_by_gate':marker_present, 'required_reserve_seconds':300, 'gate_reasons':reasons, 'receipts':receipts,
+                             'conflicting_recordings':conflicts, 'failing_phase':'unknown', 'app_test_outcome':'unknown',
+                             'interpretation':'recorded-only; last phase is not failure attribution; spawn is not app execution; prefix is not negative evidence'}
+                  line = ('Reminder receipt summary: ' + json.dumps(summary, sort_keys=True, separators=(',',':'), ensure_ascii=True, allow_nan=False) + '\n').encode('ascii')
+                  check(len(line) <= OUTPUT_CAP)
+                  # Unbuffered, one write and no retry: output faults cannot replace denial.
+                  os.write(1, line)
+              except BaseException:
+                  pass
               raise SystemExit('Evidence upload unavailable or insufficient original job budget')
           PY
       - name: Upload nonqualifying evidence
