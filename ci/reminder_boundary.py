@@ -112,11 +112,11 @@ class Commands:
             p.wait(timeout=min(15, left))
         self.settled = not self.alive(pgid)
         require(self.settled, 'Owned group not settled; simulator cleanup forbidden')
-    def run(self, name, argv, cap=60, final=False, check=True):
+    def run(self, name, argv, cap=60, final=False, check=True, reserve=75):
         require(self.child is None or self.settled, 'Prior owned process group unresolved; no next phase')
         require(re.fullmatch('[a-z0-9-]+', name), 'Unsafe phase name')
         require(not any(p['name'] == name for p in self.phases), 'Duplicate phase / retry')
-        seconds = self.budget.allowance(cap, final)
+        seconds = self.budget.allowance(cap, final, reserve)
         record = {'name': name, 'argv': argv, 'started_at': now(), 'started_tick': time.monotonic(),
                   'timeout_seconds': seconds, 'execution_deadline': self.budget.started+2700,
                   'finalization_deadline': self.budget.started+3300}
@@ -227,9 +227,12 @@ class Collector:
     def __init__(self, commands, bundle, output):
         self.c, self.bundle, self.output = commands, bundle, output
         self.chain, self.index = [], 0
+        self.final_reserve = 75
+        self.diagnostic_context = None
+        self.diagnostic_error = None
     def get(self, argv):
         self.index += 1
-        return self.c.run('extract-'+str(self.index), ['xcrun', 'xcresulttool', *argv, '--path', str(self.bundle)], 60, final=True)
+        return self.c.run('extract-'+str(self.index), ['xcrun', 'xcresulttool', *argv, '--path', str(self.bundle)], 60, final=True, reserve=self.final_reserve)
     def obj(self, ref=None, raw=False):
         args = ['get', 'object', '--legacy', '--format', 'raw' if raw else 'json']
         if ref:
@@ -243,11 +246,19 @@ class Collector:
         self.chain.append(row)
         save(self.output/'app-log-reference-chain.json', self.chain)
         return [(e, c) for e, c in zip(entries, node['children'])]
-    def collect(self, expected_uid=None, source_valid=False):
-        summary = json.loads(self.get(['get', 'test-results', 'summary']))
-        tests = json.loads(self.get(['get', 'test-results', 'tests']))
-        save(self.output/'summary.json', summary)
-        save(self.output/'tests.json', tests)
+    def session_context(self):
+        """Resolve the existing unique Session independently of app stdout."""
+        if self.diagnostic_context is not None:
+            return self.diagnostic_context
+        if self.diagnostic_error is not None:
+            raise Invalid('Prior Session extraction failed; no retry: '+self.diagnostic_error)
+        try:
+            return self._session_context_once()
+        except (Exception, KeyboardInterrupt) as exc:
+            self.diagnostic_error = type(exc).__name__+': '+str(exc)
+            raise
+
+    def _session_context_once(self):
         root = self.obj()
         save(self.output/'invocation.json', root)
         actions = root.get('actions', [])
@@ -266,9 +277,26 @@ class Collector:
         leaves = self.directory(choices[0][1])
         app = [(e, c) for e, c in leaves if e['type'] == 1 and e['name'] == APP_LOG]
         sessions = [(e, c) for e, c in leaves if e['type'] == 1 and e['name'].startswith('Session-DailyWhiskersUITests-') and e['name'].endswith('.log')]
-        require(len(app) == 1 and len(sessions) == 1, 'Ambiguous/missing app stdout or Session log')
-        raw = self.obj(app[0][1]['ref'], raw=True)
+        require(len(sessions) == 1, 'Ambiguous/missing Session log')
         session = self.obj(sessions[0][1]['ref'], raw=True)
+        (self.output/'Session.log').write_bytes(session)
+        save(self.output/'session-provenance.json', {'diagnostics_ref': ref,
+             'session_ref': sessions[0][1]['ref'], 'session_sha256': sha(session),
+             'session_bytes': len(session), 'same_bundle': str(self.bundle)})
+        self.diagnostic_context = (result, ref, app, sessions, session)
+        return self.diagnostic_context
+
+    def launch_identity(self):
+        return session_identity(self.session_context()[4].decode('utf-8'))
+
+    def collect(self, expected_uid=None, source_valid=False):
+        summary = json.loads(self.get(['get', 'test-results', 'summary']))
+        tests = json.loads(self.get(['get', 'test-results', 'tests']))
+        save(self.output/'summary.json', summary)
+        save(self.output/'tests.json', tests)
+        result, ref, app, sessions, session = self.session_context()
+        require(len(app) == 1, 'Ambiguous/missing app stdout')
+        raw = self.obj(app[0][1]['ref'], raw=True)
         (self.output/'app-stdout-stderr.txt').write_bytes(raw)
         (self.output/'Session.log').write_bytes(session)
         provenance = {'diagnostics_ref': ref, 'app_ref': app[0][1]['ref'], 'app_sha256': sha(raw), 'app_bytes': len(raw),
@@ -290,6 +318,18 @@ class Collector:
         verdict['provenance'] = provenance
         save(self.output/'collector-verdict.json', verdict)
         return verdict
+
+def session_identity(session):
+    """No stdout, guessed UUID, relaunch, or fallback identity source."""
+    starts = re.findall(r"(?m)^Test Case '-\[([^\]]+)\]' started\.$", session)
+    require(starts == ['DailyWhiskersUITests.ReminderUITests testDiagnosticInitialEnableProbe'],
+            'Session selected-case identity is ambiguous/missing')
+    pids = re.findall(r'Launched app with identifier: com\.example\.kenwidemon\.dailywhiskers \(pid = (\d+)\)', session)
+    runs = re.findall(r'"DW_REMINDER_TEST_ID"\s*=\s*"([^"\n]*)"', session)
+    require(len(pids) == 1 and int(pids[0]) > 0 and runs and len(set(runs)) == 1,
+            'Session launch/fixture identity is ambiguous/missing')
+    require(str(uuid.UUID(runs[0])).upper() == runs[0], 'Noncanonical Session UUID')
+    return {'run': runs[0], 'pid': int(pids[0])}
 
 def wall_datetime(value):
     # Xcode emits offsets such as -0500, which Python 3.9 fromisoformat rejects.

@@ -295,7 +295,7 @@ class ExecutionFailureContracts(unittest.TestCase):
             z.writestr(zipfile.ZipInfo('xcodegen/bin/xcodegen',(2026,1,1,0,0,0)),b'synthetic')
         archive_bytes=archive_buffer.getvalue()
         with tempfile.TemporaryDirectory() as d:
-            top=Path(d);repo=top/'repository';repo.mkdir()
+            top=Path(d).resolve();repo=top/'repository';repo.mkdir()
             (repo/b.LOCK).parent.mkdir(parents=True);(repo/b.LOCK).write_text('{"pins":[]}')
             (repo/'ci').mkdir();(repo/'ci/firebase-test-config.plist').write_text('fake-only')
             (repo/'DailyWhiskers/Resources').mkdir(parents=True)

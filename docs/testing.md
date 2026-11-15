@@ -5,6 +5,58 @@ Use [app README](../DailyWhiskers/README.md#tests) for test commands and
 is a repeatable protocol plus scoped evidence, not a second backlog or release gate.
 Development tests do not retroactively validate the frozen V1 binary.
 
+## Local Reminder prefix witness
+
+The isolated Reminder diagnostic can record the existing marker boundaries to a
+second transport. `ReminderProbeSnapshot.swift` is compiled only for Debug,
+`CI_SMOKE_TESTING`, `DW_REMINDER_ENABLE_PROBE`, and an iOS simulator. The existing
+valid run UUID, smoke controls, and probe launch argument are still required.
+Each boundary captures one immutable event, emits the schema-1 Logger notice,
+then synchronously writes an app-private snapshot under
+`Library/Application Support/ReminderEnableProbe/<run UUID>.json`. Hook locations,
+production persistence, UI interactions, waits, assertions, and attempt count do
+not change. `ready` still means model creation, not UI readiness.
+At `bindingSetter`, `operations=-1` means unsampled and `id=0` means no send
+command ID yet. All model-state fields are sampled at the hook; the requested
+boolean is the setter's value. Do not interpret either sentinel as a queue count.
+
+The independent witness schema is a prefix, never a complete journal. It keeps
+at most 64 events and 64 KiB, with at most 65 replacement attempts including one
+overflow-marked prefix. The first installation is exclusive; existing run files,
+unexpected inode changes, symlinks, serialization or write failures disable the
+writer without affecting business control flow. It does not read an old file,
+retry, flush on a timer/lifecycle event, run in the background, or use fsync.
+Atomic replacement does not establish crash durability or complete capture. A
+later failed write can leave an earlier valid prefix without a failure marker.
+
+`ci/reminder_snapshot.py` provides local-only finalization, separate from hosted
+execution. It requires a settled owned process group and verified simulator
+ownership, resolves the unique launch UUID/PID from the same xcresult's Session
+without app stdout, and copies only the matching capped regular file before
+owned shutdown/deletion. No-follow descriptor traversal rejects symlink paths.
+Raw bytes, their SHA-256, the export receipt, raw test exit, and ordinary collector
+verdict remain distinct. Export failure must not prevent safe owned cleanup.
+The original absolute deadline remains in force, reserving 345 seconds during
+export for settlement and cleanup. The `get_app_container` interface must be
+verified locally before the first runtime attempt. There is no guessed UUID,
+generic container export, fallback, new tap, or retry.
+
+Run the offline Python fixtures with
+`python3 -m unittest discover -s ci -p 'test_reminder_*.py'` and the exact-source
+host writer fixtures with `python3 ci/test_reminder_snapshot_writer.py --output
+<new private evidence directory>`. The latter strips only the writer's enclosing
+compile guard to exercise the implementation on the host. Its emitter integration
+uses explicit offline model/path seams and `Logger.disabled`. Host exclusion
+objects are not an iOS Release build. Timing counters cover prior successful
+synchronous serialization/write calls, omit the retained write's own duration,
+and provide neither a latency bound nor proof that observation is neutral.
+
+The old hosted patch pin and workflow remain unchanged and do not authorize this
+new local source revision. Freeze and review an exact new source contract before
+one natural local invocation of the existing selected case. Local or hosted
+success is only diagnostic observability/nonreproduction, not a product fix,
+notification delivery, or release acceptance.
+
 ## Required UI shard verification
 
 The [CI contract](../DailyWhiskers/README.md#continuous-integration) and

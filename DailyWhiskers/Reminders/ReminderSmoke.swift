@@ -79,6 +79,9 @@ enum ReminderEnableProbe {
         .flatMap(UUID.init(uuidString:))?.uuidString
     private static var sequence = 0
     private static var commandID = 0
+#if targetEnvironment(simulator)
+    private static var snapshotWriter: ReminderProbeSnapshotWriter?
+#endif
     private static var isEnabled: Bool {
         runID != nil && ReminderSmoke.controlsEnabled &&
             ProcessInfo.processInfo.arguments.contains("--ci-smoke-reminder-enable-probe")
@@ -103,9 +106,30 @@ enum ReminderEnableProbe {
         case nil: kind = "none"; requested = -1
         }
         sequence += 1
+#if targetEnvironment(simulator)
+        let event = ReminderProbeEvent(schema: 1, run: runID,
+            pid: ProcessInfo.processInfo.processIdentifier, seq: sequence,
+            tick: ProcessInfo.processInfo.systemUptime, stage: stage.rawValue,
+            id: id, command: kind, requested: requested, enabled: model.status.enabled,
+            authorization: model.status.authorization.rawValue, queued: model.status.queued,
+            hasCoverage: model.status.coverageEnd != nil, hasMessage: model.status.message != nil,
+            storageBlocked: model.status.storageBlocked, cleanupPending: model.status.cleanupPending,
+            busy: model.busy, loaded: model.loaded, operations: operations)
+        // A send ID pairs observations across await; it is not scheduler enqueue order.
+        // statusPublished observes the returned value after the original @Published assignment.
+        // The existing log transport is emitted first, before any snapshot file work.
+        logger.notice("DWReminderEnableProbe schema=1 run=\(event.run, privacy: .public) pid=\(event.pid) seq=\(event.seq) tick=\(event.tick) stage=\(event.stage, privacy: .public) id=\(event.id) command=\(event.command, privacy: .public) requested=\(event.requested) enabled=\(event.enabled) authorization=\(event.authorization, privacy: .public) queued=\(event.queued) hasCoverage=\(event.hasCoverage) hasMessage=\(event.hasMessage) storageBlocked=\(event.storageBlocked) cleanupPending=\(event.cleanupPending) busy=\(event.busy) loaded=\(event.loaded) operations=\(event.operations)")
+        if snapshotWriter == nil,
+           let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            snapshotWriter = ReminderProbeSnapshotWriter(run: runID, pid: event.pid,
+                directory: support.appendingPathComponent("ReminderEnableProbe", isDirectory: true))
+        }
+        snapshotWriter?.append(event)
+#else
         // A send ID pairs observations across await; it is not scheduler enqueue order.
         // statusPublished observes the returned value after the original @Published assignment.
         logger.notice("DWReminderEnableProbe schema=1 run=\(runID, privacy: .public) pid=\(ProcessInfo.processInfo.processIdentifier) seq=\(sequence) tick=\(ProcessInfo.processInfo.systemUptime) stage=\(stage.rawValue, privacy: .public) id=\(id) command=\(kind, privacy: .public) requested=\(requested) enabled=\(model.status.enabled) authorization=\(model.status.authorization.rawValue, privacy: .public) queued=\(model.status.queued) hasCoverage=\(model.status.coverageEnd != nil) hasMessage=\(model.status.message != nil) storageBlocked=\(model.status.storageBlocked) cleanupPending=\(model.status.cleanupPending) busy=\(model.busy) loaded=\(model.loaded) operations=\(operations)")
+#endif
     }
 }
 #endif
