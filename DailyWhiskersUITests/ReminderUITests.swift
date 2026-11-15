@@ -62,6 +62,19 @@ final class ReminderUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 10), .completed)
     }
 
+#if DEBUG && CI_SMOKE_TESTING && DW_REMINDER_ENABLE_PROBE
+    func testDiagnosticInitialEnableProbe() {
+        app.launchArguments.append("--ci-smoke-reminder-enable-probe")
+        app.launch()
+        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].exists)
+        openSettings()
+        let toggle = app.switches["reminder-enabled"]
+        waitValue(toggle, "0")
+        tapToggle(toggle); waitValue(toggle, "1"); waitEnabled(toggle)
+        XCTAssertEqual(app.staticTexts["reminder-permission"].label, "Notifications allowed.")
+    }
+
+#endif
     func testDefaultOffTimeSaveCancelAndRelaunch() {
         app.launch(); openSettings()
         let toggle = app.switches["reminder-enabled"]

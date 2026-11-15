@@ -1,5 +1,8 @@
 #if DEBUG && CI_SMOKE_TESTING
 import SwiftUI
+#if DW_REMINDER_ENABLE_PROBE
+import os
+#endif
 
 /// No system notification center is reachable through the offline UI seam.
 /// This validates UI/adapter decisions, never OS permission or delivery.
@@ -14,6 +17,9 @@ enum ReminderSmoke {
     static func makeModel() -> ReminderModel {
         let model = ReminderModel(scheduler: ReminderScheduler(client: client,
             store: FileReminderJournalStore(directory: directory.appendingPathComponent("journal"))))
+#if DW_REMINDER_ENABLE_PROBE
+        ReminderEnableProbe.record(.ready, model: model, operations: 0)
+#endif
         if ProcessInfo.processInfo.arguments.contains("--ci-smoke-reminder-cold-tap") {
             model.receiveTap(identifier: ReminderRequest.prefix + "old", destination: "today")
         }
@@ -63,4 +69,44 @@ struct ReminderSmokeControls: View {
         }.font(.caption).buttonStyle(.bordered).background(.black)
     }
 }
+#if DW_REMINDER_ENABLE_PROBE
+/// Local-only observability. Never log reminder times, content, paths or errors.
+@MainActor
+enum ReminderEnableProbe {
+    enum Stage: String { case ready, bindingSetter, sendEntry, statusPublished, sendComplete }
+    private static let logger = Logger(subsystem: "DailyWhiskers", category: "ReminderEnableProbe")
+    private static let runID = ProcessInfo.processInfo.environment["DW_REMINDER_TEST_ID"]
+        .flatMap(UUID.init(uuidString:))?.uuidString
+    private static var sequence = 0
+    private static var commandID = 0
+    private static var isEnabled: Bool {
+        runID != nil && ReminderSmoke.controlsEnabled &&
+            ProcessInfo.processInfo.arguments.contains("--ci-smoke-reminder-enable-probe")
+    }
+
+    static func begin(_ command: ReminderCommand, model: ReminderModel, operations: Int) -> Int {
+        guard isEnabled else { return 0 }
+        commandID += 1
+        record(.sendEntry, id: commandID, command: command, model: model, operations: operations)
+        return commandID
+    }
+
+    static func record(_ stage: Stage, id: Int = 0, command: ReminderCommand? = nil,
+                       model: ReminderModel, operations: Int = -1) {
+        guard isEnabled, let runID else { return }
+        let kind: String
+        let requested: Int
+        switch command {
+        case .refresh: kind = "refresh"; requested = -1
+        case .enable(let value): kind = "enable"; requested = value ? 1 : 0
+        case .time: kind = "time"; requested = -1
+        case nil: kind = "none"; requested = -1
+        }
+        sequence += 1
+        // A send ID pairs observations across await; it is not scheduler enqueue order.
+        // statusPublished observes the returned value after the original @Published assignment.
+        logger.notice("DWReminderEnableProbe schema=1 run=\(runID, privacy: .public) pid=\(ProcessInfo.processInfo.processIdentifier) seq=\(sequence) tick=\(ProcessInfo.processInfo.systemUptime) stage=\(stage.rawValue, privacy: .public) id=\(id) command=\(kind, privacy: .public) requested=\(requested) enabled=\(model.status.enabled) authorization=\(model.status.authorization.rawValue, privacy: .public) queued=\(model.status.queued) hasCoverage=\(model.status.coverageEnd != nil) hasMessage=\(model.status.message != nil) storageBlocked=\(model.status.storageBlocked) cleanupPending=\(model.status.cleanupPending) busy=\(model.busy) loaded=\(model.loaded) operations=\(operations)")
+    }
+}
+#endif
 #endif
