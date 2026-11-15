@@ -36,6 +36,7 @@
 		6BB1EAB6291C6BC7051FE67C /* SavedCardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04D99579F22A0C0C91CAA1 /* SavedCardsTests.swift */; };
 		6BCF2A9A4F937411ACC34B27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 725CE4DC61B4FD031B9D6FFD /* FirebaseAuth */; };
 		7305C2E914609C66B14B2832 /* DailyContentProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */; };
+		74588D8AA782FC8041EF5FEC /* CardNavigationToolbarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39B07DE2B4BCD2D00C1E2AE /* CardNavigationToolbarTests.swift */; };
 		78E7D9569D9BC3C822F5B19B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DF2C3279053AF6625304C773 /* FirebaseAuth */; };
 		79981E7B5492BBC1F20134A4 /* Daily_Whiskers_App_Icon_FINAL_cropped.png in Resources */ = {isa = PBXBuildFile; fileRef = 917CD555E7F81856787022CC /* Daily_Whiskers_App_Icon_FINAL_cropped.png */; };
 		805568C6EBFC7F4445BBC398 /* DistributionConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA8D95A2911E5BAF5BCA338 /* DistributionConfigurationTests.swift */; };
@@ -139,6 +140,7 @@
 		988EDE1EBBAC22AF0B241EB3 /* DailyWhiskers.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyWhiskers.entitlements; sourceTree = "<group>"; };
 		9BCA0CC42E27393E83600C43 /* DailyWhiskersTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DailyWhiskersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BFD76DA899F897FF40C693B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A39B07DE2B4BCD2D00C1E2AE /* CardNavigationToolbarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardNavigationToolbarTests.swift; sourceTree = "<group>"; };
 		A68AA9E4C7B8F961542B011C /* RegressionSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegressionSmokeTests.swift; sourceTree = "<group>"; };
 		A6D99D1795E87195DF0157DA /* DailyContentProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyContentProviderTests.swift; sourceTree = "<group>"; };
 		AF1889006D674744B83FAFF7 /* ReminderNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderNavigationTests.swift; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				2E871C911688004A042A0DBC /* AuthRecoveryTests.swift */,
 				0D24EAEA1B5256E561883397 /* AuthTextFieldTests.swift */,
 				AF5819C3148ADFD574834386 /* BonusCardTests.swift */,
+				A39B07DE2B4BCD2D00C1E2AE /* CardNavigationToolbarTests.swift */,
 				D0070D782136E21AFF84504B /* CardRepositoryTests.swift */,
 				1C45D9D6F32B2D6B67457CD6 /* DailyCardShareTests.swift */,
 				FD5A00AB2CA2FF6E7570945E /* DailyCardShareVisualTests.swift */,
@@ -481,6 +484,7 @@
 				3A02C35C866C0680D2756F19 /* AuthRecoveryTests.swift in Sources */,
 				DB51D82845EB3466C6F65548 /* AuthTextFieldTests.swift in Sources */,
 				30E2642CA871D79B73848505 /* BonusCardTests.swift in Sources */,
+				74588D8AA782FC8041EF5FEC /* CardNavigationToolbarTests.swift in Sources */,
 				84B1C72054BAD80BA25C7570 /* CardRepositoryTests.swift in Sources */,
 				E635F7E9117F2C3131E12A10 /* DailyCardShareTests.swift in Sources */,
 				2CB6685E4ADCACE263908D10 /* DailyCardShareVisualTests.swift in Sources */,

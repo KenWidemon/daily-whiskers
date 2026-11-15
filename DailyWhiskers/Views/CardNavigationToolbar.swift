@@ -42,7 +42,12 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
     }
 
     final class Controller: UIViewController {
-        var configuration: CardNavigationToolbar?
+        var configuration: CardNavigationToolbar? {
+            didSet { configurationRevision += 1 }
+        }
+        private var configurationRevision: UInt64 = 0
+        private var appliedRevision: UInt64?
+        private weak var appliedOwner: UIViewController?
         private let optionsItem = UIBarButtonItem()
         private let settingsItem = UIBarButtonItem()
         private weak var owner: UIViewController?
@@ -83,8 +88,9 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
                 self.updateItems()
             }
         }
-        private func updateItems() {
+        func updateItems() {
             guard let configuration, isViewLoaded, view.window != nil else { return }
+            let revision = configurationRevision
             // Traverse only public containment. Do not inspect SwiftUI host classes
             // or private navigation-bar subviews.
             var current: UIViewController? = self
@@ -97,10 +103,19 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
                 current = parent
             }
             guard let owner else { return }
-            update(optionsItem, from: configuration.options)
+            // Skip redundant native-property writes for every unchanged scheduled
+            // callback, not just layout. Each SwiftUI assignment is a new revision,
+            // even when labels match, so action closures are always refreshed.
+            if appliedRevision != revision || appliedOwner !== owner {
+                update(optionsItem, from: configuration.options)
+                if let settings = configuration.settings {
+                    update(settingsItem, from: settings)
+                }
+                appliedRevision = revision
+                appliedOwner = owner
+            }
             var items = [optionsItem]
-            if let settings = configuration.settings {
-                update(settingsItem, from: settings)
+            if configuration.settings != nil {
                 items.insert(settingsItem, at: 0)
             }
             let existing = owner.navigationItem.rightBarButtonItems ?? []
