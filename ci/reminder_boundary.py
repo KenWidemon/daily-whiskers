@@ -28,12 +28,16 @@ import zipfile
 
 BASE = '79ad54a19b398a8222e86f116a5e939b7f009553'
 REPOSITORY = 'KenWidemon/daily-whiskers'
-REF = 'refs/heads/codex/pr143-reminder-boundary-20261115'
+REF = 'refs/heads/codex/pr143-hosted-prefix-witness-20261115'
+VALIDATED_SOURCE = 'bfde0cbeb3f24473e6ed3fc7dbe8f0f3ed14db79'
+CONTRACT = 'ci/reminder_hosted_contract.json'
+LIMITS = {'method_seconds':720, 'execution_seconds':2700, 'finalization_seconds':3300,
+          'job_seconds':3600, 'export_reserve_seconds':345, 'upload_seconds':300}
 SELECTOR = 'DailyWhiskersUITests/ReminderUITests/testDiagnosticInitialEnableProbe'
 CASE = 'ReminderUITests/testDiagnosticInitialEnableProbe()'
 LOCK = 'DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'
-PROBE_PATHS = ['DailyWhiskers/Reminders/ReminderModel.swift', 'DailyWhiskers/Reminders/ReminderSettingsView.swift', 'DailyWhiskers/Reminders/ReminderSmoke.swift', 'DailyWhiskersUITests/ReminderUITests.swift']
-PATCH_SHA = 'a5bb9bb2a7a946600a6f17a55eef7a339a2649e909233db7b718f9e02626561e'
+PROBE_PATHS = ['DailyWhiskers/Reminders/ReminderModel.swift', 'DailyWhiskers/Reminders/ReminderSettingsView.swift', 'DailyWhiskers/Reminders/ReminderSmoke.swift', 'DailyWhiskers/Reminders/ReminderProbeSnapshot.swift', 'DailyWhiskersUITests/ReminderUITests.swift']
+PATCH_SHA = 'e246fe95b7b2efe9fb2b86f82902dfa6784df57fd368e271ee8233c2b2186559'
 TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro'
 RUNTIME = 'com.apple.CoreSimulator.SimRuntime.iOS-27-0'
 XCODEGEN_SHA = '4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806'
@@ -60,16 +64,47 @@ def now():
 
 def identity(env):
     expected = {'GITHUB_REPOSITORY': REPOSITORY, 'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                'GITHUB_REF': REF, 'GITHUB_RUN_ATTEMPT': '1', 'RUNNER_ARCH': 'ARM64'}
+                'GITHUB_REF': REF, 'GITHUB_RUN_ATTEMPT': '1', 'RUNNER_ARCH': 'ARM64', 'CACHE_EPOCH':'v2'}
     for key, value in expected.items():
         require(env.get(key) == value, 'Wrong ' + key)
     approved = env.get('APPROVED_SHA', '')
     require(re.fullmatch('[0-9a-f]{40}', approved), 'Missing/malformed approved SHA')
     require(env.get('GITHUB_SHA') == approved, 'Event/approved SHA mismatch')
+    require(re.fullmatch('[0-9a-f]{64}', env.get('APPROVED_CONTRACT_SHA256','')), 'Missing/malformed approved contract hash')
     for key in ('GITHUB_RUN_ID',):
         require(re.fullmatch('[1-9][0-9]*', env.get(key, '')), 'Invalid ' + key)
     require(env.get('GITHUB_JOB') == 'reminder-boundary', 'Wrong job')
-    return {k: env[k] for k in (*expected, 'APPROVED_SHA', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_JOB')}
+    return {k: env[k] for k in (*expected, 'APPROVED_SHA', 'APPROVED_CONTRACT_SHA256', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_JOB')}
+
+def verify_contract(repo, raw, approved_hash, tracked):
+    """Exact separately reviewed contract; no old hosted approval inheritance."""
+    require(sha(raw) == approved_hash, 'Approved contract hash mismatch')
+    contract = json.loads(raw)
+    require(contract.get('schema') == 1 and contract.get('validated_source') == VALIDATED_SOURCE
+            and contract.get('ref') == REF and contract.get('selector') == SELECTOR
+            and contract.get('limits') == LIMITS, 'Hosted contract identity/limits mismatch')
+    hashes = contract.get('files', {})
+    require(set(hashes) == set(tracked)-{CONTRACT} and CONTRACT in tracked,
+            'Hosted contract source inventory mismatch')
+    for file, expected in hashes.items():
+        path = repo/file
+        require(not Path(file).is_absolute() and '..' not in Path(file).parts
+                and not path.is_symlink() and path.resolve().is_relative_to(repo)
+                and path.is_file() and sha(path.read_bytes()) == expected,
+                'Hosted contract source mismatch: '+file)
+    return contract
+
+
+def validate_container_help(stdout, stderr, exit_code):
+    """Reviewed v2 rule: either retained stream, exact syntax, successful exit."""
+    require(exit_code == 0, 'Container help command did not succeed')
+    require(len(stdout) + len(stderr) <= 64 * 1024, 'Container help exceeds bounded parse size')
+    text = stdout.decode('utf-8') + '\n' + stderr.decode('utf-8')
+    require(re.search(r'(?m)^\s*Usage: simctl get_app_container <device> <app bundle identifier> \[<container>\]\s*$', text),
+            'Container lookup usage does not match the exact device/bundle/container command')
+    require(re.search(r"(?m)^\s*data\s+The application's data container\s*$", text),
+            'Container lookup does not document the application data container')
+
 
 class Budget:
     def __init__(self, started, clock=time.monotonic):
@@ -544,15 +579,17 @@ def manifest(root, budget):
          'retention_days': 30, 'artifact_api_id_and_digest': 'Record from upload step, then download and verify archive/checksums before retention claim'})
 
 def execute(env):
+    import reminder_snapshot as snapshot
     ident = identity(env)
     repo = Path(env['GITHUB_WORKSPACE']).resolve()
     root = Path(env['RUNNER_TEMP'])/'reminder-boundary'
     receipt = json.loads((root/'budget.json').read_text())
-    require(receipt['sha'] == ident['GITHUB_SHA'] and receipt['run_id'] == ident['GITHUB_RUN_ID'] and receipt['attempt'] == '1', 'Budget identity mismatch')
+    require(receipt['sha'] == ident['GITHUB_SHA'] and receipt['run_id'] == ident['GITHUB_RUN_ID'] and receipt['attempt'] == '1' and receipt['contract_sha256'] == ident['APPROVED_CONTRACT_SHA256'], 'Budget identity mismatch')
     budget = Budget(receipt['started_monotonic'])
     require(root.resolve() == root, 'Root symlink')
     evidence = root/'evidence'
     evidence.mkdir(exist_ok=False)
+    save(evidence/'budget.json', dict(receipt, limits=LIMITS))
     build = root/'build'
     build.mkdir(exist_ok=False)
     env = dict(env, DEVELOPER_DIR='/Applications/Xcode_27.2.app/Contents/Developer', GIT_OPTIONAL_LOCKS='0')
@@ -575,9 +612,14 @@ def execute(env):
         patch = c.run('probe-patch',['git','diff','--binary',BASE,'HEAD','--',*PROBE_PATHS])
         require(sha(patch) == PATCH_SHA, 'Probe patch changed')
         tree = c.run('source-tree',['git','rev-parse','HEAD^{tree}']).decode().strip()
-        files = c.run('source-files',['git','ls-files','-z']).decode().split('\0')
+        files = [f for f in c.run('source-files',['git','ls-files','-z']).decode().split('\0') if f]
+        require(c.run('source-parent',['git','show','-s','--format=%P','HEAD']).decode().strip() == VALIDATED_SOURCE, 'Wrong validated source parent')
+        contract_raw = (repo/CONTRACT).read_bytes()
+        verify_contract(repo,contract_raw,ident['APPROVED_CONTRACT_SHA256'],files)
+        (evidence/'approved-contract.raw.json').write_bytes(contract_raw)
         save(evidence/'source.json', {'commit':head,'tree':tree,'base':BASE,'probe_patch_sha256':sha(patch),
-            'files':{f:sha((repo/f).read_bytes()) for f in files if f}, 'selector':SELECTOR})
+            'files':{f:sha((repo/f).read_bytes()) for f in files}, 'selector':SELECTOR,
+            'contract_sha256':sha(contract_raw), 'validated_source':VALIDATED_SOURCE})
         source_valid = True
         lock_sha = sha((repo/LOCK).read_bytes())
         xcode = c.run('toolchain-xcode',['xcodebuild','-version']).decode()
@@ -586,6 +628,10 @@ def execute(env):
         runtimes = json.loads(c.run('toolchain-runtimes',['xcrun','simctl','list','runtimes','-j']))
         toolchain(xcode,sdk,arch,runtimes)
         save(evidence/'toolchain.json',{'xcode':xcode,'sdk':sdk,'arch':arch,'runtimes':runtimes,'image_os':env.get('ImageOS'),'image_version':env.get('ImageVersion')})
+        help_stdout = c.run('verify-container-interface',['xcrun','simctl','help','get_app_container'],30)
+        help_stderr_path = evidence/'verify-container-interface.stderr'
+        require(help_stderr_path.stat().st_size <= 64*1024, 'Container help stderr exceeds bounded parse size')
+        validate_container_help(help_stdout, help_stderr_path.read_bytes(), c.phases[-1]['raw_exit'])
         before = flat(json.loads(c.run('devices-before',['xcrun','simctl','list','devices','-j'])))
         save(evidence/'devices-before.json', before)
         archive = build/'xcodegen.zip'
@@ -659,6 +705,8 @@ def execute(env):
         status['test_process_spawned'] = bool(test_phases and test_phases[0].get('owned_pgid'))
         status['test_invocations'] = int(status['test_process_spawned'])
         cleanup = {'verified':False,'owned_uuid':uid,'creation_attempted':attempted}
+        export = {'exported':False, 'error':'No verified owned device/result for prefix export'}
+        collector = Collector(c,bundle,evidence) if c.settled else None
         try:
             require(c.settled,'Unsettled owned group; no simulator cleanup')
             current = flat(json.loads(c.run('cleanup-snapshot',['xcrun','simctl','list','devices','-j'],45,final=True)))
@@ -668,7 +716,12 @@ def execute(env):
                 uid = matches[0]
                 cleanup['reconciled_owned_uuid'] = uid
             if uid:
-                require(owns(uid,name,before,current),'Cleanup ownership uncertain')
+                require(before is not None and owns(uid,name,before,current),'Cleanup ownership uncertain')
+                # Export the independently identified file while the owned container exists.
+                # Its failure cannot widen cleanup or replace the original test outcome.
+                if bundle.exists():
+                    export = snapshot.export_owned_prefix(c,collector,uid,name,before,current)
+                require(c.settled,'Unsettled export group; no simulator cleanup')
                 if current[uid]['state'] != 'Shutdown':
                     c.run('cleanup-shutdown',['xcrun','simctl','shutdown',uid],60,final=True)
                 c.run('cleanup-delete',['xcrun','simctl','delete',uid],60,final=True)
@@ -681,23 +734,26 @@ def execute(env):
         except Exception as exc:
             cleanup['error'] = str(exc)
         save(evidence/'cleanup.json',cleanup)
+        save(evidence/'snapshot-export-receipt.json',export)
         verdict = {'capture_valid':False,'capture_errors':['Result unavailable or extraction not completed']}
         if bundle.exists() and c.settled:
             try:
-                verdict = Collector(c,bundle,evidence).collect(uid,source_valid)
+                verdict = collector.collect(uid,source_valid)
             except Exception as exc:
                 verdict['capture_errors'] = [type(exc).__name__+': '+str(exc)]
         save(evidence/'collector-verdict.json',verdict)
+        save(evidence/'qualified-interpretation.json',snapshot.interpret(export,verdict,status['raw_test_exit']))
         if lock_sha is not None and sha((repo/LOCK).read_bytes()) != lock_sha:
             status['cleanup_errors'].append('Dependency lock changed')
         status['finished_at'] = now()
         status['execution_elapsed_seconds'] = time.monotonic()-budget.started
         status['cleanup_verified'] = cleanup['verified']
         status['collector_valid'] = verdict['capture_valid']
+        status['snapshot_valid'] = export.get('classification',{}).get('valid',False)
         status['actual_case_count'] = len(verdict['actual_cases']) if 'actual_cases' in verdict else None
         status['actual_execution_count'] = verdict.get('legacy_execution_count')
         save(evidence/'status.json',status)
-        if status['primary_error'] or status['cleanup_errors'] or not cleanup['verified'] or not verdict['capture_valid']:
+        if status['primary_error'] or status['cleanup_errors'] or not cleanup['verified'] or not verdict['capture_valid'] or not status['snapshot_valid']:
             code = 1
         try:
             require(c.settled, 'Unresolved owned group; bundle may be mutating, no extraction/hash/upload eligibility')

@@ -5,7 +5,7 @@ Use [app README](../DailyWhiskers/README.md#tests) for test commands and
 is a repeatable protocol plus scoped evidence, not a second backlog or release gate.
 Development tests do not retroactively validate the frozen V1 binary.
 
-## Local Reminder prefix witness
+## Isolated manual Reminder prefix witness
 
 The isolated Reminder diagnostic can record the existing marker boundaries to a
 second transport. `ReminderProbeSnapshot.swift` is compiled only for Debug,
@@ -29,16 +29,16 @@ retry, flush on a timer/lifecycle event, run in the background, or use fsync.
 Atomic replacement does not establish crash durability or complete capture. A
 later failed write can leave an earlier valid prefix without a failure marker.
 
-`ci/reminder_snapshot.py` provides local-only finalization, separate from hosted
-execution. It requires a settled owned process group and verified simulator
+`ci/reminder_snapshot.py` supplies the shared export used by the isolated manual
+hosted runner and local finalizer. It requires a settled owned process group and verified simulator
 ownership, resolves the unique launch UUID/PID from the same xcresult's Session
 without app stdout, and copies only the matching capped regular file before
 owned shutdown/deletion. No-follow descriptor traversal rejects symlink paths.
 Raw bytes, their SHA-256, the export receipt, raw test exit, and ordinary collector
 verdict remain distinct. Export failure must not prevent safe owned cleanup.
 The original absolute deadline remains in force, reserving 345 seconds during
-export for settlement and cleanup. The `get_app_container` interface must be
-verified locally before the first runtime attempt. There is no guessed UUID,
+export for settlement and cleanup. The `get_app_container` preflight accepts exact documented usage/data semantics
+on stdout or stderr only after a successful command exit. There is no guessed UUID,
 generic container export, fallback, new tap, or retry.
 
 Run the offline Python fixtures with
@@ -51,11 +51,42 @@ objects are not an iOS Release build. Timing counters cover prior successful
 synchronous serialization/write calls, omit the retained write's own duration,
 and provide neither a latency bound nor proof that observation is neutral.
 
-The old hosted patch pin and workflow remain unchanged and do not authorize this
-new local source revision. Freeze and review an exact new source contract before
-one natural local invocation of the existing selected case. Local or hosted
-success is only diagnostic observability/nonreproduction, not a product fix,
-notification delivery, or release acceptance.
+The hosted integration is restricted to the new isolated branch
+`codex/pr143-hosted-prefix-witness-20261115`, manual `workflow_dispatch`, attempt 1,
+`cache_epoch=v2`, and separately approved exact commit and contract SHA-256 inputs.
+The checked-in contract hashes every other tracked source file; its hash and the
+commit must be reviewed together. It does not inherit the old hosted approval or
+change PR143/normal CI. There is one selected case and one test invocation, with
+no retry or fallback. The 720-second method allowance, original 2700-second
+execution budget, 3300-second finalization deadline, 60-minute job cap and pinned
+actions/toolchain remain unchanged. Version inspection and dependency resolution remain distinct setup invocations,
+not extra test runs. No explicit download retry is added; the pinned checkout/
+upload actions and SwiftPM may still perform their own internal transport retries.
+
+The runner exports before owned shutdown/deletion, after process settlement and
+ownership proof. Uncertain creation may be reconciled by exact-name/type/runtime
+readback against the baseline, never by another create or ambiguous deletion.
+It retains the raw result bundle, Session/provenance, source hashes, export bytes
+and hash/receipt, timing/process/cleanup records and manifest on passing or failing
+paths when the unchanged safe upload eligibility conditions hold. Unsettled groups
+or exhausted deadlines can prevent export/upload; absence is inconclusive.
+
+`qualified-interpretation.json` combines the independent prefix with retained
+Logger positives while keeping `collector-verdict.json` as raw legacy provenance.
+File-positive/log-unseen is independently retained positive evidence, not proof of
+a particular loss mechanism. Matching positives do not prove completeness; a
+baseline-only or absent prefix remains inconclusive, and a stale valid file after
+a failed replacement can report zero errors. The prefix never supplies reliable
+negative evidence or overrides a failed test exit. A passing case is diagnostic
+nonreproduction under instrumentation, not a product fix, real notification
+behavior, or release acceptance. Same-channel canaries/later logs add no terminal
+coverage. One separately approved hosted attempt, then stop; no automatic rerun,
+new instrumentation or test expansion. #99 remains separate/offline and a shared
+cause is unproven.
+
+The local append measurement was 5.287541 ms for calls 1–10 only. It excludes
+retained write 11, capture, Logger and caller support-directory lookup. It is not
+total overhead, a latency guarantee or evidence of nonperturbation.
 
 ## Required UI shard verification
 

@@ -1,14 +1,19 @@
-name: Nonqualifying Reminder boundary diagnostic
+name: Nonqualifying Reminder prefix diagnostic
 
 on:
   workflow_dispatch:
     inputs:
       cache_epoch:
-        description: 'Compatibility input; ignored by this diagnostic (no cache)'
+        description: 'Compatibility input; must remain v2 (no cache)'
         type: string
         default: v2
       approved_sha:
         description: 'Separately approved exact frozen diagnostic commit (40 lowercase hex characters)'
+        type: string
+        required: true
+
+      approved_contract_sha256:
+        description: 'Separately reviewed ci/reminder_hosted_contract.json SHA-256 (64 lowercase hex characters)'
         type: string
         required: true
 
@@ -21,7 +26,10 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 60
     env:
+      PYTHONDONTWRITEBYTECODE: '1'
       APPROVED_SHA: ${{ inputs.approved_sha }}
+      APPROVED_CONTRACT_SHA256: ${{ inputs.approved_contract_sha256 }}
+      CACHE_EPOCH: ${{ inputs.cache_epoch }}
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - name: Assert dispatch identity and start nonresetting budget
@@ -33,19 +41,23 @@ jobs:
           e = os.environ
           expected = {'GITHUB_REPOSITORY': 'KenWidemon/daily-whiskers',
                       'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                      'GITHUB_REF': 'refs/heads/codex/pr143-reminder-boundary-20261115',
-                      'GITHUB_RUN_ATTEMPT': '1', 'RUNNER_ARCH': 'ARM64'}
+                      'GITHUB_REF': 'refs/heads/codex/pr143-hosted-prefix-witness-20261115',
+                      'GITHUB_RUN_ATTEMPT': '1', 'RUNNER_ARCH': 'ARM64', 'CACHE_EPOCH':'v2'}
           for key, value in expected.items():
               if e.get(key) != value:
                   raise SystemExit('Wrong ' + key)
           approved = e.get('APPROVED_SHA', '')
           if not re.fullmatch('[0-9a-f]{40}', approved) or approved != e.get('GITHUB_SHA'):
               raise SystemExit('Event/approved SHA mismatch')
+          contract = e.get('APPROVED_CONTRACT_SHA256','')
+          if not re.fullmatch('[0-9a-f]{64}', contract):
+              raise SystemExit('Missing/malformed approved contract hash')
           root = pathlib.Path(e['RUNNER_TEMP']) / 'reminder-boundary'
           root.mkdir(exist_ok=False)
           (root / 'budget.json').write_text(json.dumps({
               'started_monotonic': time.monotonic(), 'sha': approved,
-              'run_id': e['GITHUB_RUN_ID'], 'attempt': e['GITHUB_RUN_ATTEMPT']}))
+              'run_id': e['GITHUB_RUN_ID'], 'attempt': e['GITHUB_RUN_ATTEMPT'],
+              'contract_sha256': contract}))
           PY
       - name: Check out exact event commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
