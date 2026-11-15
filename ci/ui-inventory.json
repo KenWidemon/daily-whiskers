@@ -24,6 +24,8 @@
     "SavedCardsTests": [
       "testAdaptiveCardAndSavedTilesAcrossWindowSizes",
       "testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear",
+      "testDailyMenuDisappearanceWaitRejectsOpenAndAcceptsDismissedAndAbsent",
+      "testDetailMenuDisappearanceWaitRejectsOpenAndAcceptsDismissedAndAbsent",
       "testLargestTextLandscapeSavedCardActionsAndVibe",
       "testLargestTextPairedGeometryAndOptions",
       "testLargestTextSavedCardQuoteAndControlsRemainReachable",

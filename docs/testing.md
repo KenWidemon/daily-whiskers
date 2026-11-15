@@ -25,8 +25,9 @@ cross-class ordering requirement was identified in this review. The complete
 the Cards execution-budget pressure. Its disposable SQLite fixture does not
 read or clear the ordinary collection used by Saved Cards and Reminders; each
 load-state method sets portrait and its own text size before launch and terminates
-the app afterward. Required case counts are Cards 7, Settings 8 and Reminders 12.
-This assignment preserves all 27 methods; any timing improvement must be measured
+the app afterward. Required case counts are Cards 9, Settings 8 and Reminders 12.
+This assignment preserves all 27 original methods and adds two required native-menu
+disappearance controls, for 29 methods total; any timing improvement must be measured
 on the final candidate, not inferred as a verified speedup. Separate
 simulators change cross-class history; sharded results do not reproduce the
 original serial full-suite diagnostic context or resolve its recorded failures.
@@ -35,6 +36,14 @@ one Cancel tap, with a five-second deadline and an explicit nonexistence
 assertion. A negative control requires that the same wait reject the alert while
 it is still presented; the test then continues through the original in-place
 Retry and exact retained-row assertions.
+Saved Cards menu dismissal uses the native disappearance wait with the original
+coordinate tap and five-second timeout. The shared wait uses one live OR query for
+the daily and saved share-action identifiers, so both must be absent within one
+wait allowance. Required real-menu controls check that an open, hittable action
+remains present when dismissal is omitted and the same wait returns false after
+at least five seconds; original-tap dismissal and already-absent cases must pass.
+The detail-toggle action has the same negative and positive coverage. XCTest
+synchronization overhead is not a guaranteed five-second wall-clock ceiling.
 Keep the earlier Duo and switch-failure evidence attached to its original source,
 toolchain and ordering, even if a later sharded run passes.
 

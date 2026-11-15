@@ -683,7 +683,7 @@ hosted jobs select whole classes from the interaction scheme:
 
 | Shard | Required classes | Cases |
 | --- | --- | --- |
-| `cards` | `SavedCardsTests` | 7 |
+| `cards` | `SavedCardsTests` | 9 |
 | `settings` | `RegressionSmokeTests`, `StillnessModeTests` | 8 |
 | `reminders` | `ReminderUITests`, `SavedCardsLoadStateTests` | 12 |
 
@@ -703,7 +703,10 @@ registration validation/navigation, and repeated registration editing after Back
 Close and process relaunch, plus single-password Done submission to the rejecting
 offline boundary. The Saved Cards tests cover save/relaunch/reopen/share,
 remove/resave and confirmed clear, largest-text portrait/landscape reachability,
-ordinary-phone full-card fit, and paired Today/Saved geometry and options.
+ordinary-phone full-card fit, paired Today/Saved geometry and options, and two
+real-menu disappearance controls covering open, dismissed and already-absent
+actions. These add to the original 27 required methods without removing coverage;
+the required inventory now contains 29 methods.
 Stillness checks use a fresh preference-domain fixture and verify the actual system
 Reduce Motion value is off before motion-positive controls. They cover defaults,
 live app-toggle stop/resume, persistence, local account navigation, foreground return

@@ -389,8 +389,55 @@ final class SavedCardsTests: XCTestCase {
 
     private func dismissOptions() {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
-        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["saved-card-toggle"])
-        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+        XCTAssertTrue(waitForDetailOptionsDismissal())
+    }
+
+    private func waitForDetailOptionsDismissal() -> Bool {
+        app.buttons["saved-card-toggle"].waitForNonExistence(timeout: 5)
+    }
+
+    func testDailyMenuDisappearanceWaitRejectsOpenAndAcceptsDismissedAndAbsent() {
+        app.openCardOptions()
+        let share = app.buttons["share-daily-card"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        XCTAssertTrue(share.isHittable)
+        let started = ProcessInfo.processInfo.systemUptime
+        XCTAssertFalse(app.waitForCardOptionsDismissal())
+        XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 5)
+        XCTAssertTrue(share.exists)
+        XCTAssertTrue(share.isHittable)
+        app.dismissCardOptions()
+        XCTAssertTrue(app.waitForCardOptionsDismissal())
+    }
+
+    func testDetailMenuDisappearanceWaitRejectsOpenAndAcceptsDismissedAndAbsent() {
+        app.toggleDailyCardSave()
+        XCTAssertTrue(waitForValue(app.buttons["daily-card-options"], "Saved"))
+        app.buttons["open-saved-cards"].tap()
+        let row = app.buttons.matching(identifier: "saved-card-row").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(app.buttons["saved-card-options"].waitForExistence(timeout: 10))
+        app.openCardOptions()
+        let action = app.buttons["saved-card-toggle"]
+        let share = app.buttons["saved-card-share"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5))
+        XCTAssertTrue(action.isHittable)
+        XCTAssertTrue(share.isHittable)
+        let started = ProcessInfo.processInfo.systemUptime
+        XCTAssertFalse(waitForDetailOptionsDismissal())
+        XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 5)
+        XCTAssertTrue(action.exists)
+        XCTAssertTrue(action.isHittable)
+        // Exercise the OR-query's saved-card-share alternative while still open.
+        let sharedStarted = ProcessInfo.processInfo.systemUptime
+        XCTAssertFalse(app.waitForCardOptionsDismissal())
+        XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - sharedStarted, 5)
+        XCTAssertTrue(share.exists)
+        XCTAssertTrue(share.isHittable)
+        dismissOptions()
+        XCTAssertTrue(waitForDetailOptionsDismissal())
+        XCTAssertTrue(app.waitForCardOptionsDismissal())
     }
 
     private func waitForOptionsValue(_ value: String) -> Bool {
@@ -629,10 +676,15 @@ extension XCUIApplication {
 
     func dismissCardOptions() {
         coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
-        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            !self.buttons["share-daily-card"].exists && !self.buttons["saved-card-share"].exists
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+        XCTAssertTrue(waitForCardOptionsDismissal())
+    }
+
+    // One live OR query preserves the requirement that neither alternative exists,
+    // with one five-second wait rather than two sequential timeout budgets.
+    func waitForCardOptionsDismissal() -> Bool {
+        buttons.matching(NSPredicate(format: "identifier == %@ OR identifier == %@",
+                                     "share-daily-card", "saved-card-share"))
+            .firstMatch.waitForNonExistence(timeout: 5)
     }
 
     func toggleDailyCardSave() {

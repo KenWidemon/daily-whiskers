@@ -78,8 +78,8 @@ class ShardTests(unittest.TestCase):
             'reminders': ['ReminderUITests', 'SavedCardsLoadStateTests'],
         })
         self.assertEqual({p: len(shards.expected_tests(data, p)) for p in shards.SHARDS},
-                         {'cards': 7, 'settings': 8, 'reminders': 12})
-        self.assertEqual(sum(len(shards.expected_tests(data, p)) for p in shards.SHARDS), 27)
+                         {'cards': 9, 'settings': 8, 'reminders': 12})
+        self.assertEqual(sum(len(shards.expected_tests(data, p)) for p in shards.SHARDS), 29)
         self.assertEqual(set(data['optional']), {'AuthLayoutTests', 'BonusCardTests', 'DailyCardSharingTests'})
 
     def test_inventory_rejects_missing_duplicate_unknown_and_source_drift(self):
