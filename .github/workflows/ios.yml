@@ -187,7 +187,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [cards, settings, reminders]
+        shard: [cards, cards-geometry, settings, reminders]
     env:
       CI_PART: ${{ matrix.shard }}
       CI_SHARD_ID: ${{ matrix.shard }}

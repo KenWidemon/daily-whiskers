@@ -32,7 +32,7 @@ def window(budget, env, now):
     require(re.fullmatch(r'[0-9a-f]{40}', expected['source_sha']) is not None, 'Invalid source SHA')
     require(all(re.fullmatch(r'[1-9][0-9]*', expected[k]) for k in ('run_id', 'run_attempt')), 'Invalid run/attempt')
     part = env.get('CI_PART')
-    require(part in ('unit-release', 'cards', 'settings', 'reminders') and expected['shard'] == part,
+    require(part in ('unit-release', 'cards', 'cards-geometry', 'settings', 'reminders') and expected['shard'] == part,
             'Invalid cache shard identity')
     require(expected['job'] == ('build-and-test' if part == 'unit-release' else 'ui-shards'), 'Invalid cache job identity')
     require(all(budget.get(k) == v for k, v in expected.items()), 'Stale or wrong-identity execution budget')

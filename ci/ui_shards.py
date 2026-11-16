@@ -11,7 +11,7 @@ from simulator import BUILD, NAME, VERSION, verify_evidence, verify_toolchain
 from cache_window import verify_record as verify_cache_record
 
 ROOT = Path(__file__).resolve().parent.parent
-SHARDS = ('cards', 'settings', 'reminders')
+SHARDS = ('cards', 'cards-geometry', 'settings', 'reminders')
 PARTS = ('unit-release', *SHARDS)
 IDENTITY_KEYS = ('SOURCE_SHA', 'TESTED_SHA', 'GITHUB_SHA', 'GITHUB_RUN_ID',
                  'GITHUB_RUN_ATTEMPT', 'GITHUB_REPOSITORY')
@@ -25,7 +25,7 @@ def require(condition, message):
 
 def inventory(root=ROOT):
     data = json.loads((root / 'ci/ui-inventory.json').read_text())
-    require(data.get('schema') == 1 and set(data['shards']) == set(SHARDS), 'Unknown inventory/shards')
+    require(data.get('schema') == 2 and set(data['shards']) == set(SHARDS), 'Unknown inventory/shards')
     discovered = {}
     for path in sorted((root / 'DailyWhiskersUITests').rglob('*.swift')):
         # This inventory deliberately supports the repository's final XCTestCase
@@ -37,12 +37,22 @@ def inventory(root=ROOT):
             require(name not in discovered and methods and len(methods) == len(set(methods)), 'Duplicate/empty class')
             discovered[name] = sorted(methods)
     require(discovered == data['classes'], 'UI source differs from reviewed method inventory')
-    selected = [name for names in data['shards'].values() for name in names]
-    require(all(data['shards'].values()), 'Empty shard')
-    require(len(selected) == len(set(selected)), 'Duplicate required class')
-    require(not set(selected) & set(data['optional']), 'Required class marked optional')
-    require(set(selected) | set(data['optional']) == set(discovered), 'Missing or unknown class assignment')
+    require(all(isinstance(names, list) and names for names in data['shards'].values()), 'Empty/invalid shard')
+    require(set(data['optional']) <= set(discovered), 'Unknown optional class')
     require(all(isinstance(reason, str) and reason.strip() for reason in data['optional'].values()), 'Missing exclusion reason')
+    selected = []
+    for selectors in data['shards'].values():
+        for selector in selectors:
+            require(isinstance(selector, str) and re.fullmatch(r'\w+(?:/test\w+)?', selector), 'Invalid selector')
+            name, _, method = selector.partition('/')
+            require(name in discovered, 'Unknown selected class')
+            require(name not in data['optional'], 'Required class marked optional')
+            require(not method or method in discovered[name], 'Unknown selected method')
+            selected.extend(f'{name}/{m}()' for m in ([method] if method else discovered[name]))
+    required = sorted(f'{name}/{method}()' for name, methods in discovered.items()
+                      if name not in data['optional'] for method in methods)
+    require(len(selected) == len(set(selected)), 'Duplicate required method')
+    require(sorted(selected) == required, 'Missing or unknown method assignment')
     return data
 
 
@@ -51,7 +61,11 @@ def digest(data):
 
 
 def expected_tests(data, part):
-    return sorted(f'{name}/{method}()' for name in data['shards'][part] for method in data['classes'][name])
+    selected = []
+    for selector in data['shards'][part]:
+        name, _, method = selector.partition('/')
+        selected.extend(f'{name}/{m}()' for m in ([method] if method else data['classes'][name]))
+    return sorted(selected)
 
 
 def stages_for(part):

@@ -1,8 +1,18 @@
 {
-  "schema": 1,
+  "schema": 2,
   "shards": {
     "cards": [
-      "SavedCardsTests"
+      "SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes",
+      "SavedCardsTests/testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear",
+      "SavedCardsTests/testDailyMenuDisappearanceWaitRejectsOpenAndAcceptsDismissedAndAbsent",
+      "SavedCardsTests/testDetailMenuDisappearanceWaitRejectsOpenAndAcceptsDismissedAndAbsent",
+      "SavedCardsTests/testOrdinaryPortraitCardFitsWithoutScrolling"
+    ],
+    "cards-geometry": [
+      "SavedCardsTests/testLargestTextLandscapeSavedCardActionsAndVibe",
+      "SavedCardsTests/testLargestTextPairedGeometryAndOptions",
+      "SavedCardsTests/testLargestTextSavedCardQuoteAndControlsRemainReachable",
+      "SavedCardsTests/testSaveRelaunchReopenShareRemoveAndConfirmedClear"
     ],
     "settings": [
       "RegressionSmokeTests",

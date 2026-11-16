@@ -678,22 +678,22 @@ unit suite, the required offline UI inventory, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-The required offline UI inventory is `ci/ui-inventory.json`. Three independent
-hosted jobs select whole classes from the interaction scheme:
+The required offline UI inventory is `ci/ui-inventory.json`. Four independent
+hosted jobs select reviewed classes or individual methods from the interaction scheme:
 
-| Shard | Required classes | Cases |
+| Shard | Required coverage | Cases |
 | --- | --- | --- |
-| `cards` | `SavedCardsTests` | 9 |
+| `cards` | Saved Cards adaptive layout, clear eligibility, both menu controls, ordinary portrait | 5 |
+| `cards-geometry` | Saved Cards three largest-text methods and save/relaunch/share lifecycle | 4 |
 | `settings` | `RegressionSmokeTests`, `StillnessModeTests` | 8 |
 | `reminders` | `ReminderUITests`, `SavedCardsLoadStateTests` | 12 |
 
 The inventory lists every method and explicitly identifies the existing optional
 `AuthLayoutTests`, `BonusCardTests` and `DailyCardSharingTests` coverage. Source
 changes must update this reviewed inventory: missing, duplicate, unknown and
-unassigned classes/methods fail policy checks before Xcode runs. A new required
-feature class must enter exactly one shard; it must not be made optional to get
-a green gate. `ci/test-app.sh ui` requires `CI_PART=cards`, `settings` or `reminders`.
-Each class retains serial XCTest execution and its existing compile flags,
+unassigned classes/methods fail policy checks before Xcode runs. Every required method must enter exactly one shard; it must not be made optional to get
+a green gate. `ci/test-app.sh ui` requires `CI_PART=cards`, `cards-geometry`, `settings` or `reminders`.
+Each shard retains serial XCTest execution and its existing compile flags,
 launch fixtures, assertions and state waits. No test is retried or skipped.
 The matrix uses `fail-fast: false` so one failing shard does not cancel the others.
 
@@ -753,7 +753,7 @@ counts. `results.json` records the source and tested checkout SHAs, event SHA,
 repository, run, attempt, inventory digest, toolchain and observed device/runtime.
 Both collection and the final gate also bind each stage name, source/tested SHA,
 run/attempt, job and shard to the current manifest; current outer metadata cannot
-relabel stale stage evidence. The final gate downloads four small manifests (unit/Release plus all three UI
+relabel stale stage evidence. The final gate downloads five small manifests (unit/Release plus all four UI
 shards) and validates their contents independently of the matrix status. It
 rejects absent, unreadable, duplicated, stale or incompatible evidence. Device
 UUIDs may differ across runners; each observed test UUID must match its own prepared
@@ -863,7 +863,7 @@ checked on the combined pinned hosted candidate; earlier shard results do not
 qualify this integration. This is a reserve under normal runner operation, not a
 guarantee during runner loss or service cancellation. `build/job-budget.json` and
 each stage status retain budget/deadline and source/run/job identity. Every job
-sets `CI_SHARD_ID` equal to its evidence part (`unit-release`, `cards`, `settings`
+sets `CI_SHARD_ID` equal to its evidence part (`unit-release`, `cards`, `cards-geometry`, `settings`
 or `reminders`), so parallel jobs never share a deadline or evidence directory.
 
 A deadline produces `timed_out` / wrapper exit 124 even if the terminated command

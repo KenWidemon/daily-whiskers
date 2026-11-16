@@ -172,7 +172,7 @@ class TimeLimitTests(unittest.TestCase):
             env = os.environ | {'PATH': str(directory) + os.pathsep + os.environ['PATH'],
                                 'RUNNER_TEMP': str(directory), 'GITHUB_WORKSPACE': str(directory),
                                 'SIMULATOR_ID': 'fake', 'CAPTURE': str(directory / 'args.json')}
-            for shard in ('cards', 'settings', 'reminders'):
+            for shard in ('cards', 'cards-geometry', 'settings', 'reminders'):
                 env['CI_PART'] = shard
                 subprocess.run(['bash', str(ROOT / 'ci/test-app.sh'), 'ui'], cwd=directory, env=env, check=True)
                 args = json.loads((directory / 'args.json').read_text())

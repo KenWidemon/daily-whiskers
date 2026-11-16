@@ -70,15 +70,15 @@ class ShardTests(unittest.TestCase):
 
     def test_current_complete_inventory_preserves_all_five_required_classes(self):
         data = shards.inventory()
-        self.assertEqual(set(sum(data['shards'].values(), [])), {'RegressionSmokeTests', 'SavedCardsTests',
-            'SavedCardsLoadStateTests', 'StillnessModeTests', 'ReminderUITests'})
-        self.assertEqual(data['shards'], {
-            'cards': ['SavedCardsTests'],
-            'settings': ['RegressionSmokeTests', 'StillnessModeTests'],
-            'reminders': ['ReminderUITests', 'SavedCardsLoadStateTests'],
-        })
+        selected = [identifier for part in shards.SHARDS for identifier in shards.expected_tests(data, part)]
+        self.assertEqual({identifier.split('/')[0] for identifier in selected},
+                         {'RegressionSmokeTests', 'SavedCardsTests', 'SavedCardsLoadStateTests',
+                          'StillnessModeTests', 'ReminderUITests'})
+        self.assertEqual(data['shards']['settings'], ['RegressionSmokeTests', 'StillnessModeTests'])
+        self.assertEqual(data['shards']['reminders'], ['ReminderUITests', 'SavedCardsLoadStateTests'])
         self.assertEqual({p: len(shards.expected_tests(data, p)) for p in shards.SHARDS},
-                         {'cards': 9, 'settings': 8, 'reminders': 12})
+                         {'cards': 5, 'cards-geometry': 4, 'settings': 8, 'reminders': 12})
+        self.assertEqual(len(selected), len(set(selected)))
         self.assertEqual(sum(len(shards.expected_tests(data, p)) for p in shards.SHARDS), 29)
         self.assertEqual(set(data['optional']), {'AuthLayoutTests', 'BonusCardTests', 'DailyCardSharingTests'})
 
@@ -91,6 +91,14 @@ class ShardTests(unittest.TestCase):
             mutations = [lambda d: d['shards']['cards'].pop(),
                          lambda d: d['shards']['cards'].append('ReminderUITests'),
                          lambda d: d['shards']['cards'].append('Unknown'),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests/testUnknown'),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests'),
+                         lambda d: d['shards']['cards-geometry'].append(d['shards']['cards'][0]),
+                         lambda d: d['shards']['cards-geometry'].clear(),
+                         lambda d: d.update(schema=1),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests/testBad/extra'),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests/'),
+                         lambda d: d['shards']['cards'].append(None),
                          lambda d: d['classes']['ReminderUITests'].pop(),
                          lambda d: d['classes']['ReminderUITests'].append('testUnknown'),
                          lambda d: d['optional'].update(ReminderUITests='excluded'),
@@ -106,7 +114,7 @@ class ShardTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 shards.inventory(root)
 
-    def test_real_shell_command_selects_every_class_once_without_skips(self):
+    def test_real_shell_command_selects_every_required_method_once_without_skips(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             for name in ('ci', 'DailyWhiskersUITests'):
@@ -131,6 +139,15 @@ class ShardTests(unittest.TestCase):
                 self.assertEqual(args[args.index('-resultBundlePath')+1], f'build/SmokeResults-{part}.xcresult')
                 selections += selected
             self.assertEqual(len(selections), len(set(selections)))
+            data = shards.inventory()
+            expanded = []
+            for selector in selections:
+                name, _, method = selector.split('DailyWhiskersUITests/')[1].partition('/')
+                expanded.extend(f'{name}/{m}()' for m in ([method] if method else data['classes'][name]))
+            self.assertEqual(len(expanded), 29)
+            self.assertEqual(len(expanded), len(set(expanded)))
+            self.assertEqual(sorted(expanded), sorted(
+                test for part in shards.SHARDS for test in shards.expected_tests(data, part)))
             (root / 'arguments').unlink()
             failed = subprocess.run(['bash', 'ci/test-app.sh', 'ui'], cwd=root, env=dict(env, CI_PART='unknown'), capture_output=True)
             self.assertNotEqual(failed.returncode, 0)
@@ -139,7 +156,28 @@ class ShardTests(unittest.TestCase):
     def test_successful_collect_and_aggregate(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
             directory = Path(tmp); self.make_records(directory)
-            self.assertEqual(len(shards.aggregate(directory)), 4)
+            self.assertEqual(len(shards.aggregate(directory)), 5)
+
+    def test_split_cards_rejects_missing_swapped_duplicate_and_stale_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            path = directory / 'cards-geometry/results.json'
+            original = json.loads(path.read_text())
+            path.unlink()
+            with self.assertRaises(ValueError): shards.aggregate(directory)
+            control = json.loads((directory / 'cards/results.json').read_text())
+            mutations = [lambda d: d.update(part='cards'),
+                         lambda d: d.update(observed_tests=control['observed_tests']),
+                         lambda d: d.update(required_tests=control['required_tests']),
+                         lambda d: d['stages']['ui'].update(shard='cards'),
+                         lambda d: d.update(inventory_sha256='old-three-shard-digest'),
+                         lambda d: d['observed_tests'].append(d['observed_tests'][0])]
+            for mutate in mutations:
+                record = copy.deepcopy(original); mutate(record)
+                path.write_text(json.dumps(record))
+                with self.assertRaises(ValueError): shards.aggregate(directory)
+            path.write_text(json.dumps(original))
+            self.assertEqual(len(shards.aggregate(directory)), 5)
 
     def test_aggregate_rejects_incomplete_failed_cancelled_or_mismatched_evidence(self):
         changes = [lambda d: d.update(verified=False), lambda d: d.update(part='unknown'),

@@ -106,6 +106,15 @@ class CacheWindowTests(unittest.TestCase):
             cache.verify_record(record, ENV, 'cards', budget())
             self.assertEqual(cache.classify(record, record['observation'], record['reported_at']), classification)
 
+    def test_cards_geometry_requires_its_own_cache_and_budget_identity(self):
+        env = ENV | {'CI_PART': 'cards-geometry', 'CI_SHARD_ID': 'cards-geometry'}
+        record = successful_record(env)
+        cache.verify_record(record, env, 'cards-geometry', budget(env))
+        with self.assertRaises(ValueError):
+            cache.verify_record(record, ENV, 'cards', budget())
+        with self.assertRaises(ValueError):
+            cache.window(budget(env), env | {'CI_SHARD_ID': 'cards'}, 1100)
+
     def test_failure_cancellation_missing_outputs_and_late_restore_are_not_misses(self):
         record = successful_record()
         for change in ({'outcome': 'failure'}, {'outcome': 'cancelled'}, {'outcome': 'skipped'},

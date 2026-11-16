@@ -16,8 +16,8 @@ missing/duplicate artifacts and mismatched source, attempt and environment.
 
 Keep the in-method ordered sequences intact: Saved Cards save/relaunch/remove,
 load-state recovery, registration editing/relaunch, Stillness lifecycle and
-Reminder permission/time/navigation sequences remain single test methods in
-whole-class shards. Saved Cards clears its collection in setup; load-state,
+Reminder permission/time/navigation sequences remain intact within individual
+test methods. Saved Cards clears its collection in setup; load-state,
 Stillness and Reminders use per-test UUID fixtures. Smoke tests relaunch the
 offline app and each relevant class establishes its own preconditions. No
 cross-class ordering requirement was identified in this review. The complete
@@ -25,7 +25,14 @@ cross-class ordering requirement was identified in this review. The complete
 the Cards execution-budget pressure. Its disposable SQLite fixture does not
 read or clear the ordinary collection used by Saved Cards and Reminders; each
 load-state method sets portrait and its own text size before launch and terminates
-the app afterward. Required case counts are Cards 9, Settings 8 and Reminders 12.
+the app afterward. Required case counts are Cards 5, Cards geometry 4, Settings 8 and Reminders 12.
+The two Cards parts select explicit methods from the same unchanged XCTest class.
+Each method still runs its original setup (portrait, app launch, saved collection
+clear) and teardown, on its job-owned simulator. No method is split or reordered
+internally. Inventory schema 2 expands class and method selectors and rejects
+missing coverage, overlap (including whole-class plus method), unknown selectors
+and required/optional overlap before Xcode runs. Adding a method to a split class
+requires an explicit shard assignment.
 This assignment preserves all 27 original methods and adds two required native-menu
 disappearance controls, for 29 methods total; any timing improvement must be measured
 on the final candidate, not inferred as a verified speedup. Separate
@@ -47,7 +54,7 @@ synchronization overhead is not a guaranteed five-second wall-clock ceiling.
 Keep the earlier Duo and switch-failure evidence attached to its original source,
 toolchain and ordering, even if a later sharded run passes.
 
-For a hosted proof, inspect all three shard job conclusions, the unit/Release
+For a hosted proof, inspect all four shard job conclusions, the unit/Release
 conclusion, policy checks and **CI Gate** at the exact source and tested merge.
 Verify raw artifacts and the complete same-attempt manifest aggregation. For a
 docs-only PR, verify both app jobs intentionally skip and the summary explicitly
