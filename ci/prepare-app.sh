@@ -2,15 +2,24 @@
 set -euo pipefail
 
 # Keep these exact inputs aligned with ios.yml and the development README.
+mkdir -p build
+test "$DEVELOPER_DIR" = /Applications/Xcode_27.2.app/Contents/Developer
 test "$(uname -m)" = arm64
 uname -m
-{ xcodebuild -version; xcrun swift --version; xcrun --sdk iphonesimulator --show-sdk-version; } > build/toolchain.txt
+{
+  printf 'Developer directory: %s\n' "$DEVELOPER_DIR"
+  printf 'Architecture: %s\n' "$(uname -m)"
+  xcodebuild -version
+  xcrun swift --version
+  printf 'Simulator SDK: %s\n' "$(xcrun --sdk iphonesimulator --show-sdk-version)"
+} > build/toolchain.txt
+python3 ci/simulator.py verify-toolchain
 xcodebuild -version | tee "$RUNNER_TEMP/xcode-version.txt"
-grep -qx 'Xcode 26.6' "$RUNNER_TEMP/xcode-version.txt"
-grep -qx 'Build version 17F113' "$RUNNER_TEMP/xcode-version.txt"
+grep -qx 'Xcode 27.2' "$RUNNER_TEMP/xcode-version.txt"
+grep -qx 'Build version 27B52' "$RUNNER_TEMP/xcode-version.txt"
 xcrun swift --version
 xcodebuild -showsdks
-xcrun --sdk iphonesimulator --show-sdk-version | grep -qx 26.5
+xcrun --sdk iphonesimulator --show-sdk-version | grep -qx 27.2
 printf 'Runner image: %s %s\n' "${ImageOS:-unknown}" "${ImageVersion:-unknown}"
 
 archive="$RUNNER_TEMP/xcodegen-2.46.0.zip"
@@ -28,19 +37,6 @@ cp ci/firebase-test-config.plist DailyWhiskers/Resources/GoogleService-Info.plis
 "$xcodegen" generate
 cmp "$lock" "$RUNNER_TEMP/Package.resolved.expected" || { echo "::error::XcodeGen changed Package.resolved"; exit 1; }
 
-# Select both runtime and device explicitly; never fall back to the first match.
-xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
-python3 - <<'PY'
-import json, os, subprocess
-from pathlib import Path
-data = json.loads((Path(os.environ['RUNNER_TEMP']) / 'simulators.json').read_text())
-# Runtime identifiers can include the patch component; verify the OS via runtimes below.
-runtimes = subprocess.check_output(['xcrun', 'simctl', 'list', 'runtimes', '--json'], text=True)
-matches = [r['identifier'] for r in json.loads(runtimes)['runtimes'] if r.get('isAvailable') and r.get('version') == '26.4.1' and r['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.iOS-')]
-devices = [d for r in matches for d in data['devices'].get(r, []) if d['name'] == 'iPhone 17 Pro' and d.get('isAvailable')]
-if len(devices) != 1:
-    raise SystemExit(f'Expected exactly one available iPhone 17 Pro / iOS 26.4.1, found {len(devices)}')
-print(f"Simulator: iPhone 17 Pro / iOS 26.4.1 / {devices[0]['udid']}")
-with open(os.environ['GITHUB_ENV'], 'a') as output:
-    output.write(f"SIMULATOR_ID={devices[0]['udid']}\n")
-PY
+# Preview images do not promise a precreated 17 Pro. Exact compatibility must
+# pass before creating an owned device; lifecycle evidence survives later failure.
+python3 ci/simulator.py prepare

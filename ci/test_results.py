@@ -1,12 +1,14 @@
 import importlib.util
 import json
 import os
+import subprocess
+import re
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from results import collect, gate_summary, render, test_counts
+from results import collect, gate_summary, render, test_counts, record_error, DIAGNOSTIC_LIMIT
 
 spec = importlib.util.spec_from_file_location('run_stage', Path(__file__).with_name('run-stage.py'))
 runner = importlib.util.module_from_spec(spec)
@@ -21,6 +23,17 @@ def fixture(passed=73, failed=0, skipped=0, result='Passed', expected_failures=0
 
 
 class ResultTests(unittest.TestCase):
+    def test_xcresult_error_details_keep_operation_code_and_bounded_stderr(self):
+        output = {}
+        error = subprocess.CalledProcessError(64, 'xcresulttool tests', stderr=b'no testing session\n' + b'x' * 8192)
+        record_error(output, 'ui.tree', error, 'xcresulttool get test-results tests')
+        diagnostic = output['evidence_errors']['ui.tree']
+        self.assertEqual(diagnostic['operation'], 'xcresulttool get test-results tests')
+        self.assertEqual(diagnostic['returncode'], 64)
+        self.assertTrue(diagnostic['stderr'].startswith('no testing session'))
+        self.assertEqual(len(diagnostic['stderr']), DIAGNOSTIC_LIMIT)
+        self.assertTrue(diagnostic['stderr_truncated'])
+
     def test_swift_testing_parameters_are_not_double_counted(self):
         counts = test_counts(fixture())
         self.assertEqual(counts['totalTestCount'], 73)
@@ -69,6 +82,30 @@ class ResultTests(unittest.TestCase):
             self.assertIn('No result bundle', text)
             self.assertIn('**no**', text)
             self.assertIn('Artifact link unavailable', text)
+
+    def test_routine_ci_uploads_and_summary_keep_30_day_retention(self):
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / '.github/workflows/ios.yml').read_text()
+        # Check every upload block so future shards cannot silently retain a
+        # shorter window. This does not cover separate manual diagnostics.
+        uploads = [step for step in re.split(r'^      - ', workflow, flags=re.M)
+                   if re.search(r'uses: actions/upload-artifact@', step)]
+        self.assertTrue(uploads, 'Routine CI must preserve artifact uploads')
+        for step in uploads:
+            self.assertEqual(re.findall(r'^          retention-days: (.+)$', step, re.M), ['30'])
+            self.assertIn('if: always()', step)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for verified in (True, False):
+                (directory / 'results.json').write_text(json.dumps({'stages': {}, 'verified': verified}))
+                with patch.dict(os.environ, {'ARTIFACT_URL': 'https://example.invalid/artifact'}):
+                    summary = render(directory)
+                self.assertIn('(30-day configured retention; verify the artifact expiry in GitHub).', summary)
+                self.assertIn(f"Evidence complete and passing: **{'yes' if verified else 'no'}**", summary)
+            with patch.dict(os.environ, {'ARTIFACT_URL': ''}):
+                summary = render(directory)
+            self.assertIn('Artifact link unavailable', summary)
+            self.assertNotIn('30-day', summary)
 
     def test_full_success_and_failed_process_with_passing_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -123,6 +160,35 @@ class ResultTests(unittest.TestCase):
                 self.assertFalse(collect(directory))
             self.assertIn('Unreadable result bundle', render(directory))
 
+    def test_hung_result_reader_is_bounded_and_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'SmokeResults.xcresult').mkdir()
+            with patch('results.subprocess.check_output',
+                       side_effect=subprocess.TimeoutExpired('xcresulttool', 45)) as reader:
+                self.assertFalse(collect(directory))
+            self.assertEqual(reader.call_args.kwargs['timeout'], 45)
+            self.assertIn('TimeoutExpired', render(directory))
+
+    def test_timeout_with_passing_bundle_never_passes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for stage in ('prepare', 'resolve', 'unit', 'ui', 'release'):
+                (directory / f'{stage}-status.json').write_text(json.dumps({'status': 'success'}))
+            (directory / 'ui-status.json').write_text(json.dumps({
+                'status': 'timed_out', 'exit_code': 124, 'command_exit_code': 0,
+                'cleanup_errors': [{'signal': 'SIGKILL', 'error': 'PermissionError', 'errno': 1}]}))
+            for name in ('TestResults', 'SmokeResults'):
+                (directory / f'{name}.xcresult').mkdir()
+            with patch('results.subprocess.check_output', return_value=json.dumps(fixture())):
+                self.assertFalse(collect(directory))
+            summary = render(directory)
+            self.assertIn('timed_out', summary)
+            self.assertIn('Wrapper exit 124; command exit 0', summary)
+            self.assertIn('Cleanup unverified', summary)
+            self.assertIn('PermissionError', summary)
+            self.assertIn('**no**', summary)
+
     def test_running_stage_is_interrupted_not_passed(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -130,9 +196,49 @@ class ResultTests(unittest.TestCase):
             self.assertFalse(collect(directory))
             self.assertIn('interrupted / cancelled', render(directory))
 
+    def test_summary_exposes_uncertain_simulator_cleanup_and_exact_requested_build(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'results.json').write_text(json.dumps({'verified': False, 'stages': {
+                'cleanup': {'status': 'failure', 'operation': 'delete-owned', 'readback_verified': False,
+                            'error': 'Owned simulator still present after delete'}}}))
+            (directory / 'simulator.json').write_text(json.dumps({'status': 'ready', 'ownership': 'created',
+                                                                'simulator_id': 'synthetic'}))
+            summary = render(directory)
+            self.assertIn('iOS 27.0 (24A434)', summary)
+            self.assertIn('Simulator preparation: ready / created / synthetic', summary)
+            self.assertIn('Simulator cleanup: failure / delete-owned / False / Owned simulator still present', summary)
+            self.assertIn('**no**', summary)
+
+    def test_malformed_lifecycle_and_cache_json_do_not_destroy_failure_summary(self):
+        for raw in ('not json', '[]', 'null', '"invalid"', '42'):
+            with self.subTest(raw=raw), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                (directory / 'results.json').write_text(json.dumps({'verified': False, 'stages': {},
+                                                                  'evidence_error': 'Preparation evidence rejected'}))
+                (directory / 'simulator.json').write_text(raw)
+                (directory / 'cache-status.json').write_text(raw)
+                summary = render(directory)
+                self.assertIn('Simulator preparation: unavailable; unreadable lifecycle evidence', summary)
+                self.assertIn('Cache evidence error: Unreadable cache evidence', summary)
+                self.assertIn('Evidence rejected: Preparation evidence rejected', summary)
+                self.assertIn('**no**', summary)
+
+    def test_invalid_manifest_cache_shape_is_not_hidden_by_valid_fallback(self):
+        for cache in ([], ['cache'], None, 'invalid', 0, True):
+            with self.subTest(cache=cache), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                (directory / 'results.json').write_text(json.dumps({'verified': False, 'stages': {}, 'cache': cache}))
+                (directory / 'cache-status.json').write_text(json.dumps({'classification': 'exact_hit', 'status': 'success'}))
+                summary = render(directory)
+                self.assertIn('SwiftPM cache: unavailable', summary)
+                self.assertIn('Cache evidence error: Unreadable cache evidence: expected an object', summary)
+                self.assertNotIn('exact_hit', summary)
+                self.assertIn('**no**', summary)
+
     def test_docs_only_summary(self):
         summary = gate_summary({'classify': {'outputs': {'mode': 'docs'}, 'result': 'success'},
-                                'checks': {'result': 'success'}, 'build-and-test': {'result': 'skipped'}})
+                                'checks': {'result': 'success'}, 'build-and-test': {'result': 'skipped'}, 'ui-shards': {'result': 'skipped'}})
         self.assertIn('intentionally omitted', summary)
         self.assertIn('No app pass claimed', summary)
 

@@ -1,0 +1,502 @@
+import copy
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import ui_shards as shards
+from results import collect, render
+from test_results import fixture
+from test_simulator import IDENTIFIER, TOOLCHAIN, preparation
+from test_cache_window import successful_record as cache_record, budget as cache_budget
+
+DEVICE = dict(deviceName='iPhone 17 Pro', modelName='iPhone 17 Pro', osVersion='27.0',
+              osBuildNumber='24A434', architecture='arm64', platform='iOS Simulator', deviceId=IDENTIFIER)
+ENV = dict(SOURCE_SHA='a'*40, TESTED_SHA='b'*40, GITHUB_SHA='b'*40,
+           GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='1', GITHUB_REPOSITORY='KenWidemon/daily-whiskers')
+
+
+def summary(count):
+    data = fixture(count)
+    data['devicesAndConfigurations'][0].update(passedTests=count, device=DEVICE)
+    return data
+
+
+def tree(identifiers):
+    return {'testNodes': [{'nodeType': 'Test Plan', 'children': [
+        {'nodeType': 'Test Case', 'nodeIdentifier': name, 'result': 'Passed',
+         'nodeIdentifierURL': 'test://com.apple.xcode/DailyWhiskers/DailyWhiskersUITests/' + name[:-2]}
+        for name in identifiers]}]}
+
+
+class ShardTests(unittest.TestCase):
+    def make_records(self, directory):
+        data = shards.inventory()
+        for part in shards.PARTS:
+            target = directory / part
+            target.mkdir()
+            for stage in shards.stages_for(part):
+                (target / f'{stage}-status.json').write_text(json.dumps(dict(status='success', exit_code=0, stage=stage,
+                    source_sha=ENV['SOURCE_SHA'], tested_sha=ENV['TESTED_SHA'], run_id=ENV['GITHUB_RUN_ID'],
+                    run_attempt=ENV['GITHUB_RUN_ATTEMPT'],
+                    job='build-and-test' if part == 'unit-release' else 'ui-shards', shard=part,
+                    **({'deadline': 3700} if stage != 'cleanup' else {}))))
+            cleanup_path = target / 'cleanup-status.json'
+            cleanup = json.loads(cleanup_path.read_text())
+            cleanup.update(ownership='preexisting', simulator_id=IDENTIFIER,
+                           operation='preserved-preexisting', readback_verified=True)
+            cleanup_path.write_text(json.dumps(cleanup))
+            (target / 'simulator.json').write_text(json.dumps(preparation(
+                {key: cleanup[key] for key in ('source_sha', 'tested_sha', 'run_id', 'run_attempt', 'job', 'shard')})))
+            (target / 'toolchain.txt').write_text(TOOLCHAIN)
+            cache_env = dict(ENV, CI_PART=part, CI_SHARD_ID=part,
+                             GITHUB_JOB='build-and-test' if part == 'unit-release' else 'ui-shards',
+                             CI_EXECUTION_DEADLINE='3700')
+            (target / 'cache-status.json').write_text(json.dumps(cache_record(cache_env)))
+            (target / 'job-budget.json').write_text(json.dumps(cache_budget(cache_env)))
+            tests = [] if part == 'unit-release' else shards.expected_tests(data, part)
+            bundle = 'TestResults.xcresult' if part == 'unit-release' else f'SmokeResults-{part}.xcresult'
+            (target / bundle).mkdir()
+            responses = [json.dumps(summary(210 if part == 'unit-release' else len(tests)))]
+            if tests:
+                responses.append(json.dumps(tree(tests)))
+            with patch.dict(os.environ, ENV), patch('results.subprocess.check_output', side_effect=responses):
+                self.assertTrue(collect(target, part))
+
+    def test_current_complete_inventory_preserves_all_five_required_classes(self):
+        data = shards.inventory()
+        selected = [identifier for part in shards.SHARDS for identifier in shards.expected_tests(data, part)]
+        self.assertEqual({identifier.split('/')[0] for identifier in selected},
+                         {'RegressionSmokeTests', 'SavedCardsTests', 'SavedCardsLoadStateTests',
+                          'StillnessModeTests', 'ReminderUITests'})
+        self.assertEqual(data['shards']['settings'], ['RegressionSmokeTests', 'StillnessModeTests'])
+        self.assertEqual(data['shards']['reminders'], ['ReminderUITests', 'SavedCardsLoadStateTests'])
+        self.assertEqual({p: len(shards.expected_tests(data, p)) for p in shards.SHARDS},
+                         {'cards': 5, 'cards-geometry': 4, 'settings': 8, 'reminders': 12})
+        self.assertEqual(len(selected), len(set(selected)))
+        self.assertEqual(sum(len(shards.expected_tests(data, p)) for p in shards.SHARDS), 29)
+        self.assertEqual(set(data['optional']), {'AuthLayoutTests', 'BonusCardTests', 'DailyCardSharingTests'})
+
+    def test_inventory_rejects_missing_duplicate_unknown_and_source_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shutil.copytree(shards.ROOT / 'DailyWhiskersUITests', root / 'DailyWhiskersUITests')
+            (root / 'ci').mkdir()
+            original = shards.inventory()
+            mutations = [lambda d: d['shards']['cards'].pop(),
+                         lambda d: d['shards']['cards'].append('ReminderUITests'),
+                         lambda d: d['shards']['cards'].append('Unknown'),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests/testUnknown'),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests'),
+                         lambda d: d['shards']['cards-geometry'].append(d['shards']['cards'][0]),
+                         lambda d: d['shards']['cards-geometry'].clear(),
+                         lambda d: d.update(schema=1),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests/testBad/extra'),
+                         lambda d: d['shards']['cards'].append('SavedCardsTests/'),
+                         lambda d: d['shards']['cards'].append(None),
+                         lambda d: d['classes']['ReminderUITests'].pop(),
+                         lambda d: d['classes']['ReminderUITests'].append('testUnknown'),
+                         lambda d: d['optional'].update(ReminderUITests='excluded'),
+                         lambda d: d['shards'].update(unknown=['ReminderUITests'])]
+            for mutate in mutations:
+                data = copy.deepcopy(original); mutate(data)
+                (root / 'ci/ui-inventory.json').write_text(json.dumps(data))
+                with self.assertRaises(ValueError):
+                    shards.inventory(root)
+            (root / 'ci/ui-inventory.json').write_text(json.dumps(original))
+            (root / 'DailyWhiskersUITests/Nested').mkdir()
+            (root / 'DailyWhiskersUITests/Nested/NewTests.swift').write_text('final class NewTests: XCTestCase { func testNew() {} }')
+            with self.assertRaises(ValueError):
+                shards.inventory(root)
+
+    def test_real_shell_command_selects_every_required_method_once_without_skips(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ('ci', 'DailyWhiskersUITests'):
+                shutil.copytree(shards.ROOT / name, root / name)
+            lock = root / 'DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'
+            lock.parent.mkdir(parents=True); lock.write_text('test lock')
+            (root / 'Package.resolved.expected').write_text('test lock')
+            executable = root / 'xcodebuild'
+            executable.write_text('#!/bin/bash\nprintf "%s\\n" "$@" > "$GITHUB_WORKSPACE/arguments"\n')
+            executable.chmod(0o755)
+            env = dict(os.environ, PATH=str(root)+os.pathsep+os.environ['PATH'], GITHUB_WORKSPACE=str(root),
+                       RUNNER_TEMP=str(root), SIMULATOR_ID='synthetic')
+            selections = []
+            for part in shards.SHARDS:
+                subprocess.run(['bash', 'ci/test-app.sh', 'ui'], cwd=root, env=dict(env, CI_PART=part), check=True)
+                args = (root / 'arguments').read_text().splitlines()
+                selected = [arg for arg in args if arg.startswith('-only-testing:')]
+                self.assertEqual(selected, ['-only-testing:DailyWhiskersUITests/'+n for n in shards.inventory()['shards'][part]])
+                self.assertFalse(any(arg.startswith('-skip-testing') for arg in args))
+                self.assertIn('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING', args)
+                self.assertEqual(args[args.index('-parallel-testing-enabled')+1], 'NO')
+                self.assertEqual(args[args.index('-resultBundlePath')+1], f'build/SmokeResults-{part}.xcresult')
+                selections += selected
+            self.assertEqual(len(selections), len(set(selections)))
+            data = shards.inventory()
+            expanded = []
+            for selector in selections:
+                name, _, method = selector.split('DailyWhiskersUITests/')[1].partition('/')
+                expanded.extend(f'{name}/{m}()' for m in ([method] if method else data['classes'][name]))
+            self.assertEqual(len(expanded), 29)
+            self.assertEqual(len(expanded), len(set(expanded)))
+            self.assertEqual(sorted(expanded), sorted(
+                test for part in shards.SHARDS for test in shards.expected_tests(data, part)))
+            (root / 'arguments').unlink()
+            failed = subprocess.run(['bash', 'ci/test-app.sh', 'ui'], cwd=root, env=dict(env, CI_PART='unknown'), capture_output=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertFalse((root / 'arguments').exists())
+
+    def test_successful_collect_and_aggregate(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            self.assertEqual(len(shards.aggregate(directory)), 5)
+
+    def test_split_cards_rejects_missing_swapped_duplicate_and_stale_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            path = directory / 'cards-geometry/results.json'
+            original = json.loads(path.read_text())
+            path.unlink()
+            with self.assertRaises(ValueError): shards.aggregate(directory)
+            control = json.loads((directory / 'cards/results.json').read_text())
+            mutations = [lambda d: d.update(part='cards'),
+                         lambda d: d.update(observed_tests=control['observed_tests']),
+                         lambda d: d.update(required_tests=control['required_tests']),
+                         lambda d: d['stages']['ui'].update(shard='cards'),
+                         lambda d: d.update(inventory_sha256='old-three-shard-digest'),
+                         lambda d: d['observed_tests'].append(d['observed_tests'][0])]
+            for mutate in mutations:
+                record = copy.deepcopy(original); mutate(record)
+                path.write_text(json.dumps(record))
+                with self.assertRaises(ValueError): shards.aggregate(directory)
+            path.write_text(json.dumps(original))
+            self.assertEqual(len(shards.aggregate(directory)), 5)
+
+    def test_aggregate_rejects_incomplete_failed_cancelled_or_mismatched_evidence(self):
+        changes = [lambda d: d.update(verified=False), lambda d: d.update(part='unknown'),
+                   lambda d: d.update(evidence_errors={'ui.tree': {'message': 'reader failed'}}),
+                   lambda d: d.update(inventory_sha256='stale'), lambda d: d.update(required_tests=[]),
+                   lambda d: d.update(observed_tests=[]),
+                   lambda d: d['observed_tests'].append(d['observed_tests'][0]),
+                   lambda d: d['stages'].pop('prepare'),
+                   lambda d: d['stages'].pop('cleanup'),
+                   lambda d: d['stages']['cleanup'].update(status='failure', exit_code=1),
+                   lambda d: d['stages']['cleanup'].update(readback_verified=False),
+                   lambda d: d['stages']['cleanup'].update(ownership='uncertain'),
+                   lambda d: d['simulator'].update(simulator_id='invalid'),
+                   lambda d: d['simulator'].update(run_attempt='2'),
+                   lambda d: d['simulator'].update(build='24B99'),
+                   lambda d: d['stages']['ui']['tests']['devices'][0]['device'].update(deviceId='wrong'),
+                   lambda d: d['stages']['ui']['tests']['devices'][0]['device'].update(osBuildNumber='wrong'),
+                   lambda d: d.pop('cache'),
+                   lambda d: d['cache'].update(classification='cold_miss'),
+                   lambda d: d['cache'].update(timeout_minutes=0),
+                   lambda d: d['cache'].update(run_attempt='2'),
+                   lambda d: d['cache'].update(started=2000, deadline=4700, planned_at=2100, reported_at=2101),
+                   lambda d: d['budget'].update(started=2000, deadline=4700),
+                   lambda d: d['budget'].update(run_attempt='2'),
+                   lambda d: d['budget'].update(execution_seconds=3600),
+                   lambda d: d['stages']['cache-window'].update(deadline=4700),
+                   lambda d: d['stages']['cache-report'].update(deadline=4700),
+                   lambda d: d['stages']['ui'].update(deadline=4700),
+                   lambda d: d['stages']['resolve'].pop('deadline'),
+                   lambda d: d['stages']['ui'].update(exit_code=65),
+                   lambda d: d['stages']['ui']['tests'].update(totalTestCount=0),
+                   lambda d: d['environment'].update(toolchain='different')]
+        changes += [lambda d, k=k: d['stages']['ui'].update({k: 'stale'})
+                    for k in ('stage', 'source_sha', 'tested_sha', 'run_id', 'run_attempt', 'job', 'shard')]
+        changes += [lambda d, k=k: d['stages']['ui'].pop(k)
+                    for k in ('stage', 'source_sha', 'tested_sha', 'run_id', 'run_attempt', 'job', 'shard')]
+        changes += [lambda d, k=k: d['identity'].update({k:'wrong'}) for k in shards.IDENTITY_KEYS]
+        changes += [lambda d, s=s: d['stages']['ui'].update(status=s)
+                    for s in ('failure', 'timed_out', 'cancelled', 'skipped', 'running', 'not run')]
+        changes += [lambda d, k=k: d['stages']['ui']['tests'].update({k:1})
+                    for k in ('failedTests', 'skippedTests', 'expectedFailures')]
+        changes += [lambda d, k=k: d['environment']['device'].update({k:'different'}) for k in shards.DEVICE_KEYS]
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            path = directory / 'cards/results.json'; original = json.loads(path.read_text())
+            for change in changes:
+                data = copy.deepcopy(original); change(data); path.write_text(json.dumps(data))
+                with self.subTest(data=data), self.assertRaises((ValueError, KeyError)):
+                    shards.aggregate(directory)
+            path.unlink()
+            with self.assertRaises(ValueError): shards.aggregate(directory)
+            path.write_text('not json')
+            with self.assertRaises(ValueError): shards.aggregate(directory)
+            path.write_text(json.dumps(original))
+            shutil.copytree(directory/'cards', directory/'duplicate')
+            with self.assertRaises(ValueError): shards.aggregate(directory)
+
+    def test_case_tree_rejects_bad_status_wrong_target_duplicate_and_missing(self):
+        identifiers = shards.expected_tests(shards.inventory(), 'settings')
+        self.assertEqual(shards.test_identifiers(tree(identifiers)), identifiers)
+        for change in (lambda d: d['testNodes'].clear(),
+                       lambda d: d['testNodes'][0]['children'].append(d['testNodes'][0]['children'][0]),
+                       lambda d: d['testNodes'][0]['children'][0].update(result='Skipped'),
+                       lambda d: d['testNodes'][0]['children'][0].update(nodeIdentifierURL='wrong target'),
+                       lambda d: d['testNodes'][0]['children'][0].update(nodeIdentifier='unknown')):
+            data=tree(identifiers); change(data)
+            with self.assertRaises(ValueError): shards.test_identifiers(data)
+
+    def test_explicit_budget_skip_is_valid_evidence_but_neither_warm_nor_cold(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            env = dict(ENV, CI_PART='cards', CI_SHARD_ID='cards', GITHUB_JOB='ui-shards', CI_EXECUTION_DEADLINE='3700')
+            (target / 'cache-status.json').write_text(json.dumps(cache_record(env, 'skipped_budget')))
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))), json.dumps(tree(identifiers))]):
+                self.assertTrue(collect(target, 'cards'))
+            records = shards.aggregate(directory)
+            record = next(record for record in records if record['part'] == 'cards')
+            self.assertEqual(record['cache']['classification'], 'skipped_budget')
+
+    def test_collector_rejects_partial_but_passing_test_tree(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory=Path(tmp); self.make_records(directory)
+            target=directory/'settings'
+            identifiers=shards.expected_tests(shards.inventory(), 'settings')[:-1]
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'settings'))
+            self.assertIn('Missing/unknown UI tests', (target/'results.json').read_text())
+
+    def test_collector_cannot_relabel_stale_stage_as_current_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            target = directory / 'cards'
+            status = json.loads((target / 'ui-status.json').read_text())
+            status.update(source_sha='c' * 40, shard='reminders')
+            (target / 'ui-status.json').write_text(json.dumps(status))
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))),
+                       json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertFalse(record['verified'])
+            self.assertIn('stage evidence', record['evidence_error'])
+
+    def test_hung_shard_tree_reader_is_bounded_and_writes_failed_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            target = directory / 'cards'
+            count = len(shards.expected_tests(shards.inventory(), 'cards'))
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(count)),
+                       subprocess.TimeoutExpired('xcresulttool tests', 45)]) as reader:
+                self.assertFalse(collect(target, 'cards'))
+            self.assertEqual([call.kwargs['timeout'] for call in reader.call_args_list], [45, 45])
+            record = json.loads((target / 'results.json').read_text())
+            self.assertFalse(record['verified'])
+            self.assertIn('timed out', record['evidence_error'])
+            with self.assertRaises(ValueError):
+                shards.aggregate(directory)
+
+    def test_timed_out_shard_with_passing_bundle_is_rejected_end_to_end(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp); self.make_records(directory)
+            target = directory / 'reminders'
+            status = json.loads((target / 'ui-status.json').read_text())
+            status.update(status='timed_out', exit_code=124, command_exit_code=0)
+            (target / 'ui-status.json').write_text(json.dumps(status))
+            identifiers = shards.expected_tests(shards.inventory(), 'reminders')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(len(identifiers))),
+                       json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'reminders'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertEqual(record['part'], 'reminders')
+            self.assertEqual(record['identity'], ENV)
+            self.assertTrue(record['stages']['ui']['tests']['valid_pass'])
+            self.assertFalse(record['verified'])
+            with self.assertRaises(ValueError):
+                shards.aggregate(directory)
+
+    def test_exit64_retains_failed_cards_identity_budget_lifecycle_and_original_timeout(self):
+        for summary_available in (False, True):
+            with self.subTest(summary_available=summary_available), tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+                directory = Path(tmp)
+                self.make_records(directory)
+                target = directory / 'cards'
+                before = json.loads((target / 'results.json').read_text())
+                status_path = target / 'ui-status.json'
+                status = json.loads(status_path.read_text()) | {'status': 'timed_out', 'exit_code': 124, 'command_exit_code': -15}
+                status_path.write_text(json.dumps(status))
+                stderr = 'Error: no testing session was found in the result bundle.'
+                failed_summary = subprocess.CalledProcessError(64, 'xcresulttool summary', stderr=stderr)
+                failed_tree = subprocess.CalledProcessError(64, 'xcresulttool tests', stderr=stderr)
+                responses = [json.dumps(summary(7)) if summary_available else failed_summary, failed_tree]
+                with patch('results.subprocess.check_output', side_effect=responses) as reader:
+                    self.assertFalse(collect(target, 'cards'))
+                self.assertEqual([call.kwargs['timeout'] for call in reader.call_args_list], [45, 45])
+                record = json.loads((target / 'results.json').read_text())
+                for key in ('part', 'identity', 'inventory_sha256', 'required_tests', 'budget', 'cache', 'simulator'):
+                    self.assertEqual(record[key], before[key], key)
+                self.assertEqual(record['environment']['toolchain'], TOOLCHAIN)
+                self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+                for key, value in status.items():
+                    self.assertEqual(record['stages']['ui'][key], value, key)
+                diagnostic = record['evidence_errors']['ui.tree']
+                self.assertEqual(diagnostic['operation'], 'xcresulttool get test-results tests')
+                self.assertEqual(diagnostic['returncode'], 64)
+                self.assertEqual(diagnostic['stderr'], stderr)
+                self.assertFalse(diagnostic['stderr_truncated'])
+                self.assertFalse(record['verified'])
+                self.assertNotIn('observed_tests', record)
+                if summary_available:
+                    self.assertEqual(record['stages']['ui']['tests']['totalTestCount'], 7)
+                    self.assertEqual(record['environment']['device'], before['environment']['device'])
+                else:
+                    self.assertNotIn('tests', record['stages']['ui'])
+                    self.assertNotIn('device', record['environment'])
+                    self.assertEqual(record['stages']['ui']['results_diagnostic']['returncode'], 64)
+                    self.assertIn('counts unavailable', render(target))
+                    self.assertIn('Observed ui destination: unavailable', render(target))
+                self.assertIn('Wrapper exit 124; command exit -15', render(target))
+                with self.assertRaisesRegex(ValueError, r'cards evidence rejected: .*timed_out') as rejected:
+                    shards.aggregate(directory)
+                self.assertNotIn('Missing/duplicate/unknown part', str(rejected.exception))
+
+    def test_tree_success_does_not_invent_missing_summary_counts_or_observed_device(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[
+                    subprocess.CalledProcessError(64, 'xcresulttool summary', stderr='No testing session'),
+                    json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertEqual(record['observed_tests'], identifiers)
+            self.assertNotIn('tests', record['stages']['ui'])
+            self.assertNotIn('device', record['environment'])
+            for key in ('identity', 'inventory_sha256', 'required_tests', 'budget', 'cache', 'simulator'):
+                self.assertEqual(record[key], before[key], key)
+            self.assertIn('Observed ui destination: unavailable', render(target))
+            self.assertIn('**no**', render(target))
+            with self.assertRaisesRegex(ValueError, 'cards evidence rejected'):
+                shards.aggregate(directory)
+
+    def test_missing_device_with_readable_counts_and_tree_keeps_independent_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            without_devices = summary(7) | {'devicesAndConfigurations': []}
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(without_devices), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertEqual(record['stages']['ui']['tests']['totalTestCount'], 7)
+            self.assertEqual(record['observed_tests'], identifiers)
+            self.assertNotIn('device', record['environment'])
+            self.assertEqual(record['budget']['execution_seconds'], 2700)
+            self.assertEqual(record['simulator']['simulator_id'], IDENTIFIER)
+            self.assertIn('device', record['evidence_errors'])
+            self.assertIn('Observed ui destination: unavailable', render(target))
+
+    def test_invalid_counts_do_not_discard_available_observed_device(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            invalid = summary(7) | {'totalTestCount': None}
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(invalid), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            self.assertNotIn('tests', record['stages']['ui'])
+            self.assertEqual(record['environment']['device']['osBuildNumber'], DEVICE['osBuildNumber'])
+            self.assertEqual(record['stages']['ui']['reported_devices'], invalid['devicesAndConfigurations'])
+            self.assertEqual(record['observed_tests'], identifiers)
+
+    def test_missing_or_malformed_components_do_not_prevent_other_capture(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            (target / 'job-budget.json').write_text('not json')
+            (target / 'cache-status.json').unlink()
+            (target / 'toolchain.txt').unlink()
+            (target / 'resolve-status.json').write_text('[]')
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(7)), json.dumps(tree(identifiers))]):
+                self.assertFalse(collect(target, 'cards'))
+            record = json.loads((target / 'results.json').read_text())
+            for key in ('part', 'identity', 'inventory_sha256', 'required_tests', 'simulator', 'observed_tests'):
+                self.assertEqual(record[key], before[key], key)
+            self.assertEqual(record['environment']['device'], before['environment']['device'])
+            self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+            self.assertEqual(record['stages']['resolve']['status'], 'unavailable')
+            self.assertTrue({'budget', 'cache', 'toolchain', 'stage.resolve'} <= record['evidence_errors'].keys())
+            self.assertNotIn('budget', record)
+            self.assertNotIn('cache', record)
+            self.assertNotIn('toolchain', record['environment'])
+
+    def test_malformed_and_non_object_stage_json_preserve_other_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            for raw in ('not json', '[]', 'null', '"invalid"'):
+                with self.subTest(raw=raw):
+                    (target / 'resolve-status.json').write_text(raw)
+                    with patch('results.subprocess.check_output', side_effect=[json.dumps(summary(7)), json.dumps(tree(identifiers))]):
+                        self.assertFalse(collect(target, 'cards'))
+                    record = json.loads((target / 'results.json').read_text())
+                    self.assertEqual(record['stages']['resolve']['status'], 'unavailable')
+                    self.assertIn('stage.resolve', record['evidence_errors'])
+                    for key in ('identity', 'budget', 'cache', 'simulator', 'observed_tests', 'environment'):
+                        self.assertEqual(record[key], before[key], key)
+                    self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+                    self.assertIn('**no**', render(target))
+
+    def test_invalid_device_shapes_or_values_preserve_provenance_without_using_requested_device(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV):
+            directory = Path(tmp)
+            self.make_records(directory)
+            target = directory / 'cards'
+            before = json.loads((target / 'results.json').read_text())
+            identifiers = shards.expected_tests(shards.inventory(), 'cards')
+            for device in (None, 'invalid', {}, DEVICE | {'architecture': 'x86_64'}):
+                with self.subTest(device=device):
+                    observed = summary(7)
+                    observed['devicesAndConfigurations'][0]['device'] = device
+                    with patch('results.subprocess.check_output', side_effect=[json.dumps(observed), json.dumps(tree(identifiers))]):
+                        self.assertFalse(collect(target, 'cards'))
+                    record = json.loads((target / 'results.json').read_text())
+                    for key in ('identity', 'budget', 'cache', 'simulator', 'observed_tests'):
+                        self.assertEqual(record[key], before[key], key)
+                    self.assertEqual(record['stages']['ui']['reported_devices'], observed['devicesAndConfigurations'])
+                    self.assertEqual(record['stages']['cleanup'], before['stages']['cleanup'])
+                    if isinstance(device, dict) and device:
+                        self.assertEqual(record['environment']['device']['architecture'], 'x86_64')
+                    else:
+                        self.assertNotIn('device', record['environment'])
+                        self.assertIn('Observed ui destination: unavailable', render(target))
+                    self.assertIn('**no**', render(target))
+
+    def test_workflow_matrix_and_gate_remain_complete(self):
+        workflow=(shards.ROOT/'.github/workflows/ios.yml').read_text()
+        self.assertIn('shard: ['+', '.join(shards.SHARDS)+']', workflow)
+        self.assertIn('fail-fast: false', workflow)
+        self.assertIn('needs: [classify, checks, build-and-test, ui-shards]', workflow)
+        self.assertIn('name: CI Gate', workflow)
+        self.assertIn('python3 ci/ui_shards.py aggregate', workflow)
+        self.assertNotIn('continue-on-error', workflow)
+        self.assertNotIn('merge-multiple: true', workflow)
+
+
+if __name__ == '__main__':
+    unittest.main()

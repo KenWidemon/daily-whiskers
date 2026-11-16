@@ -1,0 +1,5 @@
+# The official ARM64 preview image is newer than actionlint 1.7.12's catalog.
+# Allow only this exact hosted label; retain all other workflow validation.
+self-hosted-runner:
+  labels:
+    - xcode-27

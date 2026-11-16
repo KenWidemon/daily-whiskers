@@ -17,15 +17,19 @@ case "${1:?Specify resolve, unit, ui or release}" in
       -parallel-testing-enabled NO
     ;;
   ui)
+    # Capture the selector command's failure before invoking Xcode (no process
+    # substitution, which would hide an inventory failure from set -e).
+    python3 ci/ui_shards.py selectors --shard "${CI_PART:?Select the required UI shard}" > build/ui-selectors.txt
+    selectors=()
+    while IFS= read -r selector; do selectors+=("$selector"); done < build/ui-selectors.txt
     xcodebuild test "${common[@]}" -scheme DailyWhiskersInteraction -configuration Debug \
       'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
-      -only-testing:DailyWhiskersUITests/RegressionSmokeTests \
-      -only-testing:DailyWhiskersUITests/SavedCardsTests \
-      -only-testing:DailyWhiskersUITests/StillnessModeTests \
-      -only-testing:DailyWhiskersUITests/SavedCardsLoadStateTests \
-      -only-testing:DailyWhiskersUITests/ReminderUITests \
+      "${selectors[@]}" \
       -destination "platform=iOS Simulator,id=$SIMULATOR_ID,arch=arm64" \
-      -derivedDataPath build/SmokeDerivedData -resultBundlePath build/SmokeResults.xcresult \
+      -derivedDataPath build/SmokeDerivedData -resultBundlePath "build/SmokeResults-$CI_PART.xcresult" \
+      -test-timeouts-enabled YES \
+      -default-test-execution-time-allowance 720 \
+      -maximum-test-execution-time-allowance 720 \
       -parallel-testing-enabled NO
     ;;
   release)
