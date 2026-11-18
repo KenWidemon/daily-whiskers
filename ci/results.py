@@ -33,12 +33,16 @@ def test_counts(summary):
     return counts
 
 
-def collect(directory):
+def collect(directory, part=None):
+    from ui_shards import annotate, stages_for
+    stages = stages_for(part) if part else STAGES
+    suites = ({"unit": SUITES["unit"]} if part == "unit-release" else
+              {"ui": f"SmokeResults-{part}.xcresult"}) if part else SUITES
     records = {}
-    for stage in STAGES:
+    for stage in stages:
         path = directory / f"{stage}-status.json"
         records[stage] = json.loads(path.read_text()) if path.exists() else {"status": "not run"}
-    for stage, bundle in SUITES.items():
+    for stage, bundle in suites.items():
         record = records[stage]
         if not (directory / bundle).exists():
             record["results_error"] = "No result bundle; counts unavailable"
@@ -50,9 +54,22 @@ def collect(directory):
             record["tests"] = test_counts(json.loads(raw))
         except (OSError, subprocess.CalledProcessError, ValueError) as error:
             record["results_error"] = f"Unreadable result bundle ({type(error).__name__}); counts unavailable"
-    valid = all(records[s]["status"] == "success" for s in STAGES) and all(
-        records[s].get("tests", {}).get("valid_pass", False) for s in SUITES)
+    valid = all(records[s]["status"] == "success" for s in stages) and all(
+        records[s].get("tests", {}).get("valid_pass", False) for s in suites)
     output = {"stages": records, "verified": valid}
+    if part:
+        try:
+            tree = None
+            if part != "unit-release":
+                raw = subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "tests",
+                                               "--path", str(directory / suites["ui"])], text=True, stderr=subprocess.PIPE)
+                (directory / "ui-test-tree.json").write_text(raw)
+                tree = json.loads(raw)
+            annotate(output, directory, part, tree)
+        except (OSError, subprocess.CalledProcessError, ValueError, KeyError, TypeError) as error:
+            output["evidence_error"] = str(error)
+            valid = False
+        output["verified"] = valid
     (directory / "results.json").write_text(json.dumps(output, indent=2))
     return valid
 
@@ -79,7 +96,7 @@ def render(directory):
              f"Evidence complete and passing: **{'yes' if data['verified'] else 'no'}**. "
              f"Job status at summary: **{safe(os.getenv('APP_JOB_STATUS', 'unknown'))}**.",
              "", "| Stage | Outcome | Seconds |", "| --- | --- | --- |"]
-    for stage in STAGES:
+    for stage in data["stages"] or STAGES:
         record = data["stages"].get(stage, {"status": "unavailable"})
         status = record["status"]
         if status == "running":
@@ -94,6 +111,8 @@ def render(directory):
                              f"{safe(tests['executions'])} executions including dynamic parameters | — |")
             else:
                 lines.append(f"| {stage} tests | {safe(record.get('results_error', 'Counts unavailable'))} | — |")
+    if data.get("evidence_error"):
+        lines.append("Evidence rejected: " + safe(data["evidence_error"]))
     lines += ["", "Counts come from xcresulttool across XCTest and Swift Testing. "
               "Parameterized executions and test cases are different counts; no console totals are added.", ""]
     toolchain = directory / "toolchain.txt"
@@ -116,12 +135,13 @@ def render(directory):
 def gate_summary(needs):
     mode = needs.get("classify", {}).get("outputs", {}).get("mode", "unavailable")
     lines = ["## CI run summary", *identity(), "", f"Classification: **{safe(mode)}**.", ""]
-    for job in ("classify", "checks", "build-and-test"):
+    for job in ("classify", "checks", "build-and-test", "ui-shards"):
         lines.append(f"- {job}: **{safe(needs.get(job, {}).get('result', 'unavailable'))}**")
-    if mode == "docs" and needs.get("build-and-test", {}).get("result") == "skipped":
+    if mode == "docs" and all(needs.get(job, {}).get("result") == "skipped" for job in ("build-and-test", "ui-shards")):
         lines.append("\nApp tests and unsigned Release intentionally omitted for docs-only changes; "
                      "test counts, app duration, toolchain/device evidence and app artifacts: not applicable. No app pass claimed.")
     else:
+        lines.append("\nComplete same-attempt evidence validation: **" + safe(os.getenv("EVIDENCE_STATUS", "unavailable")) + "**.")
         lines.append("\nSee the app job summary for toolchain, destinations, test counts, stage durations and artifacts. "
                      "Failed, cancelled, unexpectedly skipped or unavailable jobs do not establish a pass.")
     return "\n".join(lines) + "\n"
@@ -133,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--directory", type=Path, default=Path("build"))
     args = parser.parse_args()
     if args.command == "collect":
-        sys.exit(0 if collect(args.directory) else 1)
+        sys.exit(0 if collect(args.directory, os.getenv("CI_PART")) else 1)
     else:
         summary = gate_summary(json.loads(os.environ["NEEDS_JSON"])) if args.command == "gate" else render(args.directory)
         print(summary)

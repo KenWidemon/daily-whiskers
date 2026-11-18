@@ -19,9 +19,9 @@ class PolicyTests(unittest.TestCase):
 
     def test_all_gate_combinations(self):
         states = ["success", "failure", "cancelled", "skipped", "timed_out", "", None]
-        for mode, classifier, checks, app in itertools.product(["docs", "full", "", None], states, states, states):
-            needs = {"classify": {"result": classifier, "outputs": {"mode": mode}}, "checks": {"result": checks}, "build-and-test": {"result": app}}
-            expected = classifier == checks == "success" and ((mode == "docs" and app == "skipped") or (mode == "full" and app == "success"))
+        for mode, classifier, checks, app, ui in itertools.product(["docs", "full", "", None], states, states, states, states):
+            needs = {"classify": {"result": classifier, "outputs": {"mode": mode}}, "checks": {"result": checks}, "build-and-test": {"result": app}, "ui-shards": {"result": ui}}
+            expected = classifier == checks == "success" and ((mode == "docs" and app == ui == "skipped") or (mode == "full" and app == ui == "success"))
             self.assertEqual(gate(needs), expected, needs)
         self.assertFalse(gate({}))
 

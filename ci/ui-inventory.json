@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "shards": {
+    "cards": [
+      "SavedCardsTests",
+      "SavedCardsLoadStateTests"
+    ],
+    "settings": [
+      "RegressionSmokeTests",
+      "StillnessModeTests"
+    ],
+    "reminders": [
+      "ReminderUITests"
+    ]
+  },
+  "classes": {
+    "RegressionSmokeTests": [
+      "testAccountToolsOpenAndDismiss",
+      "testGuestDailyContentAndRelaunch",
+      "testLocalAuthValidationAndRegistrationNavigation",
+      "testRegistrationEditingAfterBackCloseAndProcessRelaunch",
+      "testSinglePasswordDoneReachesOnlyOfflineBoundary"
+    ],
+    "SavedCardsTests": [
+      "testAdaptiveCardAndSavedTilesAcrossWindowSizes",
+      "testClearEligibilityTracksSaveRemovalCancellationAndConfirmedClear",
+      "testLargestTextLandscapeSavedCardActionsAndVibe",
+      "testLargestTextPairedGeometryAndOptions",
+      "testLargestTextSavedCardQuoteAndControlsRemainReachable",
+      "testOrdinaryPortraitCardFitsWithoutScrolling",
+      "testSaveRelaunchReopenShareRemoveAndConfirmedClear"
+    ],
+    "SavedCardsLoadStateTests": [
+      "testFailedFirstReadDismissRetryAndLaterRefreshPreserveRows",
+      "testInterruptedAndRepeatedRetryKeepsRecoveryAvailable",
+      "testLargestTextUnavailableRetryRemainsReachable",
+      "testOnlySuccessfulEmptyReadShowsEmptyGuidance"
+    ],
+    "StillnessModeTests": [
+      "testAppPreferenceLiveChangesAndMotionResumption",
+      "testLargestTextSettingInPortraitAndLandscape",
+      "testPersistenceLifecycleCardNavigationAndAuth"
+    ],
+    "DailyCardSharingTests": [
+      "testAccountSheetKeepsLocalNavigationUsableAcrossReopening",
+      "testActualExportPayloadsForTodayBonusAndSaved",
+      "testDailyCanvasRotationFromLandscape",
+      "testDailyCanvasRotationFromPortrait",
+      "testGuestCanCancelSharingAndShareAgain",
+      "testLongestQuoteExportRetryCancelAndLargerText",
+      "testShareActionAndSheetAtLargestTextInLandscape",
+      "testShareSheetRemainsUsableAcrossRotation"
+    ],
+    "ReminderUITests": [
+      "testDefaultOffTimeSaveCancelAndRelaunch",
+      "testDeniedTimeEditKeepsEnabledIntentAndExplainsMissingCoverage",
+      "testLargestTextSettingsAndTimeControlsRemainReachable",
+      "testOldReminderDismissesNestedTimeEditorAndColdLaunchOpensToday",
+      "testOldReminderRoutesFromSavedAndBonusToCurrentToday",
+      "testPermissionRevocationRegrantAndExplicitDisable",
+      "testReminderDismissesSavedDetailSystemShareWithoutDeletingCard",
+      "testReminderDismissesStillnessAndPreservesBothSettings"
+    ],
+    "AuthLayoutTests": [
+      "testGuestCanDismissAndReopenOptionalSignIn",
+      "testLandscapeAccessibilityKeyboardScrolling",
+      "testLandscapeKeyboardScrolling",
+      "testPortraitKeyboardNavigation",
+      "testRegistrationEmptyEmailFocusedFirst",
+      "testRegistrationEmptyEmailWithoutInitialToggle",
+      "testRegistrationLargeTextScrolling",
+      "testRegistrationMaskedRefocusAfterVisibilityToggle",
+      "testRegistrationMaskedRefocusWithoutEmail",
+      "testRegistrationNavigationAndCredentialIsolation",
+      "testRegistrationPasswordPrivacyAndCloseDiscard",
+      "testRegistrationValidationAndVisibility",
+      "testRepeatedLocalValidationErrorIsVisible",
+      "testSignInVisibilityEditingAndLifecycle",
+      "testSignInVisibilityLargeText",
+      "testSwipeDismissalDiscardsSignInAndRegistrationDrafts"
+    ],
+    "BonusCardTests": [
+      "testBonusOptionsTouchTarget",
+      "testCardOptionsReviewScreens",
+      "testLargestTextBonusNavigationAndLandscapeReachability",
+      "testLargestTextBonusOptionsTouchTarget",
+      "testLargestTextTodayOptionsTouchTarget",
+      "testOfflineBonusPersistenceTodayFavoritesShareAndMatchedPreviews",
+      "testRetainedBonusOpensSavesAndSharesWhenTodayArtworkIsUnavailable",
+      "testTodayOptionsTouchTarget"
+    ]
+  },
+  "optional": {
+    "DailyCardSharingTests": "Existing opt-in interaction coverage; not selected by the pre-sharding hosted command.",
+    "AuthLayoutTests": "Existing opt-in interaction coverage; not selected by the pre-sharding hosted command.",
+    "BonusCardTests": "Existing opt-in interaction coverage; not selected by the pre-sharding hosted command."
+  }
+}
