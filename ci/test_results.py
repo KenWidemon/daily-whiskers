@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -122,6 +123,32 @@ class ResultTests(unittest.TestCase):
             with patch('results.subprocess.check_output', return_value='not json'):
                 self.assertFalse(collect(directory))
             self.assertIn('Unreadable result bundle', render(directory))
+
+    def test_hung_result_reader_is_bounded_and_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'SmokeResults.xcresult').mkdir()
+            with patch('results.subprocess.check_output',
+                       side_effect=subprocess.TimeoutExpired('xcresulttool', 45)) as reader:
+                self.assertFalse(collect(directory))
+            self.assertEqual(reader.call_args.kwargs['timeout'], 45)
+            self.assertIn('TimeoutExpired', render(directory))
+
+    def test_timeout_with_passing_bundle_never_passes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for stage in ('prepare', 'resolve', 'unit', 'ui', 'release'):
+                (directory / f'{stage}-status.json').write_text(json.dumps({'status': 'success'}))
+            (directory / 'ui-status.json').write_text(json.dumps({
+                'status': 'timed_out', 'exit_code': 124, 'command_exit_code': 0}))
+            for name in ('TestResults', 'SmokeResults'):
+                (directory / f'{name}.xcresult').mkdir()
+            with patch('results.subprocess.check_output', return_value=json.dumps(fixture())):
+                self.assertFalse(collect(directory))
+            summary = render(directory)
+            self.assertIn('timed_out', summary)
+            self.assertIn('Wrapper exit 124; command exit 0', summary)
+            self.assertIn('**no**', summary)
 
     def test_running_stage_is_interrupted_not_passed(self):
         with tempfile.TemporaryDirectory() as temporary:

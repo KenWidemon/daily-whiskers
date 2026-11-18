@@ -45,10 +45,11 @@ def collect(directory):
             continue
         try:
             raw = subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "summary",
-                                           "--path", str(directory / bundle)], text=True, stderr=subprocess.PIPE)
+                                           "--path", str(directory / bundle)], text=True, stderr=subprocess.PIPE,
+                                          timeout=45)
             (directory / f"{stage}-results.json").write_text(raw)
             record["tests"] = test_counts(json.loads(raw))
-        except (OSError, subprocess.CalledProcessError, ValueError) as error:
+        except (OSError, subprocess.SubprocessError, ValueError) as error:
             record["results_error"] = f"Unreadable result bundle ({type(error).__name__}); counts unavailable"
     valid = all(records[s]["status"] == "success" for s in STAGES) and all(
         records[s].get("tests", {}).get("valid_pass", False) for s in SUITES)
@@ -85,6 +86,10 @@ def render(directory):
         if status == "running":
             status = "interrupted / cancelled / infrastructure termination; no completed result"
         lines.append(f"| {stage} | {safe(status)} | {safe(record.get('duration_seconds', 'unavailable'))} |")
+        if status in ('timed_out', 'interrupted'):
+            lines.append(f"| {stage} termination | Wrapper exit {safe(record.get('exit_code', 'unavailable'))}; "
+                         f"command exit {safe(record.get('command_exit_code', 'not started / unavailable'))}; "
+                         f"forced kill {safe(record.get('forced_kill', False))} | — |")
         if stage in SUITES:
             tests = record.get("tests")
             if tests:
