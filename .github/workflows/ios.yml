@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   saved-menu-trace:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/pr143-saved-menu-trace-20261121' && github.run_attempt == '1' && inputs.cache_epoch == github.sha
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/pr143-saved-menu-build-first-20261121' && github.run_attempt == '1' && inputs.cache_epoch == github.sha
     runs-on: xcode-27
     timeout-minutes: 60
     env:
@@ -39,11 +39,14 @@ jobs:
         run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
       - name: Build and run the single Saved Cards method
         run: python3 ci/run-stage.py saved-menu python3 ci/saved-menu-trace.py
-      - name: Verify removal of owned simulator
+      - name: Remove only the owned simulator
         if: ${{ always() && steps.prepare.outcome != 'skipped' }}
-        timeout-minutes: 5
-        run: |
-          if test -f build/simulator.json; then python3 ci/simulator.py cleanup; fi
+        timeout-minutes: 3
+        run: python3 ci/saved-menu-trace.py cleanup
+      - name: Independently confirm simulator absence and baseline
+        if: ${{ always() && steps.prepare.outcome != 'skipped' }}
+        timeout-minutes: 1
+        run: python3 ci/saved-menu-trace.py verify-absence
       - name: Upload scoped diagnostic evidence
         if: ${{ always() && steps.prepare.outcome != 'skipped' }}
         timeout-minutes: 5
@@ -60,3 +63,4 @@ jobs:
             build/saved-menu-status.json
             build/simulator.json
             build/cleanup-status.json
+            build/absence-status.json

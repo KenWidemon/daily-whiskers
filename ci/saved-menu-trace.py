@@ -3,12 +3,15 @@ import json
 import os
 import plistlib
 import pty
+import re
 import select
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+import simulator as policy
 
 SELECTOR = 'DailyWhiskersUITests/SavedCardsTests/testSaveRelaunchReopenShareRemoveAndConfirmedClear'
 SCOPED_TEST_ID = 'SavedCardsTests/testSaveRelaunchReopenShareRemoveAndConfirmedClear()'
@@ -29,17 +32,120 @@ def exact_test_case(node):
             yield from exact_test_case(value)
 
 
+def owned_simulator():
+    record = json.loads((BUILD / 'simulator.json').read_text())
+    policy.require(all(record.get(k) == v for k, v in policy.identity().items()), 'Stale simulator ownership')
+    policy.require(record.get('ownership') == 'created', 'Simulator creation not proven; do not mutate')
+    identifier = policy.valid_uuid(record['simulator_id'])
+    policy.require(identifier not in record['preexisting_ids'], 'Cannot operate on a baseline simulator')
+    return identifier, record
+
+
+def inventory(seconds=20):
+    return json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', '--json'],
+                                              text=True, timeout=seconds))
+
+
+def independent_state(identifier, attempts=2):
+    errors = []
+    for _ in range(attempts):
+        try:
+            return policy.exact_device(inventory(), identifier)['state'], errors
+        except subprocess.TimeoutExpired as error:
+            errors.append(type(error).__name__)
+    return None, errors
+
+
+def boot_after_build(identifier, evidence, save):
+    state, errors = independent_state(identifier)
+    evidence.update(post_build_state=state, post_build_inventory_timeouts=errors)
+    save()
+    policy.require(state in ('Shutdown', 'Booted'), 'Owned simulator state not established after build')
+    if state == 'Shutdown':
+        subprocess.run(['xcrun', 'simctl', 'boot', identifier], check=True, timeout=45)
+    started = time.monotonic()
+    result = None
+    raw = b''
+    try:
+        # No inventory, log stream or other simctl observer while bootstatus runs.
+        completed = subprocess.run(['xcrun', 'simctl', 'bootstatus', identifier, '-b'],
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=360)
+        result, raw = completed.returncode, completed.stdout
+    except subprocess.TimeoutExpired as error:
+        raw = error.stdout or b''
+        evidence['bootstatus_timed_out'] = True
+    finally:
+        evidence['bootstatus_exit'] = result
+        evidence['bootstatus_elapsed_seconds'] = round(time.monotonic() - started, 3)
+        evidence['bootstatus_signals'] = re.findall(
+            r'Status=(\d+), isTerminal=(YES|NO), Elapsed=(\d+:\d+(?::\d+)?)',
+            raw[:131072].decode(errors='replace'))[:400]
+        save()
+    state, errors = independent_state(identifier)
+    evidence.update(post_watch_state=state, post_watch_inventory_timeouts=errors)
+    save()
+    policy.require(result == 0 and state == 'Booted', 'Observer and inventory did not both establish readiness')
+
+
+def cleanup(verify_only):
+    name = 'absence-status.json' if verify_only else 'cleanup-status.json'
+    evidence = dict(policy.identity(), status='started', phase='ownership')
+    try:
+        identifier, record = owned_simulator()
+        evidence['simulator_id'] = identifier
+        before = inventory()
+        present = any(d['udid'] == identifier for _, d in policy.all_devices(before))
+        if present:
+            evidence['initial_state'] = policy.exact_device(before, identifier)['state']
+            if not verify_only:
+                evidence['phase'] = 'shutdown'
+                if evidence['initial_state'] != 'Shutdown':
+                    try:
+                        subprocess.run(['xcrun', 'simctl', 'shutdown', identifier], check=True, timeout=45)
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+                        evidence['shutdown_error_type'] = type(error).__name__
+                evidence['phase'] = 'pre-delete-read'
+                after_shutdown = inventory()
+                still_present = any(d['udid'] == identifier for _, d in policy.all_devices(after_shutdown))
+                if still_present:
+                    policy.require(policy.exact_device(after_shutdown, identifier)['state'] == 'Shutdown',
+                                   'Owned shutdown was not verified; refuse to delete')
+                    evidence['phase'] = 'delete'
+                    subprocess.run(['xcrun', 'simctl', 'delete', identifier], check=True, timeout=25)
+        evidence['phase'] = 'final-inventory'
+        final = before if verify_only else inventory()
+        ids = {policy.valid_uuid(d['udid']) for _, d in policy.all_devices(final)}
+        evidence['owned_absent'] = identifier not in ids
+        evidence['baseline_matches'] = ids == set(record['preexisting_ids'])
+        policy.require(evidence['owned_absent'] and evidence['baseline_matches'], 'Owned absence or baseline verification failed')
+        evidence['status'] = 'absent-verified'
+        return 0
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        evidence.update(status='unverified', error_type=type(error).__name__)
+        print(f'Owned simulator cleanup/readback failed: {error}', file=sys.stderr)
+        return 1
+    finally:
+        policy.write(BUILD / name, evidence)
+
+
 def run():
-    simulator = os.environ['SIMULATOR_ID']
-    ownership = json.loads((BUILD / 'simulator.json').read_text())
-    if (ownership.get('simulator_id') != simulator or ownership.get('ownership') != 'created'
-            or not ownership.get('readback_verified')):
-        raise ValueError('Simulator is not an owned, verified device')
+    EVIDENCE.mkdir(parents=True, exist_ok=False)
+    readiness = dict(identity=policy.identity(), status='starting', bootstatus_timed_out=False)
+    save = lambda: policy.write(EVIDENCE / 'readiness.json', readiness)
+    save()
+    simulator, ownership = owned_simulator()
+    policy.require(simulator == os.environ['SIMULATOR_ID'] and ownership.get('readback_verified') is True,
+                   'Destination is not a newly owned verified simulator')
+    state, errors = independent_state(simulator)
+    readiness.update(simulator=simulator, initial_state=state, initial_inventory_timeouts=errors)
+    save()
+    policy.require(state == 'Shutdown', 'Build-first requires a fresh owned Shutdown simulator')
     destination = f'platform=iOS Simulator,id={simulator},arch=arm64'
     derived = BUILD / 'TraceDerivedData'
     traced_run = BUILD / 'Trace.xcresult'
-    subprocess.run(['xcrun', 'simctl', 'boot', simulator], check=True, timeout=60)
-    subprocess.run(['xcrun', 'simctl', 'bootstatus', simulator, '-b'], check=True, timeout=180)
+    readiness['status'] = 'building-first'
+    build_started = time.monotonic()
+    save()
     subprocess.run(['xcodebuild', 'build-for-testing', '-project', 'DailyWhiskers.xcodeproj',
                     '-scheme', 'DailyWhiskersInteraction', '-configuration', 'Debug',
                     '-destination', destination, '-derivedDataPath', str(derived),
@@ -47,6 +153,8 @@ def run():
                     '-onlyUsePackageVersionsFromResolvedFile', '-disableAutomaticPackageResolution',
                     'CODE_SIGNING_ALLOWED=NO', 'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING',
                     '-parallel-testing-enabled', 'NO'], check=True)
+    readiness.update(status='build-succeeded', build_elapsed_seconds=round(time.monotonic() - build_started, 3))
+    save()
     lock = Path('DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved')
     if lock.read_bytes() != (Path(os.environ['RUNNER_TEMP']) / 'Package.resolved.expected').read_bytes():
         raise ValueError('Dependency lock changed during build')
@@ -69,11 +177,20 @@ def run():
            '-parallel-testing-enabled', 'NO', '-test-timeouts-enabled', 'YES',
            '-default-test-execution-time-allowance', '720', '-maximum-test-execution-time-allowance', '720',
            '-resultBundlePath', str(traced_run), f'-only-testing:{SELECTOR}']
+    readiness['status'] = 'observing-readiness-after-build'
+    save()
+    try:
+        boot_after_build(simulator, readiness, save)
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        readiness.update(status='not-ready-or-inconclusive', error_type=type(error).__name__)
+        save()
+        raise
+    readiness['status'] = 'observer-and-inventory-ready'
+    save()
     receipt = dict(selector=SELECTOR, collector_ready=False, attempted=False, exit_code=None,
                    simulator=simulator, source_sha=os.environ['SOURCE_SHA'],
                    tested_sha=os.environ['TESTED_SHA'], run_id=os.environ['GITHUB_RUN_ID'],
                    run_attempt=os.environ['GITHUB_RUN_ATTEMPT'])
-    EVIDENCE.mkdir(parents=True, exist_ok=False)
 
     def save():
         (EVIDENCE / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
@@ -219,4 +336,9 @@ def run():
 
 
 if __name__ == '__main__':
-    sys.exit(run())
+    args = sys.argv[1:]
+    if not args:
+        sys.exit(run())
+    if args in (['cleanup'], ['verify-absence']):
+        sys.exit(cleanup(args == ['verify-absence']))
+    sys.exit(2)
