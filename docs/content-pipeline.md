@@ -13,7 +13,7 @@ Only the app icon belongs in `Assets.xcassets`; do not add duplicate card images
 
 Keep `imageName` and the original PNG filename consistent. Replace existing
 artwork with the exact accepted file; do not recompress it or rename the collection
-by order. For a new card, add its manifest entry and original PNG, then run
+by order. For a new ordinary card, add its manifest entry and original PNG, then run
 bundled-content and retained-artwork integrity tests. Verify source and built-app
 checksums after a clean build. `BundledCardArtwork` is the shared loader for
 validation, display, previews and sharing. Saved versions retain their own bytes.
@@ -33,3 +33,12 @@ iPad and large text sizes before approving replacements.
 Keep maintenance notes in docs, not bundled Resources. Original sequential-import
 mapping is recoverable through [documentation history](README.md#historical-recovery).
 See [app setup/tests](../DailyWhiskers/README.md) and the [release checklist](release-checklist.md).
+
+Shadow Lord is a Bonus-only exception: `ShadowLordCard` owns its stable ID, quote,
+original-file checksum and `shadow-lord-original.png` resource. Keep it out of
+`daily_whiskers_content.json`; inserting it there would change Today selection.
+Its approved original checksum is
+`25f562eedfa5410fa481160051ac4924eab9d688aec68a4c996e8dff30184c91`.
+Content changes require a new retained content revision through `CardSnapshot`;
+never rewrite old saved/revealed versions. The surrounding screen effect is not
+part of artwork bytes or snapshot identity.

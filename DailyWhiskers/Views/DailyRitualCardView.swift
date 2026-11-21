@@ -108,7 +108,7 @@ struct DailyRitualCardView: View {
 
     var body: some View {
         ZStack {
-            CosmicBackground(theme: theme, reduceMotion: isStill, hideSparkles: isStill)
+            CosmicBackground(theme: theme, reduceMotion: isStill, hideSparkles: isStill || data.archetype == ShadowLordCard.card.archetype)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -150,9 +150,12 @@ struct AdaptiveRitualCardPresentation: View {
     var containerSize: CGSize? = nil
     var accessibilityPrefix = "card"
 
+    private var wispContainerWidth: CGFloat { (containerSize ?? viewport).width }
+
     private var stacked: some View {
         RitualCardPresentation(data: data, artwork: artwork, compact: compact,
                                tightQuotePanel: tightQuotePanel, accessibilityPrefix: accessibilityPrefix)
+            .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: wispContainerWidth) } }
             .frame(width: min(viewport.width, 520)).fixedSize(horizontal: false, vertical: true)
     }
 
@@ -167,6 +170,7 @@ struct AdaptiveRitualCardPresentation: View {
                                            artworkColumnWidth: columns.artworkWidth,
                                            quoteColumnWidth: columns.quoteWidth,
                                            accessibilityPrefix: accessibilityPrefix)
+                        .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: wispContainerWidth) } }
                         .fixedSize()
                 }
                 // No fitting candidate: let the outer ScrollView expose all content.

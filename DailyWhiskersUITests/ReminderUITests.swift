@@ -29,10 +29,10 @@ final class ReminderUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [wait], timeout: 15), .completed)
     }
     private func tapToggle(_ control: XCUIElement) {
-        // SwiftUI exposes a labeled row and its native switch. Tap the switch,
+        // SwiftUI exposes a labeled row and its native switch. Press the switch,
         // not the noninteractive center of the label's full-width frame.
         let native = control.switches.firstMatch
-        XCTAssertTrue(native.exists); native.tap()
+        XCTAssertTrue(native.exists); native.press(forDuration: 0.15)
     }
     private func reveal(_ control: XCUIElement) {
         for _ in 0..<6 { if control.isHittable { return }; app.swipeUp() }
