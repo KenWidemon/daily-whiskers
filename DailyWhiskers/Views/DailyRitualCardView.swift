@@ -122,8 +122,8 @@ struct DailyRitualCardView: View {
                 let viewport = CGSize(width: availableWidth, height: max(0, geometry.size.height - padding * 2))
                 ScrollView {
                     AdaptiveRitualCardPresentation(data: data, artwork: artwork, viewport: viewport,
-                                                   containerWidth: geometry.size.width,
                                                    compact: compact, tightQuotePanel: roomy,
+                                                   containerSize: geometry.size,
                                                    accessibilityPrefix: accessibilityPrefix)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("\(accessibilityPrefix)-frame")
@@ -138,22 +138,24 @@ struct DailyRitualCardView: View {
     }
 }
 
-/// Content-driven selection: a natural-height stack, then full-size columns when
-/// readable, then a natural-height scrolling stack. No device or orientation rule.
+/// Tall windows retain the iPad-style stack. Wide windows may use height-aware
+/// columns when readable; otherwise the natural-height stack scrolls.
 struct AdaptiveRitualCardPresentation: View {
     @Environment(\.dynamicTypeSize) private var textSize
     let data: DailyCardData
     let artwork: UIImage?
     let viewport: CGSize
-    let containerWidth: CGFloat
     var compact: Bool
     var tightQuotePanel: Bool
+    var containerSize: CGSize? = nil
     var accessibilityPrefix = "card"
+
+    private var wispContainerWidth: CGFloat { (containerSize ?? viewport).width }
 
     private var stacked: some View {
         RitualCardPresentation(data: data, artwork: artwork, compact: compact,
                                tightQuotePanel: tightQuotePanel, accessibilityPrefix: accessibilityPrefix)
-            .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: containerWidth) } }
+            .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: wispContainerWidth) } }
             .frame(width: min(viewport.width, 520)).fixedSize(horizontal: false, vertical: true)
     }
 
@@ -161,18 +163,39 @@ struct AdaptiveRitualCardPresentation: View {
         CardViewportProposal(size: viewport) {
             ViewThatFits(in: .vertical) {
                 stacked
-                if !textSize.isAccessibilitySize && viewport.width >= 840 {
+                if let columns = CardColumnSizing(viewport: viewport, containerSize: containerSize,
+                                                  artwork: artwork, textSize: textSize) {
                     RitualCardPresentation(data: data, artwork: artwork, compact: false,
                                            tightQuotePanel: true, sideBySide: true,
-                                           quoteColumnWidth: min(440, viewport.width - 520),
+                                           artworkColumnWidth: columns.artworkWidth,
+                                           quoteColumnWidth: columns.quoteWidth,
                                            accessibilityPrefix: accessibilityPrefix)
-                        .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: containerWidth) } }
+                        .overlay { if data.archetype == ShadowLordCard.card.archetype { ShadowWispsView(containerWidth: wispContainerWidth) } }
                         .fixedSize()
                 }
                 // No fitting candidate: let the outer ScrollView expose all content.
                 stacked
             }
         }
+    }
+}
+
+/// A column candidate must leave both a useful uncropped image and readable text.
+/// Text is still measured by ViewThatFits; these bounds never force it to fit.
+struct CardColumnSizing {
+    let artworkWidth: CGFloat
+    let quoteWidth: CGFloat
+
+    init?(viewport: CGSize, containerSize: CGSize? = nil, artwork: UIImage?, textSize: DynamicTypeSize) {
+        // Use the actual container before card padding; insets must not turn a
+        // nearly square portrait window into a landscape presentation.
+        let container = containerSize ?? viewport
+        guard container.width > container.height, !textSize.isAccessibilitySize else { return nil }
+        let aspect = max(artwork.map { $0.size.width / $0.size.height } ?? 2 / 3, 0.01)
+        let width = min(520, viewport.height * aspect, viewport.width - 320)
+        guard width >= 300 else { return nil }
+        artworkWidth = width
+        quoteWidth = min(440, viewport.width - width)
     }
 }
 
@@ -186,6 +209,7 @@ struct RitualCardPresentation: View {
     // Screen-only variants; export defaults remain unchanged.
     var tightQuotePanel = false
     var sideBySide = false
+    var artworkColumnWidth: CGFloat = 520
     var quoteColumnWidth: CGFloat = 440
     var accessibilityPrefix = "card"
     private var theme: ArchetypeTheme { .forArchetype(data.archetype) }
@@ -194,7 +218,7 @@ struct RitualCardPresentation: View {
         RitualCard(theme: theme) {
             if sideBySide {
                 HStack(spacing: 0) {
-                    artworkContent.frame(width: 520, height: 520 / artworkAspectRatio)
+                    artworkContent.frame(width: artworkColumnWidth, height: artworkColumnWidth / artworkAspectRatio)
                     quotePanel.frame(width: quoteColumnWidth)
                 }
                 .fixedSize(horizontal: true, vertical: true)
