@@ -1,5 +1,8 @@
 import SwiftUI
 import UIKit
+#if DEBUG && CI_SMOKE_TESTING
+import OSLog
+#endif
 
 /// Use native bar items, rather than SwiftUI-hosted labels, so UIKit owns the
 /// expanded navigation-bar hit region. This controller adds no visible content.
@@ -47,6 +50,12 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
         private let settingsItem = UIBarButtonItem()
         private weak var owner: UIViewController?
         private var updateScheduled = false
+#if DEBUG && CI_SMOKE_TESTING
+        private static let savedMenuTraceEnabled = ProcessInfo.processInfo.arguments.contains("--ci-smoke-saved-menu-trace")
+        private static let savedMenuTrace = Logger(subsystem: "com.example.kenwidemon.dailywhiskers", category: "saved-menu-trace")
+        private var savedMenuTraceStarted = false
+        private var savedMenuTraceAwaitingRestoration = false
+#endif
         private var anchor: DailyCardShareAnchor { view as! DailyCardShareAnchor }
 
         override func loadView() {
@@ -108,10 +117,41 @@ struct CardNavigationToolbar: UIViewControllerRepresentable {
                 owner.navigationItem.rightBarButtonItems = items
             }
             anchor.barButtonItem = optionsItem
+#if DEBUG && CI_SMOKE_TESTING
+            if Self.savedMenuTraceEnabled, configuration.options.identifier == "saved-card-options" {
+                if !savedMenuTraceStarted {
+                    savedMenuTraceStarted = true
+                    Self.savedMenuTrace.notice("saved-menu/probe-enabled")
+                }
+                let completeShare = configuration.onShareComplete
+                anchor.update(export: configuration.export) { [weak self] failed in
+                    self?.savedMenuTraceAwaitingRestoration = true
+                    Self.savedMenuTrace.notice("saved-menu/share-anchor-complete")
+                    completeShare(failed)
+                }
+                if savedMenuTraceAwaitingRestoration, configuration.export == nil, configuration.options.enabled {
+                    savedMenuTraceAwaitingRestoration = false
+                    let presenterClear = (anchor.window?.rootViewController).map { $0.presentedViewController == nil } ?? false
+                    if presenterClear {
+                        Self.savedMenuTrace.notice("saved-menu/enabled-item-applied-after-share/presenter-clear")
+                    } else {
+                        Self.savedMenuTrace.notice("saved-menu/enabled-item-applied-after-share/presenter-not-clear-or-unavailable")
+                    }
+                }
+            } else {
+                anchor.update(export: configuration.export, onComplete: configuration.onShareComplete)
+            }
+#else
             anchor.update(export: configuration.export, onComplete: configuration.onShareComplete)
+#endif
             if configuration.export == nil, owner.presentedViewController == nil {
                 if configuration.optionsFocused {
                     UIAccessibility.post(notification: .layoutChanged, argument: optionsItem)
+#if DEBUG && CI_SMOKE_TESTING
+                    if Self.savedMenuTraceEnabled, configuration.options.identifier == "saved-card-options" {
+                        Self.savedMenuTrace.notice("saved-menu/options-focus-layout-posted")
+                    }
+#endif
                     configuration.optionsFocused = false
                 } else if configuration.settingsFocused {
                     UIAccessibility.post(notification: .layoutChanged, argument: settingsItem)

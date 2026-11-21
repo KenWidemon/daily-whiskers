@@ -8,6 +8,9 @@ final class SavedCardsTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        if ProcessInfo.processInfo.environment["DW_SAVED_MENU_TRACE"] == "1" {
+            app.launchArguments.append("--ci-smoke-saved-menu-trace")
+        }
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
         clear()
