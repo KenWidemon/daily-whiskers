@@ -798,7 +798,7 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout is 60 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
+The app regression job has a 90-minute budget; smaller jobs have their own explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
 with 30-day retention. This gives investigation and acceptance reviews more time
