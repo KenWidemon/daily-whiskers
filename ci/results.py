@@ -106,7 +106,7 @@ def render(directory):
             lines.append(f"Observed {stage} destination: " + safe(" / ".join(str(details.get(k, "unknown")) for k in
                          ("deviceName", "osVersion", "architecture", "deviceId"))))
     artifact = os.getenv("ARTIFACT_URL")
-    lines += ["", f"[Logs and result bundles]({artifact}) (7-day retention)." if artifact else
+    lines += ["", f"[Logs and result bundles]({artifact}) (30-day configured retention; verify the artifact expiry in GitHub)." if artifact else
               "Artifact link unavailable; upload may have failed, been cancelled, or produced no files.",
               "Failed/incomplete stages require inspection of their logs and result bundle; missing evidence is never a pass. "
               "No live authentication, signed archive, distribution, VoiceOver, or physical-device acceptance is established."]
