@@ -30,6 +30,26 @@ main -- released-baseline sync PRs --> release/rc and codex/develop (when needed
 Creating RC from `main` establishes its stable baseline. It does not mean a new
 feature is developed on `main`, nor does it make the initial RC an accepted build.
 
+## Task Branch Namespaces
+
+Distinct task namespaces such as `cursor/<task>` are allowed alongside
+`codex/<task>`. A development task branches from updated `codex/develop` and
+opens its PR back to that trunk. An RC fix, such as `cursor/rc-<fix>`, branches
+from `release/rc`, targets RC, and follows the same fix propagation rules below.
+Reserve `main`, `codex/develop`, and `release/rc` for their documented long-lived
+roles.
+
+The namespace does not change CI, review, owner approval, or branch protection
+requirements, and does not grant an agent permission to run tests, change code,
+merge, release, or alter access. Those actions still require the applicable
+authorization.
+
+The ordinary iOS workflow filters PRs by their **target** branch, not the source
+branch prefix. A `cursor/<task>` PR targeting `codex/develop` receives the same
+CI classification and gate as a `codex/<task>` PR. A push to either task branch
+alone does not trigger that workflow. Keep separately scoped release-rehearsal
+and diagnostic branch guards intact; a task namespace is not a guard bypass.
+
 ## Promotion and Freeze
 
 1. Merge approved task PRs into `codex/develop`. Ken approves the release scope
