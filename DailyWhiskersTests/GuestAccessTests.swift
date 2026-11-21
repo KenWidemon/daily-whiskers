@@ -41,4 +41,18 @@ struct GuestAccessTests {
         #expect(!SettingsSheet.deletion.shouldDismiss(from: original, to: original))
         #expect(!SettingsSheet.signIn.shouldDismiss(from: .signedOut, to: .signedOut))
     }
+
+    @Test("Device settings remain available across account transitions")
+    func deviceSettings() {
+        let states: [AppRouter.AuthState] = [.loading, .signedOut, .signedIn(uid: "unit-test")]
+        for sheet in [SettingsSheet.reminder, .stillness] {
+            for previous in states {
+                for current in states {
+                    #expect(sheet.isAvailable(for: current))
+                    #expect(!sheet.shouldDismiss(from: previous, to: current))
+                }
+            }
+        }
+    }
+
 }

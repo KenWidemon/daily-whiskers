@@ -23,6 +23,7 @@ case "${1:?Specify resolve, unit, ui or release}" in
       -only-testing:DailyWhiskersUITests/SavedCardsTests \
       -only-testing:DailyWhiskersUITests/StillnessModeTests \
       -only-testing:DailyWhiskersUITests/SavedCardsLoadStateTests \
+      -only-testing:DailyWhiskersUITests/ReminderUITests \
       -destination "platform=iOS Simulator,id=$SIMULATOR_ID,arch=arm64" \
       -derivedDataPath build/SmokeDerivedData -resultBundlePath build/SmokeResults.xcresult \
       -parallel-testing-enabled NO

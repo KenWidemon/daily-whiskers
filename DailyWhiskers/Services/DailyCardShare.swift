@@ -141,6 +141,7 @@ final class DailyCardShareState: ObservableObject {
     @Published var hasError = false
     private(set) var snapshot: DailyCardShareSnapshot?
     private var activityFailed = false
+    private var presentationGeneration = 0
     private let render: @MainActor (DailyCardShareSnapshot) throws -> DailyCardShareExport
 
     init(render: (@MainActor (DailyCardShareSnapshot) throws -> DailyCardShareExport)? = nil) {
@@ -168,11 +169,13 @@ final class DailyCardShareState: ObservableObject {
 
     private func prepare() async {
         guard let snapshot else { return }
+        let generation = presentationGeneration
         isRendering = true
         hasError = false
         // Give SwiftUI an opportunity to announce progress before synchronous drawing.
         await Task.yield()
         defer { isRendering = false }
+        guard generation == presentationGeneration else { return }
         do {
 #if DEBUG && CI_SMOKE_TESTING
             try CISmokeMode.failShareIfRequested()
@@ -195,6 +198,7 @@ final class DailyCardShareState: ObservableObject {
     }
 
     func finish(failed: Bool = false) {
+        presentationGeneration += 1
         export = nil
         hasError = failed
         if !failed { snapshot = nil }
