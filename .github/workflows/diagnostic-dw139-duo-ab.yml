@@ -1,0 +1,164 @@
+name: Diagnostic - DW139 Duo matched pair
+
+on:
+  push:
+    branches: [codex/dw139-duo-matched-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dw139-duo-matched-20261121
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    name: Matched offline UI tests
+    runs-on: macos-26
+    timeout-minutes: 64
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Checkout pre-Duo hosted revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: 275d7196e5d00132aa1810529bc12832e654d232
+          path: before
+      - name: Checkout integrated hosted revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: e6ae2d559f57832acf3ff2185ead65deffdae60e
+          path: after
+      - name: Compare exact revisions on fresh simulators
+        timeout-minutes: 58
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$GITHUB_WORKSPACE/dw139-evidence"
+          mkdir -p "$evidence"
+          cat > "$RUNNER_TEMP/dw139-bounded.py" <<'PY'
+          import os, signal, subprocess, sys
+
+          seconds = int(sys.argv[1])
+          p = subprocess.Popen(sys.argv[2:], start_new_session=True)
+          def stop(signum, _frame):
+              try:
+                  os.killpg(p.pid, signal.SIGTERM)
+                  p.wait(timeout=20)
+              except subprocess.TimeoutExpired:
+                  os.killpg(p.pid, signal.SIGKILL)
+                  p.wait()
+              except ProcessLookupError:
+                  pass
+              sys.exit(124 if signum == signal.SIGALRM else 128+signum)
+          for sig in (signal.SIGALRM, signal.SIGINT, signal.SIGTERM):
+              signal.signal(sig, stop)
+          signal.alarm(seconds)
+          sys.exit(p.wait())
+          PY
+
+          cat > "$RUNNER_TEMP/dw139-arm.sh" <<'SH'
+          set -euo pipefail
+          arm="$1"; sha="$2"; tree="$3"
+          export GITHUB_WORKSPACE="$GITHUB_WORKSPACE/$arm"
+          cd "$GITHUB_WORKSPACE"
+          out="$4/$arm"
+          export RUNNER_TEMP="$RUNNER_TEMP/dw139-$arm"
+          export GITHUB_ENV="$RUNNER_TEMP/canonical.env"
+          mkdir -p "$out" "$RUNNER_TEMP" build
+          printf 'arm=%s\ncommit=%s\ntree=%s\nimage=%s\n' "$arm" "$(git rev-parse HEAD)" "$(git rev-parse HEAD^{tree})" "${ImageVersion:-unknown}" | tee "$out/provenance.txt"
+          test "$(git rev-parse HEAD)" = "$sha"
+          test "$(git rev-parse HEAD^{tree})" = "$tree"
+          bounded="$(dirname "$RUNNER_TEMP")/dw139-bounded.py"
+          python3 "$bounded" 240 bash ci/prepare-app.sh >"$out/prepare.log" 2>&1
+          cp build/toolchain.txt "$out/toolchain.txt"
+          template="$(sed -n 's/^SIMULATOR_ID=//p' "$GITHUB_ENV")"
+          [[ "$template" =~ ^[0-9A-Fa-f-]{36}$ ]]
+          runtime="$(python3 "$bounded" 30 xcrun simctl list devices available --json | python3 -c 'import json,sys; matches=[k for k,ds in json.load(sys.stdin)["devices"].items() if any(d["udid"]==sys.argv[1] for d in ds)]; assert len(matches)==1; print(matches[0])' "$template")"
+          own=""
+          cleanup() {
+            if [[ -n "$own" ]]; then
+              python3 "$bounded" 30 xcrun simctl shutdown "$own" >>"$out/cleanup.log" 2>&1 || true
+              python3 "$bounded" 30 xcrun simctl delete "$own" >>"$out/cleanup.log" 2>&1
+              python3 "$bounded" 20 xcrun simctl list devices --json > "$RUNNER_TEMP/devices-after.json"
+              python3 -c 'import json,sys; assert not any(d["udid"]==sys.argv[1] for ds in json.load(open(sys.argv[2]))["devices"].values() for d in ds)' "$own" "$RUNNER_TEMP/devices-after.json"
+              echo 'Dedicated simulator removed' >>"$out/cleanup.log"
+              own=""
+            fi
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          python3 "$bounded" 240 bash ci/test-app.sh resolve >"$out/resolve.log" 2>&1
+          touch "$out/simulator-create-attempted"
+          own="$(python3 "$bounded" 30 xcrun simctl create "DW139 ${arm} ${GITHUB_RUN_ID}" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro "$runtime")"
+          [[ "$own" =~ ^[0-9A-Fa-f-]{36}$ ]]
+          printf 'device=%s\nruntime=%s\n' "$own" "$runtime" >>"$out/provenance.txt"
+          rc=0
+          python3 "$bounded" 900 xcodebuild test \
+            -project DailyWhiskers.xcodeproj -scheme DailyWhiskersInteraction -configuration Debug \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/build/SourcePackages" \
+            -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO \
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
+            -only-testing:DailyWhiskersUITests/MischievousCardsTests/testNativeMotionStillnessAndActualSystemReduceMotion \
+            -only-testing:DailyWhiskersUITests/ReminderUITests/testReminderDismissesSavedDetailSystemShareWithoutDeletingCard \
+            -destination "platform=iOS Simulator,id=$own,arch=arm64" \
+            -derivedDataPath "$GITHUB_WORKSPACE/build/SmokeDerivedData" \
+            -resultBundlePath "$out/Results.xcresult" -parallel-testing-enabled NO > "$out/XCTest.log" 2>&1 || rc=$?
+          printf '%s\n' "$rc" > "$out/xcodebuild-exit.txt"
+          if [[ -d "$out/Results.xcresult" ]]; then
+            python3 "$bounded" 40 xcrun xcresulttool get test-results summary --path "$out/Results.xcresult" > "$out/Summary.json"
+          fi
+          grep -E 'Test Case .* (started|passed|failed)|swift:[0-9]+: error' "$out/XCTest.log" | tail -16 || true
+          cmp DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved "$RUNNER_TEMP/Package.resolved.expected"
+          cleanup
+          test -s "$out/Summary.json"
+          python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); assert s["totalTestCount"]==2 and s["skippedTests"]==0 and s["expectedFailures"]==0 and s["passedTests"]+s["failedTests"]==2' "$out/Summary.json"
+          python3 - "$out/Summary.json" "$out/XCTest.log" "$out/provenance.txt" <<'PY'
+          import json, re, sys
+          summary = json.load(open(sys.argv[1]))
+          observed = summary['devicesAndConfigurations']
+          assert len(observed) == 1
+          device = observed[0]['device']
+          assert device['modelName'] == 'iPhone 17 Pro' and device['osVersion'] == '26.4.1' and device['architecture'] == 'arm64', device
+          provenance = dict(line.rstrip('\n').split('=',1) for line in open(sys.argv[3]))
+          assert device['deviceId'].lower() == provenance['device'].lower(), device
+          completed = re.findall(r"Test Case '-\[DailyWhiskersUITests\.([^ ]+) ([^ ]+)\]' (?:passed|failed)", open(sys.argv[2]).read())
+          assert sorted(completed) == sorted([
+              ('MischievousCardsTests','testNativeMotionStillnessAndActualSystemReduceMotion'),
+              ('ReminderUITests','testReminderDismissesSavedDetailSystemShareWithoutDeletingCard'),
+          ]), completed
+          PY
+          if [[ "$rc" -eq 0 ]]; then
+            echo "complete-pass" > "$out/validated-status.txt"
+          elif [[ "$rc" -eq 65 ]] && grep -Eq 'Test Case .* failed' "$out/XCTest.log"; then
+            echo "complete-test-failure" > "$out/validated-status.txt"
+          else
+            echo "incomplete-process-exit-$rc" > "$out/validated-status.txt"
+          fi
+          test "$rc" -eq 0
+          SH
+
+          before=0
+          after=0
+          bash "$RUNNER_TEMP/dw139-arm.sh" before 275d7196e5d00132aa1810529bc12832e654d232 3494a32ad2df7dea206d64bcd278eca2215dbb10 "$evidence" || before=$?
+          if [[ -f "$evidence/before/simulator-create-attempted" ]] && ! grep -Fxq 'Dedicated simulator removed' "$evidence/before/cleanup.log"; then
+            echo "Baseline simulator cleanup unconfirmed; integrated arm not started" | tee -a "$GITHUB_STEP_SUMMARY" "$evidence/pair-status.txt"
+            exit 1
+          fi
+          bash "$RUNNER_TEMP/dw139-arm.sh" after e6ae2d559f57832acf3ff2185ead65deffdae60e a4c830fbf20089ac9b095acc44f59ff313861876 "$evidence" || after=$?
+          for arm in before after; do
+            status="$(cat "$evidence/$arm/validated-status.txt" 2>/dev/null || echo 'incomplete-or-unverified')"
+            printf '%s: %s\n' "$arm" "$status" | tee -a "$GITHUB_STEP_SUMMARY" "$evidence/pair-status.txt"
+          done
+          [[ "$before" -eq 0 && "$after" -eq 0 ]]
+      - name: Upload focused evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dw139-duo-matched-evidence
+          path: dw139-evidence/
+          retention-days: 30
+          if-no-files-found: warn
