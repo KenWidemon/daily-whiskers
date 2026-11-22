@@ -21,14 +21,7 @@ final class MischievousCardsTests: XCTestCase {
             XCUIDevice.shared.orientation = .portrait
         }
         capture("Final state")
-        if restoreReduceMotion {
-            let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
-            settings.activate()
-            settle()
-            let toggle = settings.switches["Reduce Motion"]
-            if toggle.waitForExistence(timeout: 5), toggle.value as? String == "1" { tapSystemSwitch(toggle) }
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "0"), object: toggle)], timeout: 5), .completed, "Restore actual system Reduce Motion Off")
-        }
+        if restoreReduceMotion { restoreSystemMotion() }
     }
     private func element(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
     private func capture(_ title: String) {
@@ -147,6 +140,40 @@ final class MischievousCardsTests: XCTestCase {
         if control.exists { control.tap() } else { row.tap() }
     }
 
+    private func locateSystemMotionSwitch() -> XCUIElement {
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.activate()
+        let toggle = settings.switches["Reduce Motion"]
+        if toggle.waitForExistence(timeout: 2) { return toggle }
+
+        if settings.navigationBars["Settings"].exists {
+            let accessibility = settings.buttons["com.apple.settings.accessibility"]
+            for _ in 0..<8 where !accessibility.isHittable { settings.swipeUp() }
+            XCTAssertTrue(accessibility.isHittable, "Accessibility must be reachable from Settings")
+            accessibility.tap()
+        }
+        XCTAssertTrue(settings.navigationBars["Accessibility"].waitForExistence(timeout: 5),
+                      "Expected the Accessibility page before opening Motion")
+        let motion = settings.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Motion")).firstMatch
+        XCTAssertTrue(motion.waitForExistence(timeout: 5))
+        motion.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        return toggle
+    }
+
+    private func restoreSystemMotion(expectingOn: Bool = false) {
+        let toggle = locateSystemMotionSwitch()
+        if expectingOn { XCTAssertEqual(toggle.value as? String, "1") }
+        if toggle.value as? String == "1" { tapSystemSwitch(toggle) }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "value == %@", "0"), object: toggle)], timeout: 5), .completed)
+        app.activate()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "label == %@", "System Reduce Motion: Off"),
+            object: app.staticTexts["ci-stillness-system"])], timeout: 10), .completed)
+        restoreReduceMotion = false
+    }
+
     private func settle(_ seconds: Double = 2) {
         let done = expectation(description: "Wait for native transitions")
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { done.fulfill() }
@@ -176,15 +203,7 @@ final class MischievousCardsTests: XCTestCase {
         openSetting("Stillness Mode"); setToggle("stillness-toggle", true); app.buttons["Done"].tap()
         assertMotion(false, "Stillness fixed wisps")
         openSetting("Stillness Mode"); setToggle("stillness-toggle", false); app.buttons["Done"].tap()
-        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
-        settings.launch()
-        let accessibility = settings.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Accessibility")).firstMatch
-        for _ in 0..<8 where !accessibility.isHittable { settings.swipeUp() }
-        XCTAssertTrue(accessibility.waitForExistence(timeout: 5)); accessibility.tap()
-        let motion = settings.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Motion")).firstMatch
-        XCTAssertTrue(motion.waitForExistence(timeout: 5)); motion.tap()
-        let toggle = settings.switches["Reduce Motion"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let toggle = locateSystemMotionSwitch()
         XCTAssertEqual(toggle.value as? String, "0")
         restoreReduceMotion = true
         tapSystemSwitch(toggle)
@@ -192,14 +211,7 @@ final class MischievousCardsTests: XCTestCase {
         app.activate()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "System Reduce Motion: On"), object: app.staticTexts["ci-stillness-system"])], timeout: 10), .completed)
         assertMotion(false, "Actual system Reduce Motion fixed wisps")
-        settings.activate()
-        settle()
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        XCTAssertEqual(toggle.value as? String, "1")
-        tapSystemSwitch(toggle)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "0"), object: toggle)], timeout: 5), .completed)
-        restoreReduceMotion = false
-        app.activate()
+        restoreSystemMotion(expectingOn: true)
         assertMotion(true, "Motion resumed after system setting")
     }
 
