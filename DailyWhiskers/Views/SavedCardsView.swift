@@ -174,7 +174,8 @@ struct SavedCardDetail: View {
                 // Never resolve saved content through the current manifest or an asset name.
                 DailyRitualCardView(
                     data: DailyCardData(archetype: card.snapshot.archetype, imageName: "",
-                                        quote: card.snapshot.quote, vibe: card.snapshot.vibe ?? ""),
+                                        quote: card.snapshot.quote, vibe: card.snapshot.vibe ?? "",
+                                        dedication: card.snapshot.dedication),
                     retainedArtwork: image,
                     accessibilityPrefix: "saved-card"
                 )

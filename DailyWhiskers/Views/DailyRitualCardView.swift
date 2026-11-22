@@ -5,6 +5,7 @@ struct DailyCardData {
     let imageName: String
     let quote: String
     let vibe: String
+    var dedication: String?
 }
 
 struct ArchetypeTheme {
@@ -248,6 +249,14 @@ struct RitualCardPresentation: View {
             QuoteBlock(text: data.quote, theme: theme, compact: compact,
                        tightSpacing: tightQuotePanel, prominent: sideBySide)
                 .accessibilityIdentifier("\(accessibilityPrefix)-quote")
+            if let dedication = data.dedication {
+                Text(verbatim: dedication)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.quote)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("\(accessibilityPrefix)-dedication")
+            }
             if !data.vibe.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 VibePill(text: data.vibe.uppercased(), theme: theme, compact: compact)
                     .accessibilityIdentifier("\(accessibilityPrefix)-vibe")

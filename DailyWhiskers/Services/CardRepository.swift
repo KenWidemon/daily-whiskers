@@ -23,6 +23,7 @@ struct FavoriteRecord: Identifiable, Sendable {
 actor CardRepository {
     static let shared: CardRepository = {
 #if DEBUG && CI_SMOKE_TESTING
+        if let url = CISmokeMode.bonusFixtureURL { return CardRepository(url: url) }
         if let url = CISmokeMode.mischiefFixtureURL { return CardRepository(url: url) }
         if let url = CISmokeMode.savedCardsFixtureURL { return CardRepository(url: url) }
 #endif

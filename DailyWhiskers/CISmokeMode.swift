@@ -19,6 +19,14 @@ enum CISmokeMode {
             .appendingPathComponent("cards.sqlite")
     }
 
+    // Each UI case exercises the real Bonus ledger in a disposable collection.
+    static var bonusFixtureURL: URL? {
+        guard isEnabled, let value = ProcessInfo.processInfo.environment["DW_BONUS_TEST_ID"],
+              let id = UUID(uuidString: value) else { return nil }
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("BonusFixtures/" + id.uuidString).appendingPathComponent("cards.sqlite")
+    }
+
     static var mischiefFixtureURL: URL? {
         guard isEnabled, ProcessInfo.processInfo.arguments.contains("--ci-smoke-mischief-fixture"),
               let value = ProcessInfo.processInfo.environment["DW_MISCHIEF_TEST_ID"],

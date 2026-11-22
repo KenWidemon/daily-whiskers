@@ -8,12 +8,14 @@ struct DailyCardShareSnapshot {
     let retainedArtwork: Data?
     let quote: String
     let vibe: String?
+    let dedication: String?
 
     init(card: DailyCard) {
         archetype = card.archetype
         retainedArtwork = try? BundledCardArtwork.bytes(for: card)
         imageName = card.imageName
         quote = card.quote
+        dedication = card.dedication
         vibe = card.vibe.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
     }
 
@@ -22,11 +24,12 @@ struct DailyCardShareSnapshot {
         imageName = ""
         retainedArtwork = retained.artwork
         quote = retained.snapshot.quote
+        dedication = retained.snapshot.dedication
         vibe = retained.snapshot.vibe.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
     }
 
     var companionText: String {
-        ["“\(quote)”", vibe.map { "Vibe: \($0)" }, "Daily Whiskers"]
+        ["“\(quote)”", dedication, vibe.map { "Vibe: \($0)" }, "Daily Whiskers"]
             .compactMap { $0 }.joined(separator: "\n\n")
     }
 }
@@ -80,7 +83,8 @@ struct DailyCardShareRenderer {
     }()
 
     static func render(_ snapshot: DailyCardShareSnapshot) throws -> DailyCardShareExport {
-        guard snapshot.quote.utf16.count <= 4000, (snapshot.vibe?.utf16.count ?? 0) <= 200 else {
+        guard snapshot.quote.utf16.count <= 4000, (snapshot.vibe?.utf16.count ?? 0) <= 200,
+              (snapshot.dedication?.utf16.count ?? 0) <= 200 else {
             throw DailyCardShareError.contentTooLarge
         }
         guard let bytes = snapshot.retainedArtwork, let artwork = UIImage(data: bytes) else {
@@ -90,7 +94,8 @@ struct DailyCardShareRenderer {
         let theme = ArchetypeTheme.forArchetype(snapshot.archetype)
         let content = VStack(spacing: 16) {
             RitualCardPresentation(data: DailyCardData(archetype: snapshot.archetype,
-                imageName: "", quote: snapshot.quote, vibe: snapshot.vibe ?? ""),
+                imageName: "", quote: snapshot.quote, vibe: snapshot.vibe ?? "",
+                dedication: snapshot.dedication),
                 artwork: artwork, compact: true)
             // Dedicated footer keeps the monochrome approved mark off artwork and text.
             Image(uiImage: logo).resizable().scaledToFit()

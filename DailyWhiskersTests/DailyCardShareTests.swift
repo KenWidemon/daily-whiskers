@@ -139,7 +139,7 @@ struct DailyCardShareTests {
         let url = try #require(Bundle.main.url(forResource: "daily_whiskers_content", withExtension: "json"))
         let manifest = try JSONDecoder().decode(DailyContentManifest.self, from: Data(contentsOf: url))
         #expect(!manifest.cards.isEmpty)
-        for card in manifest.cards + [DailyContentProvider.fallbackCard] {
+        for card in manifest.bonusCandidates + [DailyContentProvider.fallbackCard] {
             try autoreleasepool {
                 let snapshot = DailyCardShareSnapshot(card: card)
                 let export = try DailyCardShareRenderer.render(snapshot)

@@ -243,7 +243,8 @@ struct DailyWhiskersView: View {
         ZStack {
             if let bonusCard, let image = UIImage(data: bonusCard.artwork) {
                 DailyRitualCardView(data: DailyCardData(archetype: bonusCard.snapshot.archetype,
-                    imageName: "", quote: bonusCard.snapshot.quote, vibe: bonusCard.snapshot.vibe ?? ""),
+                    imageName: "", quote: bonusCard.snapshot.quote, vibe: bonusCard.snapshot.vibe ?? "",
+                    dedication: bonusCard.snapshot.dedication),
                     retainedArtwork: image, accessibilityPrefix: "bonus-card")
                     .accessibilityIdentifier("bonus-card")
             } else if let entry = contentState.currentCard {
