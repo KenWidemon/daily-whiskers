@@ -5,7 +5,8 @@
 The source of truth is each card's `imageName` in
 `DailyWhiskers/Resources/daily_whiskers_content.json`, not a photo's sequence number.
 Paths here are relative to the repository root. The current manifest contains
-31 cards; confirm the count from JSON after content edits.
+31 ordered Today cards in `cards` and five additional ordinary Bonus candidates in
+`bonusOnlyCards`. IDs must be distinct across both lists.
 
 File location pattern: `DailyWhiskers/CardOriginals/<imageName>.png`.
 XcodeGen copies this directory as a folder resource without processing its PNGs.
@@ -17,8 +18,10 @@ by order. For a new ordinary card, add its manifest entry and original PNG, then
 bundled-content and retained-artwork integrity tests. Verify source and built-app
 checksums after a clean build. `BundledCardArtwork` is the shared loader for
 validation, display, previews and sharing. Saved versions retain their own bytes.
-Reordering or changing the number of cards changes date selection
-(`YYYYMMDD % cards.count`).
+Today selects by `YYYYMMDD % cards.count`. Preserve the order and count of
+`cards` when adding Bonus-only content. The optional `dedication` is native text
+below the quote in Bonus, Saved detail and share exports. Keep the original
+artwork free of text and frames.
 
 Artwork is portrait PNG, currently 1024 x 1536. The ritual card uses a rounded,
 portrait frame that fits the full artwork above the quote panel; it is **not a

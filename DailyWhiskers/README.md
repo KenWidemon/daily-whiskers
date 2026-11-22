@@ -65,8 +65,9 @@ a date after travel or a clock change reopens its original bonus; crossing into 
 previously unused date permits that date's one bonus. This is a local calendar policy,
 not a rolling 24-hour allowance or a mechanism to prevent manual clock changes.
 
-New selections use the validated bundled pack and exclude Today's stable cat ID,
-exact quote and decoded artwork pixels. Candidates rank by a date-and-ID SHA-256
+New ordinary selections draw from the Today cards plus the manifest’s Bonus-only
+cards. They exclude Today's stable cat ID, exact quote and decoded artwork
+pixels. Candidates rank by a date-and-ID SHA-256
 hash, preferring those absent from the seven most recently issued bonus records
 (by issuance order, not date order). Quote and pixel comparisons prevent aliases
 from bypassing recent avoidance. If all valid alternatives are recent, a recent
@@ -181,7 +182,9 @@ Today, Bonus and saved detail reflow without changing the selected content or sa
 state. The export layout is independent of this
 viewport adjustment. Today and saved detail use the same card renderer, including
 the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
-artwork, quote, vibe and archetype directly. **Saved Card Options** contains
+artwork, quote, optional dedication, vibe and archetype directly. A dedication
+appears directly below the quote in Bonus, Saved detail and the share image, and
+follows the quote in the text companion. **Saved Card Options** contains
 **Share Saved Card**, the destructive **Remove from Saved Cards** action, and offers
 **Save Card** after removal while the detail stays open. Its title changes from
 **Saved Card** to **Card** after removal and returns on re-save; Share and options
@@ -215,7 +218,8 @@ and a fixed sRGB RGBA8 pixel digest including dimensions. It excludes occurrence
 date, image name, manifest order and styling. Existing single quotes use a stable
 `legacy:<cardID>` quote ID and exact-text checksum revision; explicit quote
 identities can be supplied later without changing old snapshots. Bonus selection uses these same retained snapshots; no independent quote rotation
-is introduced.
+is introduced. Snapshots with a dedication include its exact text in revision
+format 2. Cards without one retain their original format 1 identity.
 
 Original PNG bytes are stored once per checksum, verified on import/read and
 never re-resolved through a mutable asset name. The current display and save
@@ -262,8 +266,8 @@ The daily Options menu offers **Share Today's Card** (or **Share Bonus Card**)
 to guests and signed-in users.
 It captures the displayed immutable card when tapped, so a foreground/day change cannot
 replace an in-flight export. The system share sheet receives a freshly rendered
-image and a plain-text quote/vibe companion; the user chooses a destination and
-confirms sending. There is no account requirement, upload, tracking, or automatic
+image and a plain-text companion with the quote and any dedication or vibe. The user
+chooses a destination and confirms sending. There is no account requirement, upload, tracking, or automatic
 posting in the app's sharing path. UIKit presents from the card screen's window
 root, with the persistent Options control as the iPad popover anchor. Preview metadata uses only
 the local export and branding, without a URL or network preview lookup.
@@ -274,10 +278,10 @@ access when opening the share sheet. Destination availability and successful
 saving still require device acceptance; a purpose string alone is not proof.
 
 The portrait export reuses `RitualCardPresentation`, including the archetype frame,
-ordinary-phone serif quote treatment and Vibe pill. Its natural-height artwork and
-measured text are independent of scroll position, screen size and Dynamic Type.
+ordinary-phone serif quote treatment, optional dedication and optional Vibe pill. Its natural-height
+artwork and measured text are independent of scroll position, screen size and Dynamic Type.
 The app retains the user's requested text size and scrolling behavior; the export
-uses a stable `.large` typography baseline. Artwork bytes, archetype, quote and
+uses a stable `.large` typography baseline. Artwork bytes, archetype, quote, dedication and
 vibe are frozen before rendering, including retry after a failed share.
 
 The proposed export format (pending owner visual approval) is 1080 pixels wide,
@@ -296,8 +300,8 @@ additions must pass the sharing tests and visual review.
 The app holds one export in memory, creates no temporary share files, and releases
 its image reference when the sheet completes or is dismissed. UIKit/destination
 apps manage any copies they create. A new bitmap excludes source image metadata;
-only artwork, quote, vibe, and branding are exported, without account identifiers,
-internal card IDs, date/location metadata, or Settings controls. Rendering or
+the export contains artwork, quote, optional dedication and vibe, and branding.
+It excludes account identifiers, internal card IDs, date/location metadata and Settings controls. Rendering or
 activity errors offer retry; cancellation leaves the daily card usable.
 
 Before release, confirm that the bundled artwork and quotes permit redistribution

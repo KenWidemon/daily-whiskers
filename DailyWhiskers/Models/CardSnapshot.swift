@@ -12,6 +12,7 @@ struct CardSnapshot: Codable, Equatable, Identifiable, Sendable {
     let archetype: String
     let quote: String
     let vibe: String?
+    let dedication: String?
     let quoteID: String
     let quoteRevision: String
     let artworkChecksum: String
@@ -23,27 +24,31 @@ struct CardSnapshot: Codable, Equatable, Identifiable, Sendable {
         let quoteRevision = quoteRevision ?? ArtworkIdentity.checksum(Data(card.quote.utf8))
         let quoteID = quoteID ?? "legacy:" + card.id
         let revision = revision(cardID: card.id, archetype: card.archetype, quote: card.quote,
-                                vibe: card.vibe, quoteID: quoteID, quoteRevision: quoteRevision, pixels: pixels)
-        return RetainedCard(snapshot: CardSnapshot(schemaVersion: 1, cardID: card.id,
+                                vibe: card.vibe, dedication: card.dedication, quoteID: quoteID,
+                                quoteRevision: quoteRevision, pixels: pixels)
+        return RetainedCard(snapshot: CardSnapshot(schemaVersion: card.dedication == nil ? 1 : 2, cardID: card.id,
             contentRevision: revision, archetype: card.archetype, quote: card.quote, vibe: card.vibe,
-            quoteID: quoteID, quoteRevision: quoteRevision,
+            dedication: card.dedication, quoteID: quoteID, quoteRevision: quoteRevision,
             artworkChecksum: ArtworkIdentity.checksum(artwork), artworkPixelDigest: pixels), artwork: artwork)
     }
 
     func validate(artwork: Data) throws {
-        guard schemaVersion == 1, !cardID.isEmpty,
+        guard schemaVersion == (dedication == nil ? 1 : 2), !cardID.isEmpty,
               ArtworkIdentity.checksum(artwork) == artworkChecksum,
               try ArtworkIdentity.pixelDigest(artwork) == artworkPixelDigest,
               contentRevision == Self.revision(cardID: cardID, archetype: archetype, quote: quote,
-                vibe: vibe, quoteID: quoteID, quoteRevision: quoteRevision, pixels: artworkPixelDigest)
+                vibe: vibe, dedication: dedication, quoteID: quoteID, quoteRevision: quoteRevision, pixels: artworkPixelDigest)
         else { throw CardStorageError.unavailable }
     }
 
     // Versioned length-prefixed UTF-8 fields: nil differs from empty; no locale/JSON ordering.
     private static func revision(cardID: String, archetype: String, quote: String, vibe: String?,
-                                 quoteID: String, quoteRevision: String, pixels: String) -> String {
-        var bytes = Data("DWCardContent-v1\0".utf8)
-        for field in [cardID, archetype, quote, vibe, quoteID, quoteRevision, pixels] {
+                                 dedication: String?, quoteID: String, quoteRevision: String, pixels: String) -> String {
+        // Keep the original byte stream for previously captured cards.
+        var fields: [String?] = [cardID, archetype, quote, vibe, quoteID, quoteRevision, pixels]
+        if let dedication { fields.append(dedication) }
+        var bytes = Data((dedication == nil ? "DWCardContent-v1\0" : "DWCardContent-v2\0").utf8)
+        for field in fields {
             if let field {
                 let value = Data(field.utf8)
                 bytes.append(contentsOf: "\(value.count):".utf8)

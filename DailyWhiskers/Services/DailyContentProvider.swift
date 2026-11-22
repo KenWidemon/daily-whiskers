@@ -31,7 +31,18 @@ struct DailyContentProvider {
             : manifest
     }
 
-    var bonusCandidates: [DailyCard] { manifest.cards }
+    var bonusCandidates: [DailyCard] {
+#if DEBUG && CI_SMOKE_TESTING
+        if CISmokeMode.bonusFixtureURL != nil {
+            if let id = ProcessInfo.processInfo.environment["DW_BONUS_CARD_ID"] {
+                return manifest.bonusCandidates.filter { $0.id == id }
+            }
+            // The existing layout fixtures exercise cards with a Vibe pill.
+            return manifest.cards
+        }
+#endif
+        return manifest.bonusCandidates
+    }
 
     func contentForToday() -> DailyCard? {
         content(for: Date())
@@ -98,7 +109,11 @@ struct DailyContentProvider {
                 logger.error("No valid cards after manifest validation; using fallback card.")
                 return DailyContentManifest(cards: [fallbackCard])
             }
-            return DailyContentManifest(cards: validatedCards)
+            let reservedIDs = Set(validatedCards.map(\.id)).union([ShadowLordCard.card.id])
+            let bonusOnly = validateManifestCards(decoded.bonusOnlyCards ?? [], bundle: bundle,
+                                                  imageResolver: imageResolver)
+                .filter { !reservedIDs.contains($0.id) }
+            return DailyContentManifest(cards: validatedCards, bonusOnlyCards: bonusOnly)
         } catch {
             logger.error("Failed to decode daily_whiskers_content.json data: \(error.localizedDescription, privacy: .public). Using fallback card.")
             return DailyContentManifest(cards: [fallbackCard])
@@ -122,7 +137,8 @@ struct DailyContentProvider {
                 archetype: card.archetype.trimmingCharacters(in: .whitespacesAndNewlines),
                 imageName: card.imageName.trimmingCharacters(in: .whitespacesAndNewlines),
                 quote: card.quote.trimmingCharacters(in: .whitespacesAndNewlines),
-                vibe: card.vibe?.trimmingCharacters(in: .whitespacesAndNewlines)
+                vibe: card.vibe?.trimmingCharacters(in: .whitespacesAndNewlines),
+                dedication: card.dedication?.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             guard !normalizedCard.id.isEmpty else {
@@ -165,7 +181,8 @@ struct DailyContentProvider {
                     archetype: normalizedCard.archetype,
                     imageName: normalizedCard.imageName,
                     quote: normalizedCard.quote,
-                    vibe: vibe
+                    vibe: vibe,
+                    dedication: normalizedCard.dedication.flatMap { $0.isEmpty ? nil : $0 }
                 )
             )
         }

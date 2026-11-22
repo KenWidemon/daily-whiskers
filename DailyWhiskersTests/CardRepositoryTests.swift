@@ -27,6 +27,33 @@ struct CardRepositoryTests {
         #expect(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
     }
 
+    @Test func savedVersionOneWithoutDedicationRetainsItsIdentityAndExport() async throws {
+        let url = try location()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let original = try sample()
+        let id = "stable-cat:c0b86a71602eff1497e448e82faa65b2bec7db4e5a4e725170063c874871fd20"
+        #expect(original.snapshot.id == id)
+        let repo = CardRepository(url: url)
+        try await repo.save(original)
+        // Install the previous format independently of the current snapshot encoder.
+        let metadata = try JSONSerialization.data(withJSONObject: [
+            "schemaVersion": 1, "cardID": "stable-cat",
+            "contentRevision": "c0b86a71602eff1497e448e82faa65b2bec7db4e5a4e725170063c874871fd20",
+            "archetype": "cozy", "quote": "Original quote", "vibe": "Exact vibe",
+            "quoteID": "legacy:stable-cat", "quoteRevision": ArtworkIdentity.checksum(Data("Original quote".utf8)),
+            "artworkChecksum": ArtworkIdentity.checksum(original.artwork),
+            "artworkPixelDigest": "f736a58aa70f2ce52b3feec762d13eee5cea0cf16623664f0cfad07228cf0dbb"
+        ])
+        let hex = metadata.map { String(format: "%02x", $0) }.joined()
+        try sql(url, "UPDATE snapshot SET metadata=x'\(hex)' WHERE id='\(id)'")
+        let reopened = try await CardRepository(url: url).load(id)
+        #expect(reopened.snapshot.schemaVersion == 1)
+        #expect(reopened.snapshot.dedication == nil)
+        #expect(reopened.artwork == original.artwork)
+        let export = try DailyCardShareRenderer.render(DailyCardShareSnapshot(retained: reopened))
+        #expect(export.text == "“Original quote”\n\nVibe: Exact vibe\n\nDaily Whiskers")
+    }
+
     @Test func failedFirstReadStaysUnavailableAfterDismissalAndRetryPreservesExactStorage() async throws {
         let url = try location()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
@@ -552,7 +579,7 @@ struct CardRepositoryTests {
     @Test func bundledOriginalBytesAndDisplayedPixelsMatch() throws {
         let url = try #require(Bundle.main.url(forResource: "daily_whiskers_content", withExtension: "json"))
         let manifest = try JSONDecoder().decode(DailyContentManifest.self, from: Data(contentsOf: url))
-        for card in manifest.cards {
+        for card in manifest.bonusCandidates {
             try autoreleasepool {
                 let original = try BundledCardArtwork.bytes(for: card)
                 let displayed = try #require(BundledCardArtwork.image(named: card.imageName)?.cgImage)

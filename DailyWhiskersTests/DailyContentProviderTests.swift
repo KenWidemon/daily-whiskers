@@ -32,6 +32,27 @@ struct DailyContentProviderTests {
         #expect(manifest.cards[0].imageName == "celestial_constellation_watcher")
     }
 
+    @Test("Five Bonus additions preserve all 31 positions in the published Today rotation")
+    func publishedTodayRotation() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        let provider = DailyContentProvider(calendar: calendar)
+        let pool = provider.bonusCandidates
+        #expect(pool.count == 36)
+        #expect(Set(pool.map(\.id)).count == pool.count)
+        let todayCards = Array(pool.prefix(31))
+        let orderedIDs = todayCards.map(\.id).joined(separator: "\n")
+        #expect(ArtworkIdentity.checksum(Data(orderedIDs.utf8)) ==
+                "796883d05d1554994169e724dc3d9bc4f5da279134993bd3368e4124a73e9b18")
+        #expect(todayCards.allSatisfy { $0.dedication == nil })
+        for day in 1...31 {
+            let date = try #require(calendar.date(from: DateComponents(year: 2026, month: 1, day: day)))
+            #expect(provider.content(for: date) == todayCards[(20260100 + day) % 31])
+        }
+        #expect(!pool.contains { $0.id == ShadowLordCard.card.id })
+        #expect(ShadowLordCard.card.dedication == nil)
+    }
+
     @Test("Deterministic daily selection uses YYYYMMDD modulo count")
     func deterministicSelection() throws {
         var calendar = Calendar(identifier: .gregorian)
