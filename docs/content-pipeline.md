@@ -5,7 +5,8 @@
 The source of truth is each card's `imageName` in
 `DailyWhiskers/Resources/daily_whiskers_content.json`, not a photo's sequence number.
 Paths here are relative to the repository root. The current manifest contains
-31 cards; confirm the count from JSON after content edits.
+31 ordered Today cards in `cards` and five additional ordinary Bonus candidates in
+`bonusOnlyCards`. IDs must be distinct across both lists.
 
 File location pattern: `DailyWhiskers/CardOriginals/<imageName>.png`.
 XcodeGen copies this directory as a folder resource without processing its PNGs.
@@ -13,12 +14,14 @@ Only the app icon belongs in `Assets.xcassets`; do not add duplicate card images
 
 Keep `imageName` and the original PNG filename consistent. Replace existing
 artwork with the exact accepted file; do not recompress it or rename the collection
-by order. For a new card, add its manifest entry and original PNG, then run
+by order. For a new ordinary card, add its manifest entry and original PNG, then run
 bundled-content and retained-artwork integrity tests. Verify source and built-app
 checksums after a clean build. `BundledCardArtwork` is the shared loader for
 validation, display, previews and sharing. Saved versions retain their own bytes.
-Reordering or changing the number of cards changes date selection
-(`YYYYMMDD % cards.count`).
+Today selects by `YYYYMMDD % cards.count`. Preserve the order and count of
+`cards` when adding Bonus-only content. The optional `dedication` is native text
+below the quote in Bonus, Saved detail and share exports. Keep the original
+artwork free of text and frames.
 
 Artwork is portrait PNG, currently 1024 x 1536. The ritual card uses a rounded,
 portrait frame that fits the full artwork above the quote panel; it is **not a
@@ -33,3 +36,12 @@ iPad and large text sizes before approving replacements.
 Keep maintenance notes in docs, not bundled Resources. Original sequential-import
 mapping is recoverable through [documentation history](README.md#historical-recovery).
 See [app setup/tests](../DailyWhiskers/README.md) and the [release checklist](release-checklist.md).
+
+Shadow Lord is a Bonus-only exception: `ShadowLordCard` owns its stable ID, quote,
+original-file checksum and `shadow-lord-original.png` resource. Keep it out of
+`daily_whiskers_content.json`; inserting it there would change Today selection.
+Its approved original checksum is
+`25f562eedfa5410fa481160051ac4924eab9d688aec68a4c996e8dff30184c91`.
+Content changes require a new retained content revision through `CardSnapshot`;
+never rewrite old saved/revealed versions. The surrounding screen effect is not
+part of artwork bytes or snapshot identity.

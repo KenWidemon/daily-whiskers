@@ -97,7 +97,8 @@ struct DailyContentIntegrityTests {
         let decoded = try JSONDecoder().decode(DailyContentManifest.self, from: data)
         #expect(!decoded.cards.isEmpty)
         let validated = DailyContentProvider.manifest(from: data)
-        #expect(validated.cards.map(\.id) == decoded.cards.map(\.id))
+        #expect(validated.cards == decoded.cards)
+        #expect(validated.bonusOnlyCards == decoded.bonusOnlyCards)
         #expect(BundledCardArtwork.image(named: DailyContentProvider.fallbackCard.imageName) != nil)
     }
 }

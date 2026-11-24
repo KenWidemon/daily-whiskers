@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct DailyWhiskersApp: App {
+    @UIApplicationDelegateAdaptor(ReminderAppDelegate.self) private var reminderDelegate
     @StateObject private var router = AppRouter()
 
     init() {
@@ -14,9 +15,17 @@ struct DailyWhiskersApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            Group {
+#if DEBUG && CI_SMOKE_TESTING
+                if CISmokeMode.savedCardsFixtureURL != nil { SavedCardsLoadFixtureView() }
+                else { RootView() }
+#else
+                RootView()
+#endif
+            }
                 .environmentObject(router)
 #if DEBUG && CI_SMOKE_TESTING
+                .modifier(CISmokeStillnessFixture())
                 // Reserve space for the offline marker so it cannot cover collection actions.
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if CISmokeMode.isEnabled {

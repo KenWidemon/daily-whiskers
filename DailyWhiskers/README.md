@@ -30,6 +30,24 @@ testing guidance preserves scoped evidence and open risks, not separate roadmaps
   sign-in or account creation dismisses auth. Logout and deletion return to guest
   access without removing the daily card or automatically reopening sign-in.
 
+## Stillness Mode
+
+**Settings > Stillness Mode** opens a small, guest-accessible motion settings sheet.
+The native toggle defaults off and persists in local app preferences across launches
+and account transitions. No account or cloud sync is involved. The effective rule is
+**Stillness Mode OR system Reduce Motion**; switching the app setting off cannot
+override the system. Both preferences update already-open surfaces.
+
+Today, Bonus, saved-card detail and sign-in/registration use calm gradient backgrounds
+without decorative sparkles when stillness is effective. The auth glow becomes static.
+Those branches contain no animation timelines; essential loading feedback is retained.
+The animated branches still pause when the scene is inactive. The saved collection
+already uses a static background. Card content, layout, exports and contrast treatments
+are unchanged. This adds only a focused sheet to the existing Settings menu; it does
+not implement the separate Settings redesign or Daily Den.
+
+See [Stillness acceptance](../docs/testing.md#stillness-mode).
+
 ## Bonus Card
 
 The navigation bar's **Today** menu offers **Open Bonus Card**, an optional complete
@@ -47,8 +65,9 @@ a date after travel or a clock change reopens its original bonus; crossing into 
 previously unused date permits that date's one bonus. This is a local calendar policy,
 not a rolling 24-hour allowance or a mechanism to prevent manual clock changes.
 
-New selections use the validated bundled pack and exclude Today's stable cat ID,
-exact quote and decoded artwork pixels. Candidates rank by a date-and-ID SHA-256
+New ordinary selections draw from the Today cards plus the manifest’s Bonus-only
+cards. They exclude Today's stable cat ID, exact quote and decoded artwork
+pixels. Candidates rank by a date-and-ID SHA-256
 hash, preferring those absent from the seven most recently issued bonus records
 (by issuance order, not date order). Quote and pixel comparisons prevent aliases
 from bypassing recent avoidance. If all valid alternatives are recent, a recent
@@ -67,6 +86,47 @@ repository. A device backup may include it. Removing the app's data or restoring
 older backup can lose later date references; there is no server-side enforcement.
 See [bonus acceptance checks](../docs/testing.md#bonus-card).
 
+## Mischievous Cards
+
+**Settings > Mischievous Cards** is off by default and available to guests. When
+on, the first successful Bonus request on an eligible local day has a stable 10%
+chance of revealing Shadow Lord. Today stays unchanged. A SHA-256 draw keyed by a
+persisted installation seed and Gregorian local date uses rejection sampling into
+ten equally sized buckets; it is not a scheduled fortnightly appearance. At least
+14 full 24-hour periods must elapse between new reveals. Returning to an existing
+Bonus, saving, sharing and opting out never restart the cooldown or replace content.
+Enabling the setting after an ordinary Bonus was selected does not upgrade that day.
+
+SQLite schema 2 migrates the retained-card database without changing snapshot
+identity. Its singleton contains the opt-in, seed, latest evaluated local date,
+last reveal and conservative clock watermarks. Selection, exact artwork, day
+reference and history commit in the same immediate transaction. Setting changes
+use the same repository transaction boundary. Missing/corrupt policy fails closed
+for new selections/settings; intact retained cards remain readable and shareable.
+Clear Saved Cards and account changes do not reset this installation-owned state.
+Backups restore preference/history together; a reinstall without restoration starts
+Off. An older backup can lose later history; there is no server or cross-device check.
+
+Rollback freezes new reveals until the saved clock high-water value is reached;
+local dates no later than the latest evaluated day cannot earn a new rare draw.
+Timezone changes do not shorten elapsed cooldown. During a process lifetime, a
+continuous clock that includes sleep detects forward wall-clock skew over five
+minutes and persists a further 14-day hold. Only wall-clock watermarks persist;
+continuous-clock samples stay in memory. Correcting a mistakenly advanced clock
+can therefore delay eligibility until that future watermark/hold expires. Changes
+made while the app is absent cannot be verified, and this is not anti-tamper protection.
+
+Shadow Lord's original artwork and selected quote are a dedicated Bonus-only
+resource, outside the ordinary manifest. Revision-02 wisps decorate the shared
+screen presentation without changing its layout, controls or immutable content.
+Main billows cycle in roughly 8–14 seconds, with continuous motion and no opacity pulsing.
+Their outward reach contracts with the available side gutters on narrow views;
+ribbon thickness and vertical length remain unchanged. Roomy gutters retain the
+original placement, and the card plus its three-point border stays clear.
+Stillness, system Reduce Motion and inactive scenes use a fixed shadow composition.
+The ordinary share renderer exports the original artwork/quote without animation.
+See [Mischievous Cards acceptance](../docs/testing.md#mischievous-cards).
+
 ## Saved Cards
 
 Today, Bonus and saved-card details expose Share and Save/Remove in a native
@@ -79,27 +139,52 @@ button remains separate collection navigation; Today/Bonus switching and Setting
 remain separate controls. No extra Options menu is added to the collection list.
 Saved cards appear in a guest-accessible, newest-first
 collection labeled **On this device**, with uncropped artwork tiles on a centered,
-adaptive grid. On iPad at ordinary text sizes, each tile reserves three quote lines
-so neighboring tile edges align. Accessibility text sizes use one column and complete quote labels.
+adaptive grid. At ordinary text sizes, multi-column grids reserve three quote lines
+per tile so neighboring edges align; this follows available grid width, including
+opened iPhone Duo windows. Single-column tiles keep natural quote height.
+Accessibility text sizes use one column and complete quote labels.
 Reopen the full card, share its
 retained version, or deliberately remove it with the secondary destructive action.
 Saving an identical version again
 keeps its original position; different artwork or quote versions remain separate.
 Ordering uses a monotonic insertion sequence, independent of wall-clock changes.
 
+The collection distinguishes loading, a successful empty/populated read, and an
+unavailable read. Empty guidance appears only after a successful empty read.
+Dismissing a read-error alert leaves an in-place **Retry**; it only reads the
+collection again. A later failed refresh retains the last successful rows with an
+explicit previously-loaded status. Errors never reset or recreate unreadable
+storage. A successful save/remove/clear followed by failed readback retries the
+read, without replaying the committed write.
+
+Known limitation: Today/detail save-action labels and Clear eligibility still
+reflect the last successfully read rows. After a read failure they can be stale
+until recovery succeeds. This pre-existing behavior is not resolved by the
+collection loading/error presentation change.
+
 Compact portrait windows keep the phone quote typography and spacing. Artwork
 uses its natural aspect ratio at the available card width; text is never truncated
 or scaled down to force a fit. The visible window dimensions and measured content
-choose between a stacked card and a wide two-column card. When a stack is too tall
-and there is room for the full-size artwork plus a readable quote panel, artwork
-stays on the left with the full quote and Vibe on the right. Narrow or short windows,
-unusually long content and accessibility text use stacked scrolling instead of
-shrinking artwork. Larger stacked presentations retain the tighter quote spacing.
+choose between a stacked card and a wide two-column card. Tall and square windows
+keep the iPad-style stacked artwork and quote, scrolling when needed. Only a wider-than-tall
+container can consider columns; this uses the current safe container geometry before
+card padding, not device idiom or sensor orientation. When a stack is too tall
+in a wide container and both columns fit, artwork stays on the left with the full quote and Vibe on the
+right. Artwork scales uniformly from both available width and height, up to the
+existing 520-point iPad width. Columns require at least 300 points of artwork and
+320 points of quote-panel width; the full text must still fit the visible height.
+These are minimum useful content sizes within a wide container, not device-specific thresholds.
+Narrow or short windows, unusually long content and accessibility text use natural
+stacked scrolling. Text is never reduced and artwork is never cropped to force
+columns. Existing iPad layouts retain their artwork size where it fits. Larger
+stacked presentations retain the tighter quote spacing.
 Today, Bonus and saved detail reflow without changing the selected content or save
 state. The export layout is independent of this
 viewport adjustment. Today and saved detail use the same card renderer, including
 the themed frame, quote treatment and Vibe pill. Saved detail supplies its retained
-artwork, quote, vibe and archetype directly. **Saved Card Options** contains
+artwork, quote, optional dedication, vibe and archetype directly. A dedication
+appears directly below the quote in Bonus, Saved detail and the share image, and
+follows the quote in the text companion. **Saved Card Options** contains
 **Share Saved Card**, the destructive **Remove from Saved Cards** action, and offers
 **Save Card** after removal while the detail stays open. Its title changes from
 **Saved Card** to **Card** after removal and returns on re-save; Share and options
@@ -133,7 +218,8 @@ and a fixed sRGB RGBA8 pixel digest including dimensions. It excludes occurrence
 date, image name, manifest order and styling. Existing single quotes use a stable
 `legacy:<cardID>` quote ID and exact-text checksum revision; explicit quote
 identities can be supplied later without changing old snapshots. Bonus selection uses these same retained snapshots; no independent quote rotation
-is introduced.
+is introduced. Snapshots with a dedication include its exact text in revision
+format 2. Cards without one retain their original format 1 identity.
 
 Original PNG bytes are stored once per checksum, verified on import/read and
 never re-resolved through a mutable asset name. The current display and save
@@ -180,8 +266,8 @@ The daily Options menu offers **Share Today's Card** (or **Share Bonus Card**)
 to guests and signed-in users.
 It captures the displayed immutable card when tapped, so a foreground/day change cannot
 replace an in-flight export. The system share sheet receives a freshly rendered
-image and a plain-text quote/vibe companion; the user chooses a destination and
-confirms sending. There is no account requirement, upload, tracking, or automatic
+image and a plain-text companion with the quote and any dedication or vibe. The user
+chooses a destination and confirms sending. There is no account requirement, upload, tracking, or automatic
 posting in the app's sharing path. UIKit presents from the card screen's window
 root, with the persistent Options control as the iPad popover anchor. Preview metadata uses only
 the local export and branding, without a URL or network preview lookup.
@@ -192,10 +278,10 @@ access when opening the share sheet. Destination availability and successful
 saving still require device acceptance; a purpose string alone is not proof.
 
 The portrait export reuses `RitualCardPresentation`, including the archetype frame,
-ordinary-phone serif quote treatment and Vibe pill. Its natural-height artwork and
-measured text are independent of scroll position, screen size and Dynamic Type.
+ordinary-phone serif quote treatment, optional dedication and optional Vibe pill. Its natural-height
+artwork and measured text are independent of scroll position, screen size and Dynamic Type.
 The app retains the user's requested text size and scrolling behavior; the export
-uses a stable `.large` typography baseline. Artwork bytes, archetype, quote and
+uses a stable `.large` typography baseline. Artwork bytes, archetype, quote, dedication and
 vibe are frozen before rendering, including retry after a failed share.
 
 The proposed export format (pending owner visual approval) is 1080 pixels wide,
@@ -214,8 +300,8 @@ additions must pass the sharing tests and visual review.
 The app holds one export in memory, creates no temporary share files, and releases
 its image reference when the sheet completes or is dismissed. UIKit/destination
 apps manage any copies they create. A new bitmap excludes source image metadata;
-only artwork, quote, vibe, and branding are exported, without account identifiers,
-internal card IDs, date/location metadata, or Settings controls. Rendering or
+the export contains artwork, quote, optional dedication and vibe, and branding.
+It excludes account identifiers, internal card IDs, date/location metadata and Settings controls. Rendering or
 activity errors offer retry; cancellation leaves the daily card usable.
 
 Before release, confirm that the bundled artwork and quotes permit redistribution
@@ -413,6 +499,131 @@ Load-time integrity checks:
 Image import details:
 - See [content pipeline](../docs/content-pipeline.md).
 
+## Optional Daily Reminder
+
+Settings → Daily Reminder is device-local and available without an account.
+It starts off, with an editable 9 a.m. suggestion. Only explicit enablement can
+request alert permission; saving a time does not enable it. Save/Cancel edits the
+time separately. Notifications use the evergreen title “Daily Whiskers” and body
+“Your daily whisker of encouragement is ready.” There is no sound, badge, push,
+server scheduling or foreground banner. Focus, Scheduled Summary and iOS settings
+control actual presentation; this is not an exact-delivery alarm.
+
+The scheduler queues date-specific, nonrepeating UTC targets for the current
+Gregorian civil date plus the next thirteen labels in the current time zone.
+Passed targets and wholly nonexistent dates are skipped without backfilling a
+fifteenth date. Reopening extends this finite window; no background renewal is
+assumed. Repeated times select the first occurrence. A missing wall time resolves
+to the next valid instant on that same date, including half-hour/midnight gaps.
+Queued requests retain their old zone until reopening. During unopened date-line
+travel, two scheduling dates can fall on one experienced local date. Settings
+discloses both finite coverage and this travel exception.
+
+A serialized scheduler writes a versioned, checksummed Application Support journal
+before notification side effects. Possibly-presented date/interval history survives
+edits, disable/re-enable and zones. Empty Notification Center is not proof of
+nondelivery. Interrupted add/cancel intents, elapsed targets and uncertain removals
+retain reservations; suppression is preferred to replay. Known obsolete requests
+are cancelled before any capacity check or addition. The app uses a conservative
+32-pending-request budget, reserving space for unrelated requests; this is an app
+policy, not an assertion about a modern iOS maximum.
+
+For an acknowledged request observed pending with scheduling permission, removal
+followed by two absent readbacks more than sixty seconds before its target permits replacing its future
+reservation. This is operational removal evidence, not an atomic cancellation or
+delivery barrier. Permission must still allow scheduling after removal. Missing
+requests, interrupted intents/cancellations, unknown inventory or a closer deadline preserve uncertainty instead. Readback after each
+add checks retention. Corrupt/missing initialized state fails closed without
+resetting history. Persistent quarantine or invalid history directs the user to
+Support and explicitly says reopening cannot repair it. A potentially temporary
+storage/verification failure requires a complete app restart to recheck; the
+current process cannot resume additions after uncertainty. Neither path resets
+the ledger. Atomic file replacement, synchronization and readback do not
+establish universal power-loss or backup-restoration guarantees.
+
+Disabling saves OFF before asking iOS to remove this feature's pending and delivered
+notifications, while keeping
+the chosen time and eligibility history. OS permission revocation retains enabled
+intent. An enabled, acknowledged request with an unchanged time/zone/absolute
+target remains untouched while permission is denied. Empty or unavailable denied
+inventories do not prove removal or authorize replacement. On reopening after
+regrant, visible matching originals are kept without cancellation or re-addition.
+Full trigger/content readback must match the expected nonrepeating UTC request;
+identifier-only readback cannot confirm coverage. Unknown or conflicting owned
+requests quarantine. Unavailable inventory confirms no coverage; an authorized
+empty inventory suppresses missing dates rather than restoring requests.
+
+OFF, time/zone edits, elapsed targets, observed clock reversal and existing possible
+exposures still use conservative cancellation. Positive delivered-ID evidence
+blocks a future pending copy even if Notification Center is later cleared. Legacy
+v2 suspension flags may already have issued removal, so they retain conservative
+cancellation rather than entering the untouched-original path. Missing dates can
+remain suppressed through the original horizon; later unexposed dates refill on
+reopening. No absent-ID restoration or exposure erasure is performed.
+
+iOS may resume a retained reminder as soon as permission returns, including after
+OFF while denied, before
+the app reopens. Reopening checks and refills eligible coverage; it is not a gate
+that guarantees no earlier alert. Disabled intent never automatically re-enables.
+Observed clock safeguards do not establish universal exactly-once presentation or
+rule out an unobserved forward-then-back clock excursion.
+Retired request IDs retain target provenance indefinitely, so delayed reappearance
+triggers conservative cancellation rather than unknown-ID quarantine. These records
+are not delivery receipts and never erase existing exposures. Existing v1 journals
+without the optional provenance fields remain readable and upgrade to v3 before
+scheduling or writing new provenance. A previously quarantined
+journal whose ID/target mappings were lost remains quarantined; this change cannot
+reconstruct them or repair that device automatically. Verified quarantine accepts
+and persists OFF intent and retries owned-notification cleanup without clearing the
+recovery flag. Unreadable history or uncertain writes still fail closed. Older
+v1/v2 binaries reject v3 journals and fail closed rather than dropping cleanup
+verification state. Downgrading does not restore normal scheduling automatically.
+Cleanup verification is separate from saved enablement, retired IDs and exposure
+history. Missing/null cleanup state and v1/v2 journals are unverified, even with
+no active entries, a false delivered-clear flag, or only retired/exposure records.
+Fresh journals also begin unverified until authorized observations establish
+cleanup; an empty denied inventory cannot establish a never-scheduled history.
+Malformed state fails closed. Cancellation intent and possible failed-add cleanup
+are saved before notification effects. Failed OFF persistence reports storage
+failure, not a successfully saved OFF preference. The UI publishes the saved
+intent after the serialized operation finishes; it does not update atomically
+with the tap.
+
+The cleanup warning survives refresh/restart and changes its OFF/ON wording with
+current saved intent. It is cleared only after two available full pending and
+delivered snapshots, bracketed by schedulable authorization before, between and
+after. OFF requires no owned pending or delivered IDs. ON permits only
+exact-matching active originals; cancelled/retired IDs still prevent verification.
+An ON migration does not invent permission to clear old delivered notifications;
+those can leave verification pending and defer new scheduling. Explicit OFF
+retains delivered-cleanup intent until both snapshots confirm absence. Unknown
+pending inventory or observed authorization loss cannot clear either flag.
+The delivered callback has no error/unavailable result in the current protocol;
+its returned inventory is an observation, not a guarantee of complete OS state.
+
+Clearing both flags is one verified journal save. A failed/uncertain save blocks
+new adds in that process. Error cleanup re-reads the durable marker before any
+additional removal, since a clearing save may have committed before throwing.
+Restart can accept that committed clear only because authorized verification
+already preceded it. History and quarantines are never reset to remove a warning.
+Authorization samples do not exclude an unseen deny/regrant between callbacks.
+The warning does not prevent a regrant-before-reopen alert. Do not ask users to
+regrant solely to finish cleanup. The owner accepted this disclosed pre-reopen
+alert limitation for V1.3. Acceptance does not prevent the window or establish
+physical nondelivery; regression tests do not prove either.
+
+The journal can grow with scheduling/cancellation history; no unproven pruning rule
+is used.
+Denied permission never causes automatic prompts or blocks daily cards. A reminder
+tap ignores old content dates and returns to current Today, dismissing navigation
+and sheets without deleting saved cards or rerolling daily/bonus selections.
+
+The focused tests use injected clocks, journals and notification clients. The
+compile-only offline UI seam never accesses the system notification center.
+See [reminder acceptance](../docs/testing.md#daily-reminder-acceptance) for the
+separate integrated-device checks. The broader Settings shell remains outside this
+feature's minimal entry/editor.
+
 ## Tests
 - Repeatable acceptance checks and evidence limits: [testing](../docs/testing.md).
 - Unit tests live in `DailyWhiskersTests/`.
@@ -495,19 +706,54 @@ CI copies `ci/firebase-test-config.plist` into the app resources before project
 generation. This fake fixture initializes the hosted test app without live
 Firebase access. PRs receive only `contents: read`, checkout does not persist
 credentials, and no release secrets are used. App validation runs the Debug
-unit suite, five offline smoke tests plus five Saved Cards tests, and an unsigned Release build for
+unit suite, offline smoke, Saved Cards, Stillness Mode, Reminders and Mischievous
+Cards tests, and an unsigned Release build for
 `generic/platform=iOS Simulator`. Release compiles and packages simulator code;
 it is not a signed archive, device build, distribution or physical acceptance.
 
-The required offline UI stage selects `RegressionSmokeTests` and `SavedCardsTests`
-from the interaction scheme. The five smoke tests cover
+Reminders, Mischievous Cards and Stillness UI helpers use one 150 ms native press
+per requested transition. State and persistence assertions remain mandatory;
+this bounded input choice adds no retry or programmatic state override and does
+not establish the cause of intermittent hosted switch failures.
+
+The required offline UI stage selects `RegressionSmokeTests`, `SavedCardsTests`,
+`SavedCardsLoadStateTests`, `StillnessModeTests`, `ReminderUITests` and
+`MischievousCardsTests` from the interaction scheme. The policy suite executes
+the actual UI shell command with a stub Xcode executable and checks that every
+required class is selected in full, exactly once, with no skip selectors.
+The five smoke tests cover
 guest daily content/relaunch, account tools open/dismiss, local reset and
 registration validation/navigation, and repeated registration editing after Back,
 Close and process relaunch, plus single-password Done submission to the rejecting
-offline boundary. The five Saved Cards tests cover save/relaunch/reopen/share,
+offline boundary. The Saved Cards tests cover save/relaunch/reopen/share,
 remove/resave and confirmed clear, largest-text portrait/landscape reachability,
 ordinary-phone full-card fit, and paired Today/Saved geometry and options.
-Both classes use existing accessible identifiers and
+Stillness checks use a fresh preference-domain fixture and verify the actual system
+Reduce Motion value is off before motion-positive controls. They cover defaults,
+live app-toggle stop/resume, persistence, local account navigation, foreground return
+and largest-text settings layouts. All actual app/system combinations, live OS
+preference propagation, VoiceOver and timeline/power profiling remain mandatory
+manual checks.
+The four load-state tests cover held/failed first reads, alert dismissal, in-place
+Retry, retained rows after a later failed refresh, verified empty guidance, and
+largest-text Retry reachability. A held Retry crosses app background/foreground,
+receives an injected read cancellation, fails again, and then recovers without duplicates.
+They seed a disposable SQLite file selected by
+`DW_SAVED_LOAD_TEST_ID` (a UUID), requiring the offline compile/launch gate plus
+`--ci-smoke-saved-load-fixture`. They never clear the ordinary collection.
+Reminders cover default-Off state, persistence/cancellation, authorization outcomes,
+notification navigation and largest-text controls with a synthetic notification client.
+The four Mischievous Cards tests cover default-Off and same-day stability;
+reveal, opt-out, relaunch, saving/sharing and returning to Today; native motion,
+Stillness and actual system Reduce Motion; and lifecycle plus largest-text
+portrait/landscape reachability. Their dedicated hosted simulator starts with
+Reduce Motion off; the motion test restores that system setting after exercising it.
+Hosted coverage is iPhone-only. Local iPad results and physical VoiceOver,
+interruption and energy acceptance remain separate evidence.
+The app job has a 90-minute budget for dependency resolution, both builds, the
+expanded serial UI suite, Release validation and evidence upload. This job budget
+does not extend individual test waits or relax the zero-failure/skip evidence gate.
+These classes use accessible identifiers and
 bounded state waits, without retries, credentials, email or live account changes.
 The smoke and optional auth-layout Debug commands add `CI_SMOKE_TESTING`; with `DEBUG` and
 `--ci-smoke`, this skips Firebase initialization/listeners, starts signed out, and
@@ -566,11 +812,19 @@ resolution, build/test, and combined seconds. Record actual measurements and run
 links in the issue/PR, not a promised speedup or a README execution journal.
 Changing the epoch safely abandons an old cache without deleting evidence.
 
-The app timeout is 45 minutes for the three scoped validation stages; smaller jobs have explicit timeouts.
+The app regression job has a 90-minute budget; smaller jobs have their own explicit timeouts.
 Concurrency cancels superseded runs for the same PR/ref. Logs, timing summaries,
 and `.xcresult` bundles are uploaded when available, including failure paths,
-with seven-day retention. Hard termination can prevent artifact upload; missing
-artifacts are not proof of success.
+with 30-day retention. This gives investigation and acceptance reviews more time
+than seven days without the storage use of 90 days. The policy applies only to
+new artifacts uploaded by a revision with this setting; it does not extend or
+restore existing artifacts. After an authorized validation, verify the actual
+artifact expiry and source/tested SHA, run and attempt before relying on that
+window. Preserve still-needed evidence separately before its recorded expiry.
+Repository or organization limits can cap effective retention. Hard termination
+can prevent artifact upload; missing artifacts are not proof of success.
+The separate manual release-policy rehearsal retains its synthetic report for
+seven days, as documented in the [distribution record](../docs/distribution-readiness.md).
 
 ### Gate verification and rollout
 
@@ -614,7 +868,7 @@ xcodebuild test -project DailyWhiskers.xcodeproj \
 Use the fake `ci/firebase-test-config.plist` copied to the app resource location,
 as in CI; this command builds an unsigned simulator app.
 The existing `DailyWhiskers` unit-test scheme is unchanged. CI selects the
-offline smoke and Saved Cards classes; the broader UI suite restores portrait orientation and passes text size as a launch argument,
+offline smoke, Saved Cards and Stillness Mode classes; the broader UI suite restores portrait orientation and passes text size as a launch argument,
 rather than changing the simulator's persistent accessibility preference.
 
 Historical baseline: the three keyboard/scrolling UI checks passed on iPad Air

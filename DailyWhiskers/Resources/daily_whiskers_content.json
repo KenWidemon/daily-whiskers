@@ -222,5 +222,40 @@
       "quote": "There is comfort in turning the next page.",
       "vibe": "comfort"
     }
+  ],
+  "bonusOnlyCards": [
+    {
+      "id": "cozy_theo_lookout",
+      "archetype": "cozy",
+      "imageName": "cozy_theo_lookout",
+      "quote": "There’s a whole world on the other side of a quiet moment.",
+      "dedication": "In memory of Theo"
+    },
+    {
+      "id": "forest_theo_little_adventurer",
+      "archetype": "forest",
+      "imageName": "forest_theo_little_adventurer",
+      "quote": "Even a small adventure counts.",
+      "dedication": "In memory of Theo"
+    },
+    {
+      "id": "celestial_theo_starlight_nap",
+      "archetype": "celestial",
+      "imageName": "celestial_theo_starlight_nap",
+      "quote": "Some warmth stays long after the sun goes down.",
+      "dedication": "In memory of Theo"
+    },
+    {
+      "id": "alchemy_lantern_apothecary",
+      "archetype": "alchemy",
+      "imageName": "alchemy_lantern_apothecary",
+      "quote": "Small things can change the whole mixture."
+    },
+    {
+      "id": "noble_after_the_rain",
+      "archetype": "noble",
+      "imageName": "noble_after_the_rain",
+      "quote": "You can be steady without standing still."
+    }
   ]
 }

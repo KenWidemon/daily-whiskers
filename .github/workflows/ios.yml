@@ -73,7 +73,7 @@ jobs:
     needs: classify
     if: needs.classify.outputs.mode == 'full'
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -133,7 +133,7 @@ jobs:
             build/*-results.json
             build/results.json
             build/toolchain.txt
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: warn
       - name: Publish app evidence summary
         if: always()

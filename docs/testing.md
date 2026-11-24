@@ -52,7 +52,8 @@ evidence below remain useful without overriding this candidate's scoped decision
 - Unit CI uses the fake Firebase plist. No live credentials, account creation,
   reset delivery or backend policy changes belong in those tests.
 - Required offline UI CI runs all five `RegressionSmokeTests` and all
-  `SavedCardsTests`, including the complete Favorites lifecycle. Both classes
+  `SavedCardsTests`, `SavedCardsLoadStateTests` and `StillnessModeTests`, including
+  the Favorites lifecycle, read-failure recovery and persisted motion preference. All four classes
   are covered by the zero-failure, zero-skip and zero-expected-failure gate.
 - Native-field tests repeat registration mounts, detached-field clearing and
   synthetic native replacements across email/password focus changes, intentional
@@ -62,6 +63,86 @@ evidence below remain useful without overriding this candidate's scoped decision
   single-password Done submission must reach only the rejecting offline boundary.
 - Keep the known largest-text Sign In landscape assertion and keyboard precondition
   intact. A skipped/deferred test is not a pass; report exact selected tests/results.
+
+## Daily Reminder Acceptance
+
+Run `ReminderTests` with the `DailyWhiskers` scheme for calendar, fourteen-date
+coverage/refill, queue budget, permission intent, serialization, journal failures
+and conservative recovery. Include denied inventories that hide requests while
+requests are retained without removal, authorized reappearance with unchanged
+original IDs and full trigger/content matches, absent-on-regrant
+suppression, disabled intent, near-deadline/clock reversal, returning retired IDs,
+legacy journal loading and interrupted persistence. Include native request archive
+roundtrips, UTC aliases and conflicting trigger/content mutations, positive
+delivered-ID evidence, and full cancellation readback verification. Archive tests
+do not prove notification-center normalization on iOS. Keep the distinction between
+safe partial coverage and immediate full-horizon resumption explicit. Also cover
+an add completion held while disable/edit
+commands queue and a write that commits before reporting failure. Include
+cleanup-pending persistence through denied hidden queues, ineffective removal,
+repeat refresh/restart, authorized cleanup, and sampled authorization races.
+Test migrated OFF with retired/exposure-only history and `clearDelivered=false`,
+including owned delivered IDs; ON must also reject retired delivered IDs during
+cleanup verification. Missing/null legacy state must not imply never-scheduled.
+Test failures before and after the clearing save commits, preserving unrelated
+notifications, exposures and no-replay behavior. v3 journals must be rejected by
+the frozen v1/v2 reader. Check warning wording for saved ON/OFF and both denied
+and already-authorized incomplete cleanup. Source-string checks are not spoken
+VoiceOver or rendered-layout acceptance. Check persistent
+quarantine guidance separately from retryable storage errors. `ReminderUITests`
+changes the native time picker to verify Cancel discards and Save persists without
+enabling. It uses the normal interaction scheme's
+`DEBUG + CI_SMOKE_TESTING` seam and a per-test UUID. Its notification client is
+entirely fake: UI permission transitions and simulated taps do not establish OS
+permission, physical delivery or notification-response callback evidence. The
+Release check rejects the fixture markers.
+
+The combined Stillness/Reminder regression opens both entries in the shared
+Settings menu, simulates a reminder response while Stillness is presented, and
+checks that Today returns with both preferences retained. Run both feature UI
+suites after changes to shared Settings navigation; a synthetic response does not
+replace physical notification-tap acceptance.
+
+For separately authorized physical acceptance, record the exact candidate and
+existing Focus/Summary/Watch routing conditions before any changes. Agree on the
+number/timing of real alerts and restore owner settings afterward. Check:
+
+1. Fresh install stays off without a prompt. Saving/cancelling a time does not
+   enable it. Enable explicitly and inspect alert-only authorization.
+2. Observe a chosen reminder with the app normally backgrounded/locked and with
+   it terminated. Keep the complete agreed observation windows; document any
+   shortened window as a limitation rather than a pass. Foreground presentation
+   must remain suppressed.
+3. Edit/disable and verify removal of owned pending/delivered requests while
+   preserving unrelated notifications. Re-enable after possible delivery must not
+   replay today's reminder. Readback is not an atomic cancellation guarantee.
+4. Revoke/regrant permission, reopen, and verify retained intent, no repeated
+   prompts, and no automatic enablement of a user-disabled reminder. Enabled
+   unchanged requests should not be cancelled merely for denial; compare complete
+   pending identifiers/triggers/content before and after each owner-controlled
+   transition. Reopening reconciles coverage, but iOS may resume existing enabled
+   requests immediately on regrant. OFF removal while denied can also be ineffective:
+   retained originals can return before reopening despite saved OFF. Verify the
+   durable warning across refresh/relaunch, then distinguish authorized cleanup
+   observations from continuous silence. Do not assert no alert before reopening
+   or ask users to regrant solely for cleanup. Product acceptance of this window
+   remains separate from the warning implementation.
+   Missing originals remain suppressed, not restored. Treat unknown/conflicting
+   inventory or absent capture evidence as unresolved, not proof of OS behavior.
+5. Tap an older delivered notification during a cold launch and from Today,
+   Saved Cards/detail, Bonus, a time/account sheet and a system share sheet. It
+   must show current Today, with no lost saved content or late Bonus replacement.
+6. Check VoiceOver order/state/focus, localized 12/24-hour time, largest text,
+   small/large iPhone and iPad. Accessibility trees/screenshots alone do not prove
+   VoiceOver speech or real notification taps.
+7. Check finite coverage/refill and the displayed travel limitation against the
+   actual queue. Do not change device clocks/zones as an implicit test step.
+   Synthetic calendar tests cover transitions; they do not prove every physical
+   delivery situation, power-loss recovery or behavior of OS-restored backups.
+
+Historical isolated feasibility probes are not acceptance of the integrated
+feature. Report each production check as passed, failed, pending or waived with
+its own source/device evidence.
 
 ## Physical Acceptance Protocol
 
@@ -403,11 +484,39 @@ by passing unit tests or opening a draft PR.
 
 ## Saved Cards
 
-Use the `CardRepositoryTests` unit suite and `SavedCardsTests` interaction class
+Use the `CardRepositoryTests` unit suite and `SavedCardsTests` /
+`SavedCardsLoadStateTests` interaction classes
 with the same offline smoke compilation/launch gate documented in the app README.
 Keep result bundles, screenshots and accessibility hierarchies privately; report
 the exact source/diff, OS, simulator, selected checks and skips separately from CI.
 
+- Run the isolated load-state fixture at ordinary and largest text. While the first
+  read is held, only loading may appear. Fail the populated first read, dismiss the
+  alert, and verify persistent unavailable status and reachable **Retry**. Retry
+  must restore the exact IDs/order/quotes/artwork without duplicates or file-byte
+  changes (the unit fixture checks bytes). A later failed refresh retains prior
+  rows with explicit status; a failed refresh of a previously empty collection
+  must also replace empty guidance with unavailable status. Only successful empty
+  reads show the save-a-card prompt. Observe VoiceOver reading order, status,
+  Retry announcement and focus separately: hierarchy/hittability assertions do
+  not establish speech or focus acceptance. The fixture uses a unique
+  `DW_SAVED_LOAD_TEST_ID` and the offline gate; never point it at owner storage.
+- The unavailable panel has one concise recovery explanation and a filled Retry
+  action. Detailed storage errors remain in the alert. On iPhone/iPad and largest
+  Dynamic Type, inspect the actual rendered text, stale-row explanation and Retry
+  reachability. Measure text/control contrast against their rendered backgrounds;
+  a native button style alone does not establish accessibility conformance.
+  Hold a Retry, request another refresh while busy, background/foreground the app,
+  then inject read cancellation. The model test also cancels an actual Retry task.
+  Repeated failure must keep recovery available, and a
+  later successful read must preserve exact retained content and order.
+- Preserve failed-write/transaction regressions. If a write commits but its readback
+  fails, alert Retry must only read again, never replay Clear or another mutation.
+  Cover committed save and remove separately from failed-commit rollback: remove a
+  newly saved card or re-save a removed identity through another repository client
+  before Retry. Assert no further write commits, exact current rows/order/content,
+  and unchanged database bytes. A repeated old save must not resurrect a later
+  removal; a repeated old remove must not delete a later re-save.
 - Save a displayed guest card, relaunch offline, browse newest-first, reopen and
   share it. Check the exact quote/vibe and full artwork; no account prompt appears.
 - Open Options on Today, Bonus and saved detail. Verify Share and Save/Remove,
@@ -464,13 +573,37 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   differs.
 - Run `SavedCardsTests/testAdaptiveCardAndSavedTilesAcrossWindowSizes` with the
   offline shortest/longest bundled-card fixtures. Compare portrait/landscape panel
-  spacing, uncropped artwork and readable quote/Vibe. Wide layouts must preserve
-  the artwork size, not merely fit the card bounds. Compare two iPad Saved tile
+  spacing, uncropped artwork and readable quote/Vibe. Full-size iPad layouts must
+  preserve the artwork size; smaller columns may scale the complete artwork
+  uniformly. Compare multi-column Saved tile
   top/bottom edges for unequal quote lengths. Resize an iPad window narrower and
   wider while a saved detail stays open; content identity and save state must remain.
   `DailyCardShareVisualTests` compares rendered artwork pixels at identical scale
   across stacked, wide, narrow and accessibility presentations, and verifies the
-  natural-height scrolling fallback. Repeat at the largest accessibility size:
+  natural-height scrolling fallback. `testDuoViewportVisualMatrix` additionally
+  checks opened tall/wide, outer tall/wide, intermediate and short content viewports,
+  including either side of the column-width boundary. It compares normalized
+  artwork pixels against the source so column scaling cannot silently crop or
+  stretch the image. These renderer viewports do not prove native safe areas.
+  Opened portrait/tall and square containers must retain stacked artwork/quote;
+  wide containers may use columns only when both content panels fit. Include a
+  near-square tall container whose card padding produces a wide content proposal,
+  so padding cannot accidentally select the landscape presentation. Regress iPad
+  portrait stacking, landscape artwork size, and constrained iPad windows.
+  `SavedCardsTests/testAdaptiveCardsInCurrentWindow` checks current-window layout,
+  unequal Saved tiles, retained identity and share/cancel without assuming that a
+  sensor orientation change resizes the native display. Run it in each native pose.
+  On an isolated Duo simulator use Device Hub's supported fold controls and repeat
+  both orientations on each display. Keep Today, Bonus, saved detail, sharing and
+  focused auth fields open while folding; verify identity, saved state, navigation,
+  reachable controls and retained field text. Capture actual native frames and
+  private before/after screenshots tied to the candidate. Do not substitute display
+  power overrides for fold transitions. On the Duo simulator, XCTest's main-screen
+  screenshot can capture the inactive outer display as black even when interaction
+  and bounds refer to the inner display. Inspect actual pixels; enumerate screens
+  with `simctl io <device> enumerate` and capture the active inner screen explicitly
+  for private visual evidence. Physical-device and VoiceOver acceptance
+  remain separate observed checks. Repeat at the largest accessibility size:
   one column, complete quotes, reachable
   full detail and Vibe through scrolling. These simulator fixtures never inspect
   an owner device or its saved collection.
@@ -478,7 +611,7 @@ the exact source/diff, OS, simulator, selected checks and skips separately from 
   Check empty and multi-card collections, centered tablet widths, and single-column
   accessibility layouts. Check ordinary phone portrait fit and complete artwork;
   shorter windows, larger text and unusually long content must scroll instead of
-  shrinking artwork or text. The secondary
+  reducing text or artwork below the useful column minimum. The secondary
   removal action retains its complete accessible label and a 44-point touch target.
   Saved thumbnails/quote excerpts must be usable and the reopened quote/vibe and
   actions reachable. VoiceOver speech/focus require separate observed acceptance;
@@ -519,3 +652,101 @@ changed or missing content pack. A corrupt retained snapshot shows an error and
 never consumes a second selection. No content match should produce a usable Today
 and a retryable unavailable message. The known registration-focus risk and deferred
 account checks elsewhere in this guide remain unchanged by bonus-card validation.
+
+## Stillness Mode
+
+Run `MotionPolicyTests` in the unit scheme and `StillnessModeTests` in the interaction
+scheme with the existing offline CI build/launch gate on dedicated iPhone and iPad
+simulators. Retain screenshots and original failures outside Git.
+
+The Stillness class supplies a unique `DW_STILLNESS_TEST_ID` UUID for each test.
+Only the offline `DEBUG`/`CI_SMOKE_TESTING` build accepts it. It selects an empty
+UserDefaults suite for the real `AppStorage` bindings, reused across that test's
+relaunches. The initial native switch value is asserted before any write. This
+models fresh preference storage; it does not uninstall the app or clear owner data.
+A visible, read-only marker reports the actual system Reduce Motion value.
+Motion-positive tests fail clearly if it is on; they never change OS settings.
+
+Rendered checks cover live app-preference changes on the mounted daily card and
+motion resumption, with the actual system setting verified off. The full
+content viewport is sampled, excluding toolbar/status/fixture controls, with
+app-off/system-off positive controls on each tested device and on Sign In.
+A failed positive control fails the test; a region that sees no animation cannot
+pass as evidence of stillness. Three separated frames check visible changes only:
+pixel equality cannot prove that timelines stopped or that power use decreased.
+
+Mandatory manual acceptance remains: a genuinely fresh install; all four actual
+app/system combinations; turning the app preference off while system Reduce Motion
+is on; live OS notification/update propagation and resumption (including while
+auth/Settings sheets are open); auth-state transitions; every navigation/lifecycle
+surface; VoiceOver; and profiling timeline shutdown/power behavior. SwiftUI exposes
+Reduce Motion as read-only, so no public environment injection is used. The unit
+truth table does not substitute for rendered OS checks. Auth and registration
+static sampling is supplemental, not live OS-change coverage on those sheets.
+
+- Verify a fresh installation defaults off, then all four app/system preference
+  combinations. System Reduce Motion must always win. Toggle both while screens
+  are open; inspect Today, Bonus, saved detail, Sign In and Create Account.
+- Enable Stillness in Settings, dismiss, background/foreground and terminate/relaunch.
+  The switch and static presentation must persist. Disable it and repeat; motion
+  may resume only with system Reduce Motion off. Static branches must remove the
+  timelines, rather than conceal their drawing. Existing inactive-scene pauses
+  remain in animated branches; preserve OS power scheduling.
+- Use optional auth navigation without submitting live requests in offline tests.
+  Separately authorized real sign-in, logout and deletion must retain the preference.
+  Unit routing checks cover availability across account states; they do not prove
+  a live Firebase transition. Do not create accounts or change credentials for this.
+- Inspect regular and largest Dynamic Type, portrait/landscape, and iPhone/iPad.
+  The switch, explanatory copy and Done must remain readable and reachable, with
+  no changes to card artwork, quote, Vibe or progress feedback. Capture static
+  presentation at separated times and compare unchanged content/geometry.
+- Observe VoiceOver announcing the setting name, native On/Off state, hint, and
+  return focus to Settings. Accessibility hierarchy assertions are not speech or
+  focus acceptance. Device-wide settings and physical-device checks require their
+  own explicit authorization; never alter an owner's settings to force a pass.
+
+Owner-approved acceptance exception (November 1, 2026): live authentication
+transition retention checks for Stillness are deferred, not passed. The isolated
+offline build rejects backend operations; successful sign-in, logout and deletion
+remain unverified. This exception authorizes no account or backend changes.
+
+Owner-approved profiling exception for Stillness #58 (November 1, 2026): measured
+timeline/power profiling is deferred, not passed. Instruments could discover the
+paired physical device but could not attach to the independently verified offline
+app by PID or exact process name; neither attempt created a trace. Source review,
+automated motion checks and scoped owner physical observations support this bounded
+acceptance exception. They establish no measured timeline shutdown, CPU reduction
+or energy savings. Final-head CI and independent integration review remain required.
+
+## Mischievous Cards
+
+Use a dedicated offline fixture and the `MischievousCardsTests` unit/UI suites.
+The fixture starts Off with a deterministic winning seed in UUID-scoped temporary
+SQLite storage; it never sets the system clock or uses an account. Release must
+exclude the fixture through `ci/check-release.py`. Record actual checks against
+the tested source; compilation or preview approval is not functional acceptance.
+The hosted iPhone UI stage in `ci/test-app.sh` selects the full
+`MischievousCardsTests` class alongside the existing smoke, Saved Cards, Stillness
+and Reminder classes. Confirm all four named tests executed with zero failures,
+skips or expected failures in the exact-head result bundle. The command-selection
+regression test prevents silently dropping a required class; it does not prove
+runtime execution. Hosted iPhone results do not replace local iPad or physical checks.
+
+- Verify a fresh guest starts Off; ordinary Bonus selection stays unchanged after
+  enabling on the same day. A new enabled winning day reveals the original Shadow
+  Lord artwork/quote in shared Bonus. Return to Today preserves its affirmation.
+- Test stable 10% selection and losing eligible days, just below/at/above 14 full
+  days, DST/timezone shifts, rollback/forward jumps and correction, long sleep,
+  relaunch, repeated/concurrent requests, toggles and failed commits.
+- Save/reopen/share after opting out; clear favorites, navigate account tools and
+  relaunch without losing day references/cooldown. Exercise v1 migration, corrupt
+  policy, database backup restoration and a separate fresh installation.
+- On iPhone/iPad, inspect portrait, landscape and largest Dynamic Type: full quote,
+  scrolling artwork, reachable menu/settings/save/share controls and help text.
+  Check VoiceOver label/state, toggle errors, reading/focus order and contrast;
+  hierarchy assertions do not establish spoken VoiceOver acceptance.
+- Toggle Stillness and actual system Reduce Motion live; both must freeze the
+  exterior wisps. Background/foreground must stop/resume according to policy.
+  Inspect matching native frames, preserve system settings and shut down owned
+  simulators. Physical accessibility, interruption/storage and performance checks
+  remain separate; do not infer them from simulator or historical preview evidence.

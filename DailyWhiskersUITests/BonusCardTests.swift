@@ -7,6 +7,7 @@ final class BonusCardTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
+        app.launchEnvironment["DW_BONUS_TEST_ID"] = UUID().uuidString
         app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
@@ -104,6 +105,79 @@ final class BonusCardTests: XCTestCase {
         app.assertDailySaveActionLabel("Save Card")
         today(); XCTAssertEqual(element("daily-card-quote").label, original)
     }
+    func testBonusAndSavedExposeTheApprovedDedicationBelowTheQuote() {
+        let cases = [
+            ("cozy_theo_lookout", "There’s a whole world on the other side of a quiet moment.", true),
+            ("forest_theo_little_adventurer", "Even a small adventure counts.", true),
+            ("celestial_theo_starlight_nap", "Some warmth stays long after the sun goes down.", true),
+            ("alchemy_lantern_apothecary", "Small things can change the whole mixture.", false),
+            ("noble_after_the_rain", "You can be steady without standing still.", false)
+        ]
+        app.launchArguments.append("--ci-smoke-export-evidence")
+        for (id, quote, isTribute) in cases {
+            app.terminate()
+            app.launchEnvironment["DW_BONUS_TEST_ID"] = UUID().uuidString
+            app.launchEnvironment["DW_BONUS_CARD_ID"] = id
+            app.launch()
+            XCTAssertTrue(element("daily-card-quote").waitForExistence(timeout: 15))
+            XCTAssertFalse(element("daily-card-dedication").exists)
+            openBonus()
+            assertCardText(prefix: "bonus-card", quote: quote, isTribute: isTribute)
+            capture(id + " Bonus")
+            app.toggleDailyCardSave()
+            saved("Saved")
+            app.buttons["open-saved-cards"].tap()
+            let row = app.buttons.matching(identifier: "saved-card-row").firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 10))
+            XCTAssertEqual(row.label, quote)
+            row.tap()
+            assertCardText(prefix: "saved-card", quote: quote, isTribute: isTribute)
+            capture(id + " Saved")
+            app.openCardOptions()
+            app.buttons["Share Saved Card"].tap()
+            XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: 15))
+        }
+    }
+
+    func testLargestTextBonusDedicationAndShare() {
+        app.terminate()
+        app.launchArguments = ["--ci-smoke", "--ci-smoke-export-evidence",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launchEnvironment["DW_BONUS_CARD_ID"] = "cozy_theo_lookout"
+        app.launch()
+        openBonus()
+        let quote = element("bonus-card-quote")
+        XCTAssertEqual(quote.label, "There’s a whole world on the other side of a quiet moment.")
+        let dedication = app.staticTexts["bonus-card-dedication"]
+        let scroll = app.scrollViews.firstMatch
+        let bottom = app.staticTexts["ci-smoke-offline"].frame.minY
+        for _ in 0..<10 where !dedication.isHittable || dedication.frame.maxY > bottom {
+            scroll.swipeUp()
+        }
+        XCTAssertEqual(dedication.label, "In memory of Theo")
+        XCTAssertGreaterThanOrEqual(dedication.frame.minY, quote.frame.maxY)
+        XCTAssertLessThanOrEqual(dedication.frame.maxY, bottom)
+        XCTAssertTrue(dedication.isHittable)
+        capture("Largest text Bonus dedication")
+        app.openCardOptions()
+        app.buttons["Share Bonus Card"].tap()
+        XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: 15))
+    }
+
+    private func assertCardText(prefix: String, quote: String, isTribute: Bool) {
+        let quoteElement = element(prefix + "-quote")
+        XCTAssertTrue(quoteElement.waitForExistence(timeout: 10))
+        XCTAssertEqual(quoteElement.label, quote)
+        let dedication = app.staticTexts[prefix + "-dedication"]
+        XCTAssertEqual(dedication.exists, isTribute)
+        XCTAssertFalse(element(prefix + "-vibe").exists)
+        if isTribute {
+            XCTAssertEqual(dedication.label, "In memory of Theo")
+            XCTAssertGreaterThanOrEqual(dedication.frame.minY, quoteElement.frame.maxY)
+            XCTAssertTrue(dedication.isHittable)
+        }
+    }
+
     func testCardOptionsReviewScreens() {
         for (orientation, name) in [(UIDeviceOrientation.portrait, "portrait"), (.landscapeLeft, "landscape")] {
             app.terminate()
@@ -268,8 +342,13 @@ final class BonusCardTests: XCTestCase {
     }
     private func assertMenuFits() {
         let menu = app.buttons["card-menu"].frame
-        XCTAssertGreaterThanOrEqual(menu.minX, app.buttons["open-saved-cards"].frame.maxX)
-        XCTAssertLessThanOrEqual(menu.maxX, app.buttons["daily-card-options"].frame.minX)
+        // System bars may put actions vertically beside the content on Duo.
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(menu))
+        for id in ["open-saved-cards", "daily-card-options"] {
+            let action = app.buttons[id]
+            XCTAssertFalse(menu.intersects(action.frame), "Title menu overlaps \(id)")
+            XCTAssertTrue(action.isHittable)
+        }
         XCTAssertTrue(app.buttons["card-menu"].isHittable)
     }
 
@@ -283,9 +362,11 @@ final class BonusCardTests: XCTestCase {
             let distance = min(abs(delta), bottom - top - 40)
             let startY = delta > 0 ? bottom - 20 : top + 20
             let endY = startY + (delta > 0 ? -distance : distance)
-            let origin = app.coordinate(withNormalizedOffset: .zero)
-            origin.withOffset(CGVector(dx: window.midX, dy: startY))
-                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX, dy: endY)),
+            // Anchor to the active window, which may be the Duo inner display.
+            // Application-level coordinates can target the inactive outer screen.
+            let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.midX - window.minX, dy: startY - window.minY))
+                .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX - window.minX, dy: endY - window.minY)),
                        withVelocity: .slow, thenHoldForDuration: 0.25)
         }
         for _ in 0..<12 where abs(quote.frame.minY - (top + 8)) > 12 {

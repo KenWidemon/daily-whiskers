@@ -314,26 +314,22 @@ final class DailyCardSharingTests: XCTestCase {
             }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10), .completed)
             let close = app.buttons["Close"].firstMatch
-            let compactPortrait = UIDevice.current.userInterfaceIdiom == .phone && currentOrientation == .portrait
-            if UIDevice.current.userInterfaceIdiom == .phone && !compactPortrait {
-                XCTAssertTrue(close.waitForExistence(timeout: 10), "The expanded phone sheet must offer Close.")
-            }
             let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             screenshot.name = "Daily card system share sheet"
             screenshot.lifetime = .keepAlways
             add(screenshot)
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                // The popover is anchored to the persistent Options control.
-                let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
-                XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
-                outside.tap()
-            } else if compactPortrait {
-                // The compact system card exposes the presenting surface for dismissal.
+            // Presentation adapts to the current window, including opened phones.
+            // Verify a real dismissal rather than requiring a particular phone idiom control.
+            let dismiss = app.otherElements["PopoverDismissRegion"]
+            if close.exists && close.isHittable {
+                close.tap()
+            } else if dismiss.exists {
+                XCTAssertTrue(dismiss.isHittable)
+                dismiss.tap()
+            } else {
                 let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.25))
                 XCTAssertFalse(sheet.frame.contains(outside.screenPoint))
                 outside.tap()
-            } else {
-                close.tap()
             }
             let usable = NSPredicate { _, _ in options.exists && options.isEnabled && options.isHittable }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: usable, object: nil)], timeout: 10), .completed)

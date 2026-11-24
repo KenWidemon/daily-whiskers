@@ -27,6 +27,24 @@ final class DailyCardShareAnchor: UIView, UIPopoverPresentationControllerDelegat
     private weak var activityController: UIActivityViewController?
     private var onComplete: ((Bool) -> Void)?
 
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        NotificationCenter.default.addObserver(self, selector: #selector(returnToToday), name: .reminderOpenToday, object: nil)
+    }
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        NotificationCenter.default.addObserver(self, selector: #selector(returnToToday), name: .reminderOpenToday, object: nil)
+    }
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc private func returnToToday() {
+        pendingExport = nil
+        guard let id = activeID, let controller = activityController else { return }
+        // Dismiss only this feature's owned activity controller. The reminder
+        // router separately resets SwiftUI sheets/navigation and current content.
+        controller.dismiss(animated: false) { [weak self] in self?.complete(id: id, failed: false) }
+    }
+
     func update(export: DailyCardShareExport?, onComplete: @escaping (Bool) -> Void) {
         pendingExport = export
         self.onComplete = onComplete
@@ -81,7 +99,17 @@ final class DailyCardShareAnchor: UIView, UIPopoverPresentationControllerDelegat
         // A toolbar host does not cover the screen. Present from its own window's
         // root controller so the compact sheet receives normal modal hit testing.
         activityController = controller
-        presenter.present(controller, animated: true)
+        presenter.present(controller, animated: true) {
+#if DEBUG && CI_SMOKE_TESTING
+            if ReminderSmoke.controlsEnabled,
+               ProcessInfo.processInfo.arguments.contains("--ci-smoke-reminder-tap-after-share") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak controller] in
+                    guard controller?.presentingViewController != nil else { return }
+                    ReminderModel.shared.receiveTap(identifier: ReminderRequest.prefix + "old", destination: "today")
+                }
+            }
+#endif
+        }
         controller.presentationController?.delegate = self
     }
 

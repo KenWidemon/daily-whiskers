@@ -6,8 +6,12 @@ struct DailyCard: Decodable, Sendable, Equatable {
     let imageName: String
     let quote: String
     let vibe: String?
+    var dedication: String?
 }
 
 struct DailyContentManifest: Decodable {
     let cards: [DailyCard]
+    var bonusOnlyCards: [DailyCard]?
+
+    var bonusCandidates: [DailyCard] { cards + (bonusOnlyCards ?? []) }
 }

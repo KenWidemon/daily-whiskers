@@ -19,6 +19,8 @@ struct AuthView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MotionPolicy.preferenceKey) private var stillnessEnabled = false
+    private var isStill: Bool { MotionPolicy.requiresStillness(appPreference: stillnessEnabled, systemReduceMotion: reduceMotion) }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var email: String = ""
@@ -50,12 +52,12 @@ struct AuthView: View {
             )
             .ignoresSafeArea()
 
-            GlowOverlay(reduceMotion: reduceMotion)
+            GlowOverlay(reduceMotion: isStill)
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
                 .ignoresSafeArea()
 
-            SparkleOverlay(reduceMotion: reduceMotion)
+            SparkleOverlay(reduceMotion: isStill)
                 .compositingGroup()
                 .blendMode(.plusLighter)
                 .opacity(0.4)
@@ -453,9 +455,7 @@ private struct SparkleOverlay: View {
 
     var body: some View {
         if reduceMotion {
-            Canvas { context, size in
-                drawSparkles(context: context, size: size, time: 0, animated: false)
-            }
+            Color.clear
         } else {
             TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
