@@ -28,6 +28,48 @@ struct BonusCardTests {
         #expect(sqlite3_exec(db, statement, nil, nil, nil) == SQLITE_OK)
     }
 
+    @Test("Ordinary Bonus draw, save, reopen and share each new card", arguments: [
+        ("2026-01-09", "cozy_theo_lookout", "There’s a whole world on the other side of a quiet moment.", true),
+        ("2026-01-13", "forest_theo_little_adventurer", "Even a small adventure counts.", true),
+        ("2026-01-17", "celestial_theo_starlight_nap", "Some warmth stays long after the sun goes down.", true),
+        ("2026-02-07", "alchemy_lantern_apothecary", "Small things can change the whole mixture.", false),
+        ("2026-02-23", "noble_after_the_rain", "You can be steady without standing still.", false)
+    ])
+    func ordinaryBonusRoundTrip(dayKey: String, id: String, quote: String, isTribute: Bool) async throws {
+        let path = url()
+        defer { try? FileManager.default.removeItem(at: path.deletingLastPathComponent()) }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        let provider = DailyContentProvider(calendar: calendar)
+        let date = try #require(ISO8601DateFormatter().date(from: dayKey + "T12:00:00Z"))
+        let repo = CardRepository(url: path)
+        let todayCard = try #require(provider.content(for: date))
+        let selected = try await repo.bonus(on: BonusDay(date: date, timeZone: calendar.timeZone),
+            today: repo.capture(todayCard), candidates: provider.bonusCandidates)
+        let dedication = isTribute ? "In memory of Theo" : nil
+        #expect(selected.snapshot.cardID == id)
+        #expect(selected.snapshot.quote == quote)
+        #expect(selected.snapshot.dedication == dedication)
+        #expect(selected.snapshot.vibe == nil)
+        #expect(selected.snapshot.schemaVersion == (isTribute ? 2 : 1))
+        try await repo.save(selected)
+        let loaded = try await CardRepository(url: path).load(selected.snapshot.id)
+        #expect(loaded.snapshot == selected.snapshot)
+        #expect(loaded.artwork == selected.artwork)
+        let export = try DailyCardShareRenderer.render(DailyCardShareSnapshot(retained: loaded))
+        #expect(export.text == ["“\(quote)”", dedication, "Daily Whiskers"].compactMap { $0 }.joined(separator: "\n\n"))
+        #expect(export.image.size.width == DailyCardShareRenderer.width)
+        #expect(export.image.size.height <= DailyCardShareRenderer.maximumHeight)
+        if isTribute {
+            var plain = try #require(provider.bonusCandidates.first { $0.id == id })
+            plain.dedication = nil
+            let other = try CardSnapshot.capture(card: plain, artwork: loaded.artwork)
+            let plainExport = try DailyCardShareRenderer.render(DailyCardShareSnapshot(retained: other))
+            #expect(other.snapshot.id != loaded.snapshot.id)
+            #expect(plainExport.image.size.height < export.image.size.height)
+        }
+    }
+
     @Test func localMidnightTravelDSTAndRepeatedDates() {
         let before = day("2026-10-19T23:59:59Z")
         #expect(before.key == "2026-10-19")
