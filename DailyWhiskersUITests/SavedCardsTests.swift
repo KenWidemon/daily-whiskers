@@ -3,14 +3,19 @@ import UIKit
 
 final class SavedCardsTests: XCTestCase {
     private var app: XCUIApplication!
+    private static let largestTextCategory = "UICTContentSizeCategoryAccessibilityXXXL"
     override func setUpWithError() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
-        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        // XCTest display names differ by runner; match the final method-name token.
+        let method = name.split { !$0.isLetter && !$0.isNumber && $0 != "_" }.last
+        let startsAtLargestText = method == "testLargestTextPairedGeometryAndOptions"
+        let textCategory = startsAtLargestText ? Self.largestTextCategory : "UICTContentSizeCategoryL"
+        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", textCategory]
         app.launch()
         XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
-        clear()
+        clear(atLargestText: startsAtLargestText)
     }
     override func tearDownWithError() throws { capture("Final test state"); app.terminate() }
     private func capture(_ name: String) {
@@ -19,13 +24,23 @@ final class SavedCardsTests: XCTestCase {
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = name + " accessibility"; hierarchy.lifetime = .keepAlways; add(hierarchy)
     }
-    private func clear() {
+    private func clear(atLargestText: Bool = false) {
         app.buttons["Settings"].tap()
         let clear = app.buttons["Clear Saved Cards"]
+        if atLargestText {
+            let menu = app.collectionViews.firstMatch
+            for _ in 0..<4 where !clear.exists || (!clear.isHittable && clear.isEnabled) {
+                guard menu.exists else { break }
+                menu.swipeUp()
+            }
+        }
         XCTAssertTrue(clear.waitForExistence(timeout: 5))
         guard clear.isEnabled else {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.7)).tap()
             return
+        }
+        if atLargestText {
+            XCTAssertTrue(clear.isHittable, "The cleanup action must be reachable at the largest text size.")
         }
         clear.tap()
         XCTAssertTrue(app.alerts["Clear Saved Cards?"].waitForExistence(timeout: 5))
@@ -245,10 +260,8 @@ final class SavedCardsTests: XCTestCase {
     }
 
     func testLargestTextPairedGeometryAndOptions() {
-        app.terminate()
-        app.launchArguments = ["--ci-smoke", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-        app.launch()
-        XCTAssertTrue(app.staticTexts["ci-smoke-offline"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.launchArguments.contains(Self.largestTextCategory),
+                      "Shared setup must launch this test at the largest text size.")
         let quote = app.descendants(matching: .any)["daily-card-quote"].firstMatch
         let vibe = app.descendants(matching: .any)["daily-card-vibe"].firstMatch
         XCTAssertTrue(quote.waitForExistence(timeout: 10))
