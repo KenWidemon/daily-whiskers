@@ -1,0 +1,73 @@
+name: Saved Cards order diagnostic 131
+on:
+  push:
+    branches: [codex/131-options-diagnostic]
+    paths: [.github/workflows/131-options-diagnostic.yml]
+permissions:
+  contents: read
+jobs:
+  compare:
+    name: Saved Cards (${{ matrix.side }})
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/131-options-diagnostic'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - side: base
+            sha: c87f642d12af5549f63fc669333be10cde3e53e6
+          - side: patch
+            sha: 3c04491cfc479561607d4ee1146fb26d865e8b3d
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      EXPECTED_SHA: ${{ matrix.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - name: Verify source, toolchain, and offline fixture
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git log -1 --format='Source %H tree %T'
+          mkdir -p build
+          bash ci/prepare-app.sh
+      - name: Resolve pinned dependencies
+        run: bash ci/test-app.sh resolve
+      - name: Run paired case then relaunch and share case
+        run: |
+          set -euo pipefail
+          runtime="$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; print(next(r["identifier"] for r in json.load(sys.stdin)["runtimes"] if r["isAvailable"] and r["version"]=="26.4.1" and ".iOS-" in r["identifier"]))')"
+          device="$(xcrun simctl create 'DW131 Temporary Order QA' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro "$runtime")"
+          cleanup() {
+            xcrun simctl shutdown "$device" || true
+            xcrun simctl delete "$device" || echo "::warning::Disposable simulator deletion not verified."
+          }
+          trap cleanup EXIT
+          xcrun simctl bootstatus "$device" -b
+          result=0
+          xcodebuild test -project DailyWhiskers.xcodeproj -scheme DailyWhiskersInteraction -configuration Debug \
+            -destination "platform=iOS Simulator,id=$device,arch=arm64" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/build/SourcePackages" \
+            -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
+            -derivedDataPath build/DiagnosticDerived -resultBundlePath build/Diagnostic.xcresult \
+            -parallel-testing-enabled NO -test-iterations 1 CODE_SIGNING_ALLOWED=NO \
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
+            -only-testing:DailyWhiskersUITests/SavedCardsTests/testLargestTextPairedGeometryAndOptions \
+            -only-testing:DailyWhiskersUITests/SavedCardsTests/testSaveRelaunchReopenShareRemoveAndConfirmedClear \
+            2>&1 | tee build/diagnostic.log || result=$?
+          cmp DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved "$RUNNER_TEMP/Package.resolved.expected"
+          python3 -c "import re; from pathlib import Path; s=Path('build/diagnostic.log').read_text(); found=re.findall(r'Test Case .*SavedCardsTests (test\w+).* started\.',s); print('Observed start order:',found); assert found==['testLargestTextPairedGeometryAndOptions','testSaveRelaunchReopenShareRemoveAndConfirmedClear'], 'Unexpected or incomplete case order'"
+          exit "$result"
+      - name: Retain diagnostic traces only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: saved-cards-${{ matrix.side }}
+          path: |
+            build/diagnostic.log
+            build/toolchain.txt
+          retention-days: 30
+          if-no-files-found: warn
