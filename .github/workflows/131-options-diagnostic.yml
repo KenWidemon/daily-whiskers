@@ -53,7 +53,7 @@ jobs:
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/build/SourcePackages" \
             -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
             -derivedDataPath build/DiagnosticDerived -resultBundlePath build/Diagnostic.xcresult \
-            -parallel-testing-enabled NO -test-iterations 1 CODE_SIGNING_ALLOWED=NO \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
             'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) CI_SMOKE_TESTING' \
             -only-testing:DailyWhiskersUITests/SavedCardsTests/testLargestTextPairedGeometryAndOptions \
             -only-testing:DailyWhiskersUITests/SavedCardsTests/testSaveRelaunchReopenShareRemoveAndConfirmedClear \
