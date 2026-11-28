@@ -1,0 +1,115 @@
+name: DW129 hosted XCTest timeout proof
+on:
+  push:
+    branches: [codex/129-hosted-timeout-proof]
+    paths: [.github/workflows/129-hosted-timeout-proof.yml]
+permissions:
+  contents: read
+jobs:
+  proof:
+    name: Verify one expected XCTest timeout and its evidence
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/129-hosted-timeout-proof'
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      SOURCE_SHA: 15785a44f4afafe2feca3461c074908798d40b6c
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 15785a44f4afafe2feca3461c074908798d40b6c
+          persist-credentials: false
+      - name: Verify exact source and stage synthetic cases
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git log -1 --format='Source %H tree %T'
+          echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          cat > DailyWhiskersUITests/DW129TimeoutProbeTests.swift <<'SWIFT'
+          import Foundation
+          import XCTest
+
+          final class DW129TimeoutProbeTests: XCTestCase {
+              func testAValidSlowControl() {
+                  let start = ProcessInfo.processInfo.systemUptime
+                  Thread.sleep(forTimeInterval: 65)
+                  XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - start, 64)
+              }
+
+              func testZDeliberateExecutionTimeout() {
+                  Thread.sleep(forTimeInterval: 1000)
+                  XCTFail("PROBE_OVERRAN_WITHOUT_XCTEST_TIMEOUT")
+              }
+          }
+          SWIFT
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path("ci/test-app.sh")
+          original = path.read_text()
+          pattern = r"(?m)^      -only-testing:DailyWhiskersUITests/\w+ [\\]\n"
+          matches = list(re.finditer(pattern, original))
+          assert len(matches) == 5 and all(a.end() == b.start() for a, b in zip(matches, matches[1:]))
+          replacement = "      -only-testing:DailyWhiskersUITests/DW129TimeoutProbeTests " + chr(92) + "\n"
+          focused = original[:matches[0].start()] + replacement + original[matches[-1].end():]
+          ui = focused.split('  ui)', 1)[1].split('  release)', 1)[0]
+          assert all(ui.count(s) == 1 for s in (
+              "-test-timeouts-enabled YES", "-default-test-execution-time-allowance 720",
+              "-maximum-test-execution-time-allowance 720", "-parallel-testing-enabled NO"))
+          path.write_text(focused)
+          PY
+          git diff -- ci/test-app.sh
+      - name: Initialize bounded execution
+        run: python3 ci/run-stage.py init-budget 2100
+      - name: Prepare pinned toolchain and test project
+        run: python3 ci/run-stage.py prepare bash ci/prepare-app.sh
+      - name: Resolve locked dependencies
+        run: python3 ci/run-stage.py resolve bash ci/test-app.sh resolve
+      - name: Run negative control (XCTest failure expected)
+        continue-on-error: true
+        run: python3 ci/run-stage.py ui bash ci/test-app.sh ui
+      - name: Verify timeout attribution and readable result bundle
+        if: always()
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          cmp DailyWhiskers.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved "$RUNNER_TEMP/Package.resolved.expected"
+          xcrun xcresulttool get test-results summary --path build/SmokeResults.xcresult > build/timeout-summary.json
+          xcrun xcresulttool get test-results tests --path build/SmokeResults.xcresult > build/timeout-tests.json
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          status = json.loads(Path("build/ui-status.json").read_text())
+          assert status["status"] == "failure" and status["command_exit_code"] == status["exit_code"] == 65, status
+          log = Path("build/ui.log").read_text(errors="replace")
+          control = re.search(r"Test Case .*DW129TimeoutProbeTests testAValidSlowControl.* passed \(([\d.]+) seconds\)", log)
+          assert control and 64 <= float(control[1]) < 720, "Valid slow control did not pass"
+          assert "testZDeliberateExecutionTimeout" in log, "The deliberate hang did not run"
+          assert "PROBE_OVERRAN_WITHOUT_XCTEST_TIMEOUT" not in log, "XCTest did not stop the hang"
+          summary = json.loads(Path("build/timeout-summary.json").read_text())
+          assert all(summary.get(k) == v for k, v in {
+              "totalTestCount": 2, "passedTests": 1, "failedTests": 1,
+              "skippedTests": 0, "expectedFailures": 0
+          }.items()), summary
+          failures = [f for f in summary.get("testFailures", []) if "testZDeliberateExecutionTimeout" in (f.get("testIdentifierString") or f.get("testIdentifier") or f.get("testName") or "")]
+          assert len(failures) == 1, summary
+          diagnostic = str(failures[0])
+          assert re.search(r"execution time allowance|exceed.*(?:time limit|timeout)", diagnostic, re.I), diagnostic
+          print(f"Verified passing slow control ({control[1]} seconds) and intended 720-second XCTest timeout: {diagnostic}")
+          print("Verified exact wrapper and command exit 65; no outer watchdog cancellation.")
+          PY
+      - name: Upload timeout evidence
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dw129-hosted-timeout-evidence
+          path: |
+            build/SmokeResults.xcresult
+            build/*.log
+            build/*-status.json
+            build/job-budget.json
+            build/timeout-*.json
+            build/toolchain.txt
+          retention-days: 30
+          if-no-files-found: error
